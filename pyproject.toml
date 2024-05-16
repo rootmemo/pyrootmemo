@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "pyrootmemo"
+version = "0.1.0"
+description = ""
+authors = ["anilyildiz <yildiz@mbd.rwth-aachen.de>"]
+readme = "README.md"
+packages = [{include = "pyrootmemo", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+numpy = "^1.26.4"
+matplotlib = "^3.9.0"
+pandas = "^2.2.2"
+
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.2.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
