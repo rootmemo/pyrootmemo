@@ -11,16 +11,10 @@ class Waldron1977:
             self.soil = soil
         else:
             raise ValueError("Set a friction angle for soil")
-        if (
-            (roots.diameter is not None)
-            & (roots.elastic_modulus is not None)
-            & (roots.inclination is not None)
-        ):
+        if (roots.diameter is not None) & (roots.elastic_modulus is not None):
             self.roots = roots
         else:
-            raise ValueError(
-                "Set a diameter, elastic modulus and inclination for the root"
-            )
+            raise ValueError("Set a diameter and elastic modulus for the root")
 
     def __get_k(
         self,
@@ -46,14 +40,20 @@ class Waldron1977:
         else:
             return k
 
+    def __calc_inclination(self, shear_displacement, shear_band_thickness):
+        return np.rad2deg(np.arctan(shear_displacement / shear_band_thickness))
+
     def calc_strength_increase(
         self,
         root_area_ratio,
         max_tangential_stress,
         shear_band_thickness,
-        normal_stress,
+        shear_displacement,
     ):
         try:
+            self.roots.inclination = self.__calc_inclination(
+                shear_displacement, shear_band_thickness
+            )
             k = self.__get_k(max_tangential_stress, shear_band_thickness)
             part1 = root_area_ratio * k
             part2 = np.sqrt(secant(self.roots.inclination) - 1)
