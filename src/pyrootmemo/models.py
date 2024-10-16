@@ -48,9 +48,19 @@ class Waldron1977:
         root_area_ratio,
         max_tangential_stress,
         shear_band_thickness,
-        shear_displacement,
+        shear_displacement: int | float | np.ndarray,
     ):
         try:
+            if isinstance(shear_displacement, np.ndarray):
+                shear_band_thickness = (
+                    np.ones_like(shear_displacement) * shear_band_thickness
+                )
+            elif isinstance(shear_displacement, (float or int)):
+                shear_band_thickness = shear_band_thickness
+            else:
+                raise TypeError(
+                    "shear_displacement can be of type int, float or np.ndarray"
+                )
             self.roots.inclination = self.__calc_inclination(
                 shear_displacement, shear_band_thickness
             )
