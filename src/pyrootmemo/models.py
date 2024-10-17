@@ -5,7 +5,9 @@ from pyrootmemo.tools.helpers import secant
 
 class Waldron1977:
     def __init__(
-        self, soil: pyrootmemo.materials.Soil, roots: pyrootmemo.materials.SingleRoot
+        self,
+        soil: pyrootmemo.materials.Soil,
+        roots: pyrootmemo.materials.SingleRoot | pyrootmemo.materials.MultipleRoots,
     ):
         if soil.friction_angle is not None:
             self.soil = soil
@@ -39,6 +41,9 @@ class Waldron1977:
             print(f"ZeroDivisionError ({ze})")
         else:
             return k
+
+    def __calc_pullout_force(self, shear_displacement):
+        test = None
 
     def __calc_inclination(self, shear_displacement, shear_band_thickness):
         return np.rad2deg(np.arctan(shear_displacement / shear_band_thickness))
