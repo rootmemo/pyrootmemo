@@ -79,3 +79,113 @@ class Waldron1977:
             print(f"AttributeError: Missing attributes ({ae})")
         else:
             return part1 * part2 * part3
+
+
+
+
+
+class Waldron1977_gjm:
+    def __init__(
+        self,
+        soil: pyrootmemo.materials.Soil,
+        roots: pyrootmemo.materials.SingleRoot | pyrootmemo.materials.MultipleRoots,
+    ):
+        self.soil = soil
+        self.roots = roots
+    
+    # Pullout displacement for one half of the root
+    def pullout_displacement(self, shear_displacement, shear_band_thickness):
+        # initial length of root within shear band
+        L0 = shear_band_thickness
+        # displaced length of root within shear band
+        L1 = np.sqrt(shear_displacement**2 + shear_band_thickness**2)
+        # return displacement - for one side only
+        return(0.5 * (L1 - L0))
+    
+    # Root tensile force, as function of pullout displacement
+    def pullout_force(self, pullout_displacement, interface_resistance):
+        # calculate max root tensile force, assuming no failure
+        force = np.sqrt(
+            2.
+            * self.roots.elastic_modulus,
+            * self.roots.xsection
+            * self.roots.circumference
+            * interface_resistance
+            * pullout_displacement
+            )
+        # account for breakage
+        force_max = self.roots.tensile_strength * self.roots.xsection
+        force[force > force_max] = 0.
+        # return
+        return(force)
+    
+    # ratio between reinforcing force and root tensile force
+    def orientation_factor(self, shear_displacement, shear_band_thickness):
+        sin_beta = shear_displacement / np.sqrt(
+            shear_displacement**2 + shear_band_thickness**2)
+        cos_beta = shear_band_thickness / np.sqrt(
+            shear_displacement**2 + shear_band_thickness**2)
+        return(sin_beta 
+               + cos_beta*np.tan(np.deg2rad(self.soil.friction_angle)))
+
+    # calculate reinforcement as function of known shear displacement
+    def reinforcement(
+            self, 
+            shear_displacement, 
+            root_area_ratio,
+            interface_resistance,
+            shear_band_thickness,
+            ):
+        pullout_displacement = self.pullout_displacement(shear_displacement)
+        orientation_factor = self.orientation_factor(shear_displacement, shear_band_thickness)
+        pullout_force = self.pullout_force(pullout_displacement, interface_resistance)
+        reinforcement_force = pullout_force * orientation_factor
+        total_root_area = np.sum(self.roots.xsection)
+        return(np.sum(reinforcement_force) / total_root_area * root_area_ratio)
+    
+    # calculate pull-out displacement at known root tensile force
+    def force2pullout_displacement(self, pullout_force, interface_resistance):
+        return(0.5
+               * pullout_force**2
+               / self.roots.elastic_modulus
+               / self.roots.xsection
+               / self.roots.circumference
+               / interface_resistance
+               )
+    
+    # calculate shear displacement based on known pullout displacement
+    def pullout2shear_displacement(self, pullout_displacement, shear_band_thickness):
+        return(2. * np.sqrt(pullout_displacement 
+                            * (pullout_displacement + shear_band_thickness)))
+    
+    # calculate shear displacement at moment of root breakage
+    def sheardisplacement_breakage(self, shear_band_thickness, interface_resistance):
+        tensile_force = self.roots.tensile_strength * self.roots.xsection
+        pullout_displacement = self.force2pullout_displacement(tensile_force, interface_resistance)
+        return(self.pullout2shear_displacement(pullout_displacement, shear_band_thickness))
+    
+    # calculate peak reinforcement
+    def peak_reinforcement(
+            self, 
+            shear_band_thickness, 
+            interface_resistance,
+            root_area_ratio
+            ):
+        # get shear displacements at root tensile failures
+        shear_displacement = self.sheardisplacement_breakage(
+            shear_band_thickness, interface_resistance)
+        # at each shear displacement, get force in each root
+        pullout_displacement = self.pullout_displacement(shear_displacement, shear_band_thickness)
+        pullout_force = np.array([self.pullout_force(u_s, interface_resistance) for u_s in pullout_displacement])
+        # k factor
+        orientation_factor = self.orientation_factor(shear_displacement, shear_band_thickness)
+        # reinforcement per root, per step
+        reinforcement_root_step = pullout_force * orientation_factor
+        # reinforcement per displacement step
+        reinforcement_step = np.sum(reinforcement_root_step, axis = 0)
+        # return shear displacement and peak reinforcement
+        return(
+            shear_displacement[np.argmax(reinforcement_step)],
+            np.max(reinforcement_step)
+        )
+    
