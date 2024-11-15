@@ -234,8 +234,60 @@ def pulloutforce_surface_slipping_elastoplastic(
     return(force_slippage_elastoplastic)
 
 
-# solve quadratic equations for DRAM
-def _solve_quadratic(coef):
+# 'Embedded' roots - Anchored, elastic behaviour
+def pulloutforce_embedded_anchored_elastic(
+        pullout_displacement,
+        interface_resistance,
+        root_xsection,
+        root_circumference,
+        elastic_modulus,
+):
+    # polynomial coefficients
+    xi2 = 1. / (2. * elastic_modulus * root_xsection * root_circumference * interface_resistance)
+    # solve and return
+    return(np.sqrt(pullout_displacement / xi2))
+
+
+# 'Embedded' roots - Anchored, elasto-plastic behaviour
+def pulloutforce_embedded_anchored_elastoplastic(
+        pullout_displacement,
+        interface_resistance,
+        root_xsection,
+        root_circumference,
+        yield_strength,
+        elastic_modulus,
+        plastic_modulus
+):
+    # polynomial coefficients
+    xi2 = 1. / (2. * plastic_modulus * root_xsection * root_circumference * interface_resistance)
+    xi1 = (yield_strength / (elastic_modulus * root_circumference * interface_resistance)
+           - yield_strength / (plastic_modulus * root_circumference * interface_resistance))
+    xi0 = (-yield_strength**2 * root_xsection / (2. * elastic_modulus * root_circumference * interface_resistance)
+           + yield_strength**2 * root_xsection / (2. * plastic_modulus * root_circumference * interface_resistance)
+           - pullout_displacement)
+    # solve for displacements
+    xi = np.vstack((xi2, xi1, xi0))
+    force_anchored_elastoplastic = _solve_quadratic(xi)
+    # return
+    return(force_anchored_elastoplastic)
+
+
+# 'Embedded' roots - Slipping, behaviour
+def pulloutforce_embedded_slipping(
+        interface_resistance,
+        root_circumference,
+        root_length,
+):
+    # calculate force
+    force_slippage = root_circumference * root_length * interface_resistance
+    # return
+    return(force_slippage)
+
+
+# solve quadratic equations for pullout equations
+def _solve_quadratic(
+        coef: np.ndarray
+        ) -> float | np.ndarray:
     ## solve equations a*x^2 + b*x^2 + c = 0 in DRAM
     ## * a = always negative in DRAM equations
     ## function returns largest root
@@ -246,7 +298,9 @@ def _solve_quadratic(coef):
     
 
 # solve cubic equations for DRAM
-def _solve_cubic(coef):
+def _solve_cubic(
+        coef: np.ndarray
+        ) -> float | np.ndarray:
     ## solve equations a*x^2 + b*x^2 + c = 0
     ## * a = always positive in DRAM equations
     # unpack parameters
