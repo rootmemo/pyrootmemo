@@ -13,20 +13,28 @@ ROOT_PARAMETERS = {
 }
 
 SOIL_PARAMETERS = {
-    "name": str,
-    "uscs_class": str,
-    "usda_class": str,
-    "cohesion": (float | int),
-    "friction_angle": (float | int),
-    "unit_weight_bulk": (float | int),
-    "unit_weight_dry": (float | int),
-    "unit_weight_saturated": (float | int),
-    "water_content": (float | int),
+    "cohesion": {"type": (float | int), "unit": ureg("kPa")},
+    "friction_angle": {"type": (float | int), "unit": ureg("degrees")},
+    "unit_weight_bulk": {"type": (float | int), "unit": ureg("kN/m^3")},
+    "unit_weight_dry": {"type": (float | int), "unit": ureg("kN/m^3")},
+    "unit_weight_saturated": {"type": (float | int), "unit": ureg("kN/m^3")},
+    "water_content": {"type": (float | int), "unit": ureg("").to("percent")},
 }
 
 
 class Roots:
-    def __init__(self, **kwargs):
+    def __init__(self, species: str, **kwargs):
+        if not isinstance(species, str):
+            raise TypeError("Species should be entered as a string, e.g. alnus_incana")
+        if "_" not in species:
+            raise ValueError(
+                "Species name should be separated with an underscore, e.g. alnus_incana"
+            )
+        if len(species.split("_")) > 2:
+            raise ValueError(
+                "It is suggested follow botanical nomenclature with genus and species name,e.g. alnus_incana"
+            )
+        self.species = species
         for k, v in kwargs.items():
             if k not in ROOT_PARAMETERS.keys():
                 raise ValueError(
@@ -76,7 +84,38 @@ class MultipleRoots(Roots):
 
 
 class Soil:
-    def __init__(self, **kwargs):
-        if check_kwargs(arguments=kwargs, parameters=SOIL_PARAMETERS):
-            for k, v in kwargs.items():
-                setattr(self, k, v)
+    def __init__(
+        self,
+        name: str,
+        uscs_classification: str = None,
+        usda_classification: str = None,
+        **kwargs,
+    ):
+        if not isinstance(name, str):
+            raise TypeError("Soil name should be entered as a string")
+        for k, v in kwargs.items():
+            if k not in SOIL_PARAMETERS.keys():
+                raise ValueError(
+                    f"Undefined parameter. Choose one of the following: {SOIL_PARAMETERS.keys()}"
+                )
+            if not is_namedtuple(v):
+                raise TypeError("Parameter should be of type Parameter(value, unit)")
+            if not isinstance(v.value, (SOIL_PARAMETERS[k]["type"] | list)):
+                raise TypeError(
+                    f"Value should be of type {SOIL_PARAMETERS[k]["type"]} or a list"
+                )
+            if not isinstance(v.unit, str):
+                raise TypeError("Unit should be entered as a string")
+            if not ureg(v.unit).check(SOIL_PARAMETERS[k]["unit"].dimensionality):
+                raise DimensionalityError(
+                    units1=v.unit, units2=SOIL_PARAMETERS[k]["unit"]
+                )
+            if isinstance(v.value, list):
+                if not all(
+                    [isinstance(entry, SOIL_PARAMETERS[k]["type"]) for entry in v.value]
+                ):
+                    raise TypeError(
+                        f"{k} should only be of type {SOIL_PARAMETERS[k]["type"]} in a list"
+                    )
+
+            setattr(self, k, v.value * ureg(v.unit))
