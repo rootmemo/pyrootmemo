@@ -1,4 +1,7 @@
 import numpy as np
+from pint import UnitRegistry
+
+units = UnitRegistry()
 
 
 def secant(degree) -> float:
@@ -25,3 +28,18 @@ def secant(degree) -> float:
         raise ValueError
     else:
         return secant
+
+
+def calc_shear_strain(shear_displacement, shear_zone_thickness):
+    try:
+        if (shear_zone_thickness < 0) or (shear_displacement < 0):
+            raise ValueError("Inputs must be non-negative")
+        else:
+            shear_strain = shear_displacement / shear_zone_thickness
+    except ZeroDivisionError:
+        print("ZeroDivisionError: Shear zone thickness cannot be zero")
+    except TypeError as te:
+        print(f"TypeError: Wrong input type ({te})")
+        raise TypeError
+    else:
+        return shear_strain

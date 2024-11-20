@@ -1,24 +1,24 @@
 import numpy as np
-from pyrootmemo.tools.checks import check_kwargs, is_namedtuple
-from pint import UnitRegistry, DimensionalityError
+from pyrootmemo.tools.checks import is_namedtuple
+from pint import DimensionalityError
 from collections import namedtuple
+from pyrootmemo.tools.helpers import units
 
-ureg = UnitRegistry()
 Parameter = namedtuple("parameter", "value unit")
 
 ROOT_PARAMETERS = {
-    "elastic_modulus": {"type": (float | int), "unit": ureg("MPa")},
-    "diameter": {"type": (float | int), "unit": ureg("m")},
-    "tensile_strength": {"type": (float | int), "unit": ureg("MPa")},
+    "elastic_modulus": {"type": (float | int), "unit": units("MPa")},
+    "diameter": {"type": (float | int), "unit": units("m")},
+    "tensile_strength": {"type": (float | int), "unit": units("MPa")},
 }
 
 SOIL_PARAMETERS = {
-    "cohesion": {"type": (float | int), "unit": ureg("kPa")},
-    "friction_angle": {"type": (float | int), "unit": ureg("degrees")},
-    "unit_weight_bulk": {"type": (float | int), "unit": ureg("kN/m^3")},
-    "unit_weight_dry": {"type": (float | int), "unit": ureg("kN/m^3")},
-    "unit_weight_saturated": {"type": (float | int), "unit": ureg("kN/m^3")},
-    "water_content": {"type": (float | int), "unit": ureg("").to("percent")},
+    "cohesion": {"type": (float | int), "unit": units("kPa")},
+    "friction_angle": {"type": (float | int), "unit": units("degrees")},
+    "unit_weight_bulk": {"type": (float | int), "unit": units("kN/m^3")},
+    "unit_weight_dry": {"type": (float | int), "unit": units("kN/m^3")},
+    "unit_weight_saturated": {"type": (float | int), "unit": units("kN/m^3")},
+    "water_content": {"type": (float | int), "unit": units("").to("percent")},
 }
 
 
@@ -48,7 +48,7 @@ class Roots:
                 )
             if not isinstance(v.unit, str):
                 raise TypeError("Unit should be entered as a string")
-            if not ureg(v.unit).check(ROOT_PARAMETERS[k]["unit"].dimensionality):
+            if not units(v.unit).check(ROOT_PARAMETERS[k]["unit"].dimensionality):
                 raise DimensionalityError(
                     units1=v.unit, units2=ROOT_PARAMETERS[k]["unit"]
                 )
@@ -60,27 +60,37 @@ class Roots:
                         f"{k} should only be of type {ROOT_PARAMETERS[k]["type"]} in a list"
                     )
 
-            setattr(self, k, v.value * ureg(v.unit))
+            setattr(self, k, v.value * units(v.unit))
 
-    def calc_xsection(self) -> float:
-        return np.pi * np.array(self.diameter.magnitude) ** 2 / 4
+            if hasattr(self, "diameter"):
+                self.xsection = np.pi * self.diameter**2 / 4
+            else:
+                raise AttributeError(
+                    "Diameter is needed to calculate cross-sectional area"
+                )
 
-    def calc_circumference(self) -> float:
-        return np.pi * np.array(self.diameter.magnitude)
+            if hasattr(self, "diameter"):
+                self.circumference = np.pi * self.diameter
+            else:
+                raise AttributeError("Diameter is needed to calculate circumference")
 
 
 class SingleRoot(Roots):
     def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            if k != "species":
+                if isinstance(v.value, list):
+                    if len(v.value) > 1:
+                        raise TypeError(
+                            f"SingleRoot class cannot have multiple values for {k}. Use MultipleRoots class"
+                        )
+
         super().__init__(**kwargs)
-        self.xsection = self.calc_xsection()
-        self.circumference = self.calc_circumference()
 
 
 class MultipleRoots(Roots):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.xsection = self.calc_xsection()
-        self.circumference = self.calc_circumference()
 
 
 class Soil:
@@ -106,7 +116,7 @@ class Soil:
                 )
             if not isinstance(v.unit, str):
                 raise TypeError("Unit should be entered as a string")
-            if not ureg(v.unit).check(SOIL_PARAMETERS[k]["unit"].dimensionality):
+            if not units(v.unit).check(SOIL_PARAMETERS[k]["unit"].dimensionality):
                 raise DimensionalityError(
                     units1=v.unit, units2=SOIL_PARAMETERS[k]["unit"]
                 )
@@ -118,4 +128,4 @@ class Soil:
                         f"{k} should only be of type {SOIL_PARAMETERS[k]["type"]} in a list"
                     )
 
-            setattr(self, k, v.value * ureg(v.unit))
+            setattr(self, k, v.value * units(v.unit))
