@@ -6,9 +6,9 @@ A Python package to modelling and measuring the effects of roots on slope stabil
 
 We strongly recommend to work in a virtual environment, and we suggest to use a [Conda](https://docs.conda.io/en/latest/) environment.
 
-1. Clone the repository hosted on Github [https://github.com/yildizanil/pyavaflow](https://github.com/rootmemo/pyrootmemo)
+1. Clone the repository hosted on Github [https://github.com/rootmemo/pyrootmemo](https://github.com/rootmemo/pyrootmemo)
 2. If you have not already installed, download your preferred installation of Conda. You can try [Miniforge](https://conda-forge.org/download/)
-3. Create a virtual environment with the dependencies given in the **environment.yml** file.
+3. Create a virtual environment with Python
     ```bash
     $ conda create -n rrmm python
     ```
