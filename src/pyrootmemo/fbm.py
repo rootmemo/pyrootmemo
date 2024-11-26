@@ -1,9 +1,10 @@
 # import packages and functions
 import numpy as np
-from utils_plot import round_range
+from pyrootmemo.utils_plot import round_range
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-
+from pyrootmemo.tools.helpers import units
+from pint import Quantity
 
 # FBM class
 class Fbm():
@@ -42,7 +43,7 @@ class Fbm():
     def __init__(
             self, 
             roots, 
-            load_sharing: float 
+            load_sharing: float | int
             ):
         """
         Initiate fibre bundle model class
@@ -86,10 +87,12 @@ class Fbm():
         """
         Generate matrix for force in each root (rows) at breakage of each 
         root (columns). Assumes roots are sorted in order of breakage
-        """        
+        """
+        # get units
+        force_unit = self._tensile_capacity().u
         # sort data
-        y_sorted = self._tensile_capacity()[self.sort_order]
-        x_sorted = self.roots.diameter[self.sort_order]
+        y_sorted = (self._tensile_capacity().magnitude)[self.sort_order]
+        x_sorted = (self.roots.diameter.magnitude)[self.sort_order]
         # forces in each root (rows) as function of breaking root (columns)
         matrix = np.outer(
             x_sorted ** self.load_sharing,
@@ -98,8 +101,8 @@ class Fbm():
         # remove roots that have broken (upper triagle of matrix, so keep 
         # lower triangle)
         matrix_broken = np.tril(matrix)
-        # return
-        return(matrix_broken)
+        # return with units added back
+        return(matrix_broken * force_unit)
 
 
     # peak force
@@ -119,7 +122,7 @@ class Fbm():
     # reinforcement
     def peak_reinforcement(
             self, 
-            soil_area: float = 1.0,
+            soil_area = 1.0 * units("m^2"),
             k: float = 1.0
             ) -> float:
         """
@@ -130,7 +133,7 @@ class Fbm():
         ----------
         soil_area : float, optional
             Soil cross-sectional area that contains the roots defined. 
-            The default is 1.0.
+            The default is 1.0 m^2.
         k : float, optional
             Wu/Waldron reinforcement orientation factor. The default is 1.0.
 
@@ -140,6 +143,15 @@ class Fbm():
             peak root reinforcement.
 
         """
+        # convert area
+        if not isinstance(soil_area, Quantity):
+            if isinstance(soil_area, int) or isinstance(soil_area, float):
+                Warning("soil area unit not defined - assumed as m^2")
+                soil_area = soil_area * units("m^2")
+            else:
+                TypeError("soil area must be defined as integer or float")
+            
+        # return
         return(k * self.peak_force() / soil_area)
     
     
@@ -167,7 +179,8 @@ class Fbm():
             labels: bool = True, 
             margin: float = 0.05, 
             xlabel: chr = 'Force in reference root', 
-            ylabel: chr = 'Total force in root bundle'
+            ylabel: chr = 'Total force in root bundle',
+            unit: str = "N"
             ) -> tuple:
         """
         Generate a matplotlib plot showing how forces in each roots are 
@@ -196,18 +209,23 @@ class Fbm():
             Tuple containing a figure and an axis object.
 
         """
+        # units
+        #force_unit = self._tensile_capacity().to_reduced_units().u
+        #force_unit_str = format(force_unit, '~L')
         # number of roots
         n_root = len(self.roots.diameter)
         # sorted caa
-        capacity_sorted = self._tensile_capacity()[self.sort_order]
+        capacity_sorted = (self._tensile_capacity().to(unit))[self.sort_order]
         diameter_sorted = self.roots.diameter[self.sort_order]
+        # convert to unit of choice
         # x-values at breakage of each root (forces in reference root = first root defined in list)
         xb = capacity_sorted * (self.roots.diameter[0] / diameter_sorted) ** self.load_sharing
+        xb = xb.magnitude
         # array with all x-values (start + before and after breakage)
         dx = 1.e-6
         x = np.append(0., np.repeat(xb, 2) * np.tile(np.array([1., 1. + dx]), n_root))
         # forces in each root (start + before and after breakage)
-        y = np.hstack((np.zeros((n_root, 1)), np.repeat(self.matrix, 2, axis = 1)))
+        y = np.hstack((np.zeros((n_root, 1)), np.repeat(self.matrix.to(unit).magnitude, 2, axis = 1)))
         y[np.arange(n_root), 2 * np.arange(n_root) + 2] = 0.
         # reverse y-values (forces), so plot lines are stacked in order from last breaking to first breaking
         y = np.flip(y, axis = 0)
@@ -220,10 +238,10 @@ class Fbm():
         fig, ax = plt.subplots()
         # plot figure
         ax.stackplot(x, y, colors=colors_new)
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
+        ax.set_xlabel(xlabel + " [" + unit + "]")
+        ax.set_ylabel(ylabel + " [" + unit + "]")
         ax.set_xlim(round_range(x, limits = [0, None])['limits'])
-        ax.set_ylim(round_range(self.peak_reinforcement(), limits = [0., None])['limits'])
+        ax.set_ylim(round_range(self.peak_force().to(unit).magnitude, limits = [0., None])['limits'])
         # label text
         if labels is True:
             labels = self.sort_order + 1
@@ -237,8 +255,8 @@ class Fbm():
         if plot_labels is True:
             # labels positions
             labels_x = xb - margin*np.max(xb)
-            labels_y = ((np.sum(self.matrix, axis = 0) 
-                        - 0.5 * np.diag(self.matrix))
+            labels_y = ((np.sum(self.matrix.to(unit).magnitude, axis = 0) 
+                        - 0.5 * np.diag(self.matrix.to(unit).magnitude))
                         * (labels_x/xb))
             # add to plot
             for xi, yi, li in zip(labels_x, labels_y, labels):
