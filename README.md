@@ -16,11 +16,9 @@ We strongly recommend to work in a virtual environment, and we suggest to use a 
     ```bash
     $ conda activate rrmm
     ```
-5. Install [Poetry](https://python-poetry.org/docs/basic-usage/) using the [official installer](https://python-poetry.org/docs/#installing-with-the-official-installer)
-
 6. Navigate to the cloned repository and install `pyrootmemo` using the following command:
     ```bash
-    $ poetry install
+    $ pip install -e .
     ```
 ## Usage
 
