@@ -4,18 +4,16 @@ version = "0.1.0"
 description = ""
 authors = ["anilyildiz <yildiz@mbd.rwth-aachen.de>"]
 readme = "README.md"
-packages = [{include = "pyrootmemo", from = "src"}]
 
 [tool.poetry.dependencies]
-python = "^3.11"
-numpy = "^1.26.4"
-matplotlib = "^3.9.0"
-pandas = "^2.2.2"
-pint = "^0.24.4"
+python = ">3.11"
+numpy = "^2.1.3"
+Pint = "^0.24.4"
+matplotlib = "^3.9.2"
+pandas = "^2.2.3"
 
-
-[tool.poetry.group.test.dependencies]
-pytest = "^8.2.0"
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.29.5"
 
 [build-system]
 requires = ["poetry-core"]
