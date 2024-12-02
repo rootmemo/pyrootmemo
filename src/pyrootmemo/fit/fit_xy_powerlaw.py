@@ -4,6 +4,7 @@ from scipy.optimize import root
 from scipy.special import gamma, digamma, polygamma, erfinv
 from pyrootmemo.fit.fit_x import WeibullFit
 from pyrootmemo.fit.fit_xy_linear import LinearFit
+from pint import Quantity
 
 
 #################################
@@ -17,7 +18,8 @@ class PowerlawFitBase:
             self, 
             x,
             y,
-            weights = None
+            weights = None,
+            x0 = 1.0
             ):
         # data
         self.x = x
@@ -27,17 +29,61 @@ class PowerlawFitBase:
             self.weights = np.ones(n_measurements)
         else:
             self.weights = weights
+        # set reference x-value
+        if isinstance(x, Quantity) and not isinstance(x0, Quantity):
+            self.x0 = x0 * x.units
+        else:
+            self.x0 = x0
+        # set reference y-value (required for correct handling of units --> set to 1 unit)
+        if isinstance(y, Quantity):
+            self.y0 = 1.0 * y.units
+        else:
+            self.y0 = 1.0
         # check for zero variance case (perfect fit)
         self.colinear, self.multiplier, self.exponent = self.check_colinearity()
-            
+    
+    # generate non-dimensional data
+    def nondimensionalise(
+            self,
+            x,
+            x0 = 1.0
+            ):
+        # convert list (or tuple) to numpy array
+        if isinstance(x, list) or isinstance(x, tuple):
+            if all([isinstance(xi, Quantity) for xi in x]) is True:
+                # convert list of pint.Quantity elements to single array (using unit from first item)
+                unit = x[0].units
+                vals = np.array([xi.magnitude for xi in x])
+                x = vals * unit
+            else:
+                # convert list to array
+                x = np.array(x)
+        # make nondimensional
+        if isinstance(x, Quantity):
+            if isinstance(x0, Quantity):
+                # convert x to units of reference value, and return magnitude
+                return((x.to(x0.units)).magnitude / x0.magnitude)
+            else:
+                return(x.magnitude / x0)
+        else:
+            return(x / x0)
+
+    # add units + scaling again
+    def redimensionalise(
+            self,
+            x,
+            x0 = 1.0
+    ):
+        return(x * x0)
+
     # predict
     def predict(
             self, 
             x = None
-        ):
+            ):
         if x is None:
             x = self.x
-        return(self.multiplier * x**self.exponent)
+        return(self.multiplier * (x / self.x0)**self.exponent)
 
     # kolmogorov-smirnov distance
     def ks_distance(self):
@@ -49,19 +95,20 @@ class PowerlawFitBase:
             yp = self.predict()
             order = np.argsort(self.weights / yp)
             x = self.x[order]
-            y = self.x[order]
+            y = self.y[order]
             weights = self.weights[order]
             # cumulative density of data
-            y0 = np.cumsum(weights) / np.sum(weights)
+            cumul_data = np.cumsum(weights) / np.sum(weights)
             # cumulative density of fit
-            y1 = self.density(x = x, y = y, weights = weights, cumulative = True)
+            cumul_fit = self.density(x = x, y = y, cumulative = True)
             # differences between cumulatives curves: top and bottom of data
-            d_top = np.max(np.abs(y1 - y0))
-            d_bot = np.max(np.abs(y1 - np.append(0.0, y0[:-1])))
+            diff_top = np.max(np.abs(cumul_fit - cumul_data))
+            diff_bot = np.max(np.abs(cumul_fit - np.append(0.0, cumul_data[:-1])))
             # return
-            return(max(d_top, d_bot))
+            return(max(diff_top, diff_bot))
       
     # covariance matrix, from MLE/fisher information, or bootstrapping
+    # returns in non-dimensionalised units
     def covariance(
             self, 
             method = 'fisher', 
@@ -76,14 +123,22 @@ class PowerlawFitBase:
             if J is None or method == 'bootstrap':
                 # bootstrapping
                 rng = np.random.default_rng()
-                data = rng.choice(
-                    np.column_stack((self.x, self.y, self.weights)),
-                    (n, len(self.x)), 
-                    axis = 0, 
+                # select random data indices
+                indices = rng.choice(
+                    np.arange(len(self.x), dtype = int),
+                    (n, len(self.x)),
                     replace = True
-                    )
-                fits = np.array([self.generate_fit(*datai.T) for datai in data])
-                return(np.cov(fits.transpose()))
+                )
+                # generate fit results
+                fits = [self.generate_fit(self.x[i], self.y[i], self.weights[i])
+                        for i in indices]
+                multiplier, exponent, shape = zip(*fits)
+                # nondimensionalise                
+                exponent = np.array(exponent)
+                shape = np.array(shape)
+                multiplier_nondimensional = self.nondimensionalise(multiplier, self.y0)
+                # return covariance matrix, in non-dimensional units
+                return(np.cov(np.stack((multiplier_nondimensional, exponent, shape))))
             else:
                 fisher = -J
                 return(np.linalg.inv(fisher))
@@ -114,59 +169,78 @@ class PowerlawFitBase:
         y_pred = self.predict(x)
         if self.colinear is True:
             # colinear case
-            return(np.column_stack((x, y_pred, y_pred)))
+            return(x, np.column_stack(y_pred, y_pred))
         else:
+            # nondimensionalise
+            xn = self.nondimensionalise(x, self.x0)
+            yn_pred = self.nondimensionalise(y_pred, self.y0)
+            mult = self.nondimensionalise(self.multiplier, self.y0)
             # derivatives of power-law function
-            dy_dmultiplier = x**self.exponent
-            dy_dpower = self.multiplier * np.log(x) * x**self.exponent
+            dyn_dmult = xn**self.exponent
+            dyn_dexponent = mult * np.log(xn) * xn**self.exponent
             # get covariance matrix
             cov = self.covariance()
             # get confidence interval using delta method
             var = (
-                dy_dmultiplier**2 * cov[0, 0]
-                + 2. * dy_dmultiplier * dy_dpower * cov[0, 1]
-                + dy_dpower**2 * cov[1, 1]
+                dyn_dmult**2 * cov[0, 0]
+                + 2. * dyn_dmult * dyn_dexponent * cov[0, 1]
+                + dyn_dexponent**2 * cov[1, 1]
                 )
             # multiplier of standard deviation (from gaussian distribution)
             P = 0.5 + 0.5 * level
-            mult = np.sqrt(2.) * erfinv(2. * P - 1.)
+            sd_mult = np.sqrt(2.) * erfinv(2. * P - 1.)
+            # lower and upper values
+            yn_lower = yn_pred - sd_mult * np.sqrt(var)
+            yn_upper = yn_pred + sd_mult * np.sqrt(var)
+            # add scaling and units
+            y_lower = self.redimensionalise(yn_lower, self.y0)
+            y_upper = self.redimensionalise(yn_upper, self.y0)
             # return
-            return(np.column_stack((
-                x, 
-                y_pred - mult * np.sqrt(var),
-                y_pred + mult * np.sqrt(var)
-                )))
+            return(x, np.column_stack((y_lower, y_upper)))
                         
     # check for colinearity - zero variance in residuals
-    def check_colinearity(self):
-        # unique pairs of x and y only - logtransform
+    def check_colinearity(
+            self,
+            ):
+        # non-dimensionalise data - remove units
+        xn = self.nondimensionalise(self.x, self.x0)
+        yn = self.nondimensionalise(self.y, self.y0)
+        # unique pairs of x and y only (with non-zero weights) - logtransform
         mask = (self.weights > 0.0)
-        log_xy = np.log(np.unique(np.column_stack((self.x[mask], self.y[mask])), axis = 0))
+        log_xyn = np.log(np.unique(
+            np.column_stack((xn, yn))[mask, ...], 
+            axis = 0
+            ))
         # check
-        if len(log_xy) == 1:
+        if len(log_xyn) == 1:
             check = True
             exponent = 0.0
-            multiplier = np.exp(log_xy[0, 1])            
+            multiplier_nondimensional = np.exp(log_xyn[0, 1])            
         else:
-            diff_log_xy = np.diff(log_xy, axis = 0)
-            if len(log_xy) == 2:
+            diff_log_xyn = np.diff(log_xyn, axis = 0)
+            if len(log_xyn) == 2:
                 check = True
-                exponent = diff_log_xy[0, 1] / diff_log_xy[0, 0]
-                multiplier = np.exp(log_xy[0, 1] - exponent * log_xy[0, 0])
+                exponent = diff_log_xyn[0, 1] / diff_log_xyn[0, 0]
+                multiplier_nondimensional = np.exp(log_xyn[0, 1] - exponent * log_xyn[0, 0])
             else:
                 # calculate cross-products of vectors connecting subsequent data points
                 cross_prod = (
-                    diff_log_xy[:-1, 0] * diff_log_xy[1:, 1] 
-                    - diff_log_xy[1:, 0] * diff_log_xy[:-1, 1]
+                    diff_log_xyn[:-1, 0] * diff_log_xyn[1:, 1] 
+                    - diff_log_xyn[1:, 0] * diff_log_xyn[:-1, 1]
                     )
                 check = all(np.isclose(cross_prod, 0.0))
                 # in case of colinearity, get fitting parameters
                 if check is True:
-                    exponent = np.mean(diff_log_xy[:, 1] / diff_log_xy[:, 0])
-                    multiplier = np.mean(np.exp(log_xy[:, 1] - exponent * log_xy[:, 0]))
+                    exponent = np.mean(diff_log_xyn[:, 1] / diff_log_xyn[:, 0])
+                    multiplier_nondimensional = np.mean(np.exp(log_xyn[:, 1] - exponent * log_xyn[:, 0]))
                 else:
                     exponent = None
-                    multiplier = None
+                    multiplier_nondimensional = None
+        # reintroduce scaling/units into multiplier
+        if multiplier_nondimensional is not None:
+            multiplier = self.redimensionalise(multiplier_nondimensional, self.y0)
+        else:
+            multiplier = None
         # return
         return(check, multiplier, exponent)
     
@@ -184,59 +258,63 @@ class PowerlawFitWeibull(PowerlawFitBase):
             y, 
             weights = None,
             start = None, 
-            root_method = 'hybr'
+            root_method = 'hybr',
+            x0 = 1.0
             ):
         # call initialisation from parent class
-        super(PowerlawFitWeibull, self).__init__(x, y, weights)
+        super(PowerlawFitWeibull, self).__init__(x, y, weights, x0 = x0)
         # set other input arguments
         self.start = start
         self.root_method = root_method
-        # get fit
+        # get fit (if data not colinear in log-log space, in which case there is zero variance)
         if self.colinear is False:
-            self.multiplier, self.exponent, self.shape = self.generate_fit()
+            self.multiplier, self.exponent, self.shape = self.generate_fit(
+                self.x, self.y, self.weights)
         else: 
             self.shape = np.inf
         
         
     def generate_fit(
             self,
-            x = None,
-            y = None,
-            weights = None
+            x,
+            y,
+            weights
             ):
-        # custom data?
-        x = self.x if x is None else x
-        y = self.y if y is None else y
-        weights = self.weights if weights is None else weights
+        
+        # nondimensionalise data
+        xn = self.nondimensionalise(x, self.x0)
+        yn = self.nondimensionalise(y, self.y0)
         # initial guess for root finding
         if self.start is None:
-            self.start = self._initialguess_shape(x, y, weights)
+            self.start = self._initialguess_shape(xn, yn, weights)
         # fit for power law exponent, using root finding
         sol = root(  
             self._root,
             x0 = self.start,
-            args = (x, y, weights),
+            args = (xn, yn, weights),
             jac = True,
             method = self.root_method
         )
         exponent, shape = sol.x
         # calculate the power law multiplier
         c1 = np.sum(weights)
-        c4 = np.sum(weights * x**(-exponent * shape) * y**shape)
-        multiplier = gamma(1. + 1. / shape) * (c4 / c1)**(1. / shape)
+        c4 = np.sum(weights * xn**(-exponent * shape) * yn**shape)
+        multiplier_nondimensional = gamma(1. + 1. / shape) * (c4 / c1)**(1. / shape)
+        # reintroduce scaling for y (and units)
+        multiplier = self.redimensionalise(multiplier_nondimensional, self.y0)
         # return
         return(multiplier, exponent, shape)
     
     def _initialguess_shape(
             self,
-            x, 
-            y, 
-            weights
+            xn,
+            yn, 
+            weights,
             ):
         # guess exponent from linear regression on log-data
-        ftL = LinearFit(np.log(x), np.log(y), weights = weights)
+        ftL = LinearFit(np.log(xn), np.log(yn), weights = weights)
         # scale data
-        y_scaled = y / x**ftL.gradient
+        y_scaled = yn / (xn**ftL.gradient)
         # fit weibull distribution
         ftW = WeibullFit(y_scaled, weights = weights)
         # return
@@ -245,8 +323,8 @@ class PowerlawFitWeibull(PowerlawFitBase):
     def _root(
             self,
             par, 
-            x, 
-            y, 
+            xn, 
+            yn, 
             weights,
             fprime = True
             ):
@@ -255,11 +333,11 @@ class PowerlawFitWeibull(PowerlawFitBase):
         kappa = par[1]  # Weibull shape parameter
         # coefficients
         c1 = np.sum(weights)
-        c2 = np.sum(weights * np.log(x))
-        c3 = np.sum(weights * np.log(y))
-        c4 = np.sum(weights * x**(-beta * kappa) * y**kappa)
-        c5 = np.sum(weights * x**(-beta * kappa) * y**kappa * np.log(x))
-        c6 = np.sum(weights * x**(-beta * kappa) * y**kappa * np.log(y))
+        c2 = np.sum(weights * np.log(xn))
+        c3 = np.sum(weights * np.log(yn))
+        c4 = np.sum(weights * xn**(-beta * kappa) * yn**kappa)
+        c5 = np.sum(weights * xn**(-beta * kappa) * yn**kappa * np.log(xn))
+        c6 = np.sum(weights * xn**(-beta * kappa) * yn**kappa * np.log(yn))
         # roots
         dlogL_dbeta = kappa * c1 * c5 / c4 - kappa * c2
         dlogL_dkappa = (1. / kappa + (beta * c5 - c6) / c4) * c1 - beta * c2 + c3
@@ -272,9 +350,9 @@ class PowerlawFitWeibull(PowerlawFitBase):
         else:
             # also get derivative
             # extra coefficients
-            c7 = np.sum(weights * x**(-beta * kappa) * y**kappa * np.log(x)**2)
-            c8 = np.sum(weights * x**(-beta * kappa) * y**kappa * np.log(x) * np.log(y))
-            c9 = np.sum(weights * x**(-beta * kappa) * y**kappa * np.log(y)**2)
+            c7 = np.sum(weights * xn**(-beta * kappa) * yn**kappa * np.log(xn)**2)
+            c8 = np.sum(weights * xn**(-beta * kappa) * yn**kappa * np.log(xn) * np.log(yn))
+            c9 = np.sum(weights * xn**(-beta * kappa) * yn**kappa * np.log(yn)**2)
             # derivatives
             d2logL_dbeta2 = c1 * kappa**2 / c4 * (c5**2 / c4 - c7)
             d2logL_dbetadkappa = (
@@ -307,9 +385,14 @@ class PowerlawFitWeibull(PowerlawFitBase):
         x = self.x if x is None else x
         y = self.y if y is None else y
         weights = self.weights if weights is None else weights
-        y0 = self.multiplier if multiplier is None else multiplier
+        # fit results
+        multiplier = self.multiplier if multiplier is None else multiplier
         beta = self.exponent if exponent is None else exponent
         kappa = self.shape if shape is None else shape
+        # nondimensionalise data
+        xn = self.nondimensionalise(x, self.x0)
+        yn = self.nondimensionalise(y, self.y0)
+        multiplier = self.nondimensionalise(multiplier, self.y0)
         # calculate
         if self.colinear is True:
             # colinear case
@@ -322,14 +405,14 @@ class PowerlawFitWeibull(PowerlawFitBase):
         else:
             # coefficients
             c1 = np.sum(weights)
-            c2 = np.sum(weights * np.log(x))
-            c3 = np.sum(weights * np.log(y))
-            c4 = np.sum(weights * x**(-beta * kappa) * y**kappa)
-            c5 = np.sum(weights * x**(-beta * kappa) * y**kappa * np.log(x))
-            c6 = np.sum(weights * x**(-beta * kappa) * y**kappa * np.log(y))
-            c7 = np.sum(weights * x**(-beta * kappa) * y**kappa * np.log(x)**2)
-            c8 = np.sum(weights * x**(-beta * kappa) * y**kappa * np.log(x) * np.log(y))
-            c9 = np.sum(weights * x**(-beta * kappa) * y**kappa * np.log(y)**2)
+            c2 = np.sum(weights * np.log(xn))
+            c3 = np.sum(weights * np.log(yn))
+            c4 = np.sum(weights * xn**(-beta * kappa) * yn**kappa)
+            c5 = np.sum(weights * xn**(-beta * kappa) * yn**kappa * np.log(xn))
+            c6 = np.sum(weights * xn**(-beta * kappa) * yn**kappa * np.log(yn))
+            c7 = np.sum(weights * xn**(-beta * kappa) * yn**kappa * np.log(xn)**2)
+            c8 = np.sum(weights * xn**(-beta * kappa) * yn**kappa * np.log(xn) * np.log(yn))
+            c9 = np.sum(weights * xn**(-beta * kappa) * yn**kappa * np.log(yn)**2)
             # gamma functions
             g = gamma(1. + 1. / kappa)
             p = digamma(1. + 1. / kappa)
@@ -337,48 +420,63 @@ class PowerlawFitWeibull(PowerlawFitBase):
             # loglikelihood
             if deriv == 0:
                 return(
-                    (np.log(kappa) - kappa * np.log(y0) + kappa * np.log(g)) * c1 
+                    (np.log(kappa) - kappa * np.log(multiplier) + kappa * np.log(g)) * c1 
                     - beta * kappa * c2 
                     + (kappa - 1.) * c3 
-                    - (g / y0)**kappa * c4
+                    - (g / multiplier)**kappa * c4
                     )
             # first partial derivative of loglikelihood
             elif deriv == 1:
-                dlogL_dy0 = -c1 * kappa / y0 + c4 * kappa * g**kappa * y0**(-kappa - 1.)
-                dlogL_dbeta = -kappa * c2 + kappa * (g / y0)**kappa * c5
-                dlogL_dkappa = (c1 * (1./kappa + np.log(g / y0) - p / kappa) - beta * c2 + c3 
-                    - (g / y0)**kappa * (c4 * (np.log(g / y0) - p / kappa) - beta * c5 + c6))
+                dlogL_dy0 = -c1 * kappa / multiplier + c4 * kappa * g**kappa * multiplier**(-kappa - 1.)
+                dlogL_dbeta = -kappa * c2 + kappa * (g / multiplier)**kappa * c5
+                dlogL_dkappa = (c1 * (1./kappa + np.log(g / multiplier) - p / kappa) - beta * c2 + c3 
+                    - (g / multiplier)**kappa * (c4 * (np.log(g / multiplier) - p / kappa) - beta * c5 + c6))
                 return(np.array([dlogL_dy0, dlogL_dbeta, dlogL_dkappa]))
             # second partial derivative of loglikelihood
             elif deriv == 2:
-                d2logL_dy02 = (c1*kappa/y0**2 
-                               - c4*kappa*(kappa + 1.)*g**kappa*y0**(-kappa - 2.))
-                d2logL_dy0dbeta = -c5*kappa**2*g**kappa*y0**(-kappa - 1.)
-                d2logL_dy0dkappa = (-c1/y0 + g**kappa*y0**(-kappa - 1.)*
-                                    (c4*(1. + kappa*np.log(g/y0) - p) + kappa*(c6 - beta*c5)))
-                d2logL_dbeta2 = -kappa**2*(g/y0)**kappa*c7
-                d2logL_dbetadkappa = (-c2 + (g/y0)**kappa*
-                                      (c5*(1. + kappa*np.log(g/y0) - p) + kappa*(c8 - beta*c7)))
-                d2logL_dkappa2 = (c1/kappa**2*(q/kappa - 1) 
-                                  - (g/y0)**kappa*(
-                                      2.*(np.log(g/y0) - p/kappa)*(c6 - beta*c5) 
-                                      + (np.log(g/y0) - p/kappa)**2*c4 
-                                      + (c4*q/kappa**3 + beta**2*c7 - 2.*beta*c8 + c9)
-                                      ))
+                d2logL_dy02 = (
+                    c1 * kappa / multiplier**2 
+                    - c4 * kappa * (kappa + 1.) * g**kappa * multiplier**(-kappa - 2.)
+                    )
+                d2logL_dy0dbeta = -c5 * kappa**2 * g**kappa * multiplier**(-kappa - 1.)
+                d2logL_dy0dkappa = (
+                    -c1 / multiplier 
+                    + g**kappa * multiplier**(-kappa - 1.) 
+                    * (c4 * (1. + kappa * np.log(g / multiplier) - p) 
+                       + kappa * (c6 - beta * c5)
+                       )
+                    )
+                d2logL_dbeta2 = -kappa**2 * (g / multiplier)**kappa * c7
+                d2logL_dbetadkappa = (
+                    -c2 
+                    + (g / multiplier)**kappa 
+                    * (c5 * (1. + kappa * np.log(g / multiplier) - p) 
+                       + kappa*(c8 - beta * c7)
+                       )
+                    )
+                d2logL_dkappa2 = (
+                    c1 / kappa**2 * (q / kappa - 1) 
+                    - (g / multiplier)**kappa * (
+                        2. * (np.log(g / multiplier) - p / kappa) * (c6 - beta * c5) 
+                        + (np.log(g / multiplier) - p / kappa)**2 * c4 
+                        + (c4 * q / kappa**3 + beta**2 * c7 - 2. * beta * c8 + c9)
+                        )
+                    )
                 return(np.array([
                     [d2logL_dy02, d2logL_dy0dbeta, d2logL_dy0dkappa], 
                     [d2logL_dy0dbeta, d2logL_dbeta2, d2logL_dbetadkappa], 
                     [d2logL_dy0dkappa, d2logL_dbetadkappa, d2logL_dkappa2]
                     ]))
         
-    # calculate scale parameter at any value of x
+    # calculate scale parameter (at new values of x)
     def get_scale(
             self, 
-            x
+            x,
             ):
-        return(self.multiplier * x**self.exponent / gamma(1. + 1. / self.shape))
+        xn = self.nondimensionalise(x, self.x0)
+        return(self.multiplier * xn**self.exponent / gamma(1. + 1. / self.shape))
             
-    # generate prediction intervals
+    # generate prediction intervals (at new values of x)
     def prediction_interval(
             self, 
             x = None, 
@@ -391,30 +489,30 @@ class PowerlawFitWeibull(PowerlawFitBase):
         # generate
         if self.colinear is True:
             # colinear case
-            y_pred = self.predict(x)
-            return(np.column_stack((x, y_pred, y_pred)))
+            y_lower = self.predict(x)
+            y_upper = y_lower
         else:
             # cumulative fraction
-            P = np.array([0.5 - 0.5 * level, 0.5 + 0.5 * level])
+            P_lower = 0.5 - 0.5 * level
+            P_upper = 0.5 + 0.5 * level
             # calculate scale parameter
             scale = self.get_scale(x)
             # interval
-            y_interval = np.outer(scale, (-np.log(1. - P))**(1. / self.shape))
-            # return
-            return(np.column_stack((x, y_interval)))
+            y_lower = scale * (-np.log(1. - P_lower))**(1. / self.shape)
+            y_upper = scale * (-np.log(1. - P_upper))**(1. / self.shape)
+        # return
+        return(x, np.column_stack((y_lower, y_upper)))
         
     # probability density
     def density(
             self, 
             x = None,
             y = None,
-            weights = None, 
-            cumulative = False
+            cumulative = False,
             ):
         # data
         x = self.x if x is None else x
         y = self.y if y is None else y
-        weights = self.weights if weights is None else weights
         # calculate density
         if self.colinear is True:
             # colinear case
@@ -440,7 +538,7 @@ class PowerlawFitWeibull(PowerlawFitBase):
             else:
                 return(1. - np.exp(-(y / scale)**self.shape))
         
-    # generate random data based on known x-values
+    # generate random y-data at new x-values
     def random(
             self, 
             x
@@ -453,49 +551,3 @@ class PowerlawFitWeibull(PowerlawFitBase):
         return(scale * (-np.log(1. - P))**(1. / self.shape))
         
     
-
-
-
-
-def _powerlaw_weibull_root(par, x, y, w):
-    # unpack input parameters
-    beta = par[0]
-    kappa = par[1]
-    # coefficients
-    c1 = np.sum(w)
-    c2 = np.sum(w*np.log(x))
-    c3 = np.sum(w*np.log(y))
-    c4 = np.sum(w*x**(-beta*kappa)*y**kappa)
-    c5 = np.sum(w*x**(-beta*kappa)*y**kappa*np.log(x))
-    c6 = np.sum(w*x**(-beta*kappa)*y**kappa*np.log(y))
-    # roots
-    dlogL_dbeta = kappa*c1*c5/c4 - kappa*c2
-    dlogL_dkappa = (1./kappa + (beta*c5 - c6)/c4)*c1 - beta*c2 + c3
-    # return
-    return(np.array([dlogL_dbeta, dlogL_dkappa]))
-
-
-def _powerlaw_weibull_root_jacobian(par, x, y, w):
-    # unpack input parameters
-    beta = par[0]
-    kappa = par[1]
-    # coefficients
-    c1 = np.sum(w)
-    c2 = np.sum(w*np.log(x))
-    c4 = np.sum(w*x**(-beta*kappa)*y**kappa)
-    c5 = np.sum(w*x**(-beta*kappa)*y**kappa*np.log(x))
-    c6 = np.sum(w*x**(-beta*kappa)*y**kappa*np.log(y))
-    c7 = np.sum(w*x**(-beta*kappa)*y**kappa*np.log(x)**2)
-    c8 = np.sum(w*x**(-beta*kappa)*y**kappa*np.log(x)*np.log(y))
-    c9 = np.sum(w*x**(-beta*kappa)*y**kappa*np.log(y)**2)
-    # derivatives
-    d2logL_dbeta2 = c1*kappa**2/c4*(c5**2/c4 - c7)
-    d2logL_dbetadkappa = (c1/c4*(c5 - beta*kappa*c7 + kappa*c8
-                                 + kappa*c5/c4*(beta*c5 - c6)) - c2)
-    d2logL_dkappa2 = ((-1./kappa**2 - (beta**2*c7 - 2.*beta*c8 + c9)/c4 
-                       + (beta*c5 - c6)**2/c4**2)*c1)
-    # return matrix
-    return(np.array([
-        [d2logL_dbeta2, d2logL_dbetadkappa], 
-        [d2logL_dbetadkappa, d2logL_dkappa2]
-        ]))
