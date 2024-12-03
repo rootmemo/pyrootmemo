@@ -15,7 +15,7 @@ from pint import Quantity
 #### BASE LIKELIHOOD FITTING CLASS FOR 1-D DATA ####
 ####################################################
 
-class FitLikelihoodBase(FitBase):
+class FitBaseX(FitBase):
 
     def __init__(
         self,
@@ -23,24 +23,31 @@ class FitLikelihoodBase(FitBase):
         weights = None,
         start = None,
         root_method = 'newton',
-        x0 = 1.0
+        x0 = 1.0,
+        xmin = None,
+        xmin_include = True
     ):
-        # set parameters
+        # check and set x and y parameters
+        self._check_input(x, finite = True, min = xmin, min_include = xmin_include, label = 'x')
         self.x = x
+        # set fit weights
         if weights is None:
             self.weights = np.ones(len(x))
+        elif np.isscalar(weights):
+            self.weights = weights * np.ones(len(x))
         else:
-            self.weights = weights
+            if len(weights) == len(x):
+                self.weights = weights
+            else:
+                ValueError('length of x and weight arrays not compatible')
+        self._check_input(self.weights, finite = True, min = 0.0, min_include = True, label = 'weights')
+        # set reference values
+        self.x0 = self.get_reference(x, x0)
         # starting guess for fit
         self.start = start
         # solver routing
         self.root_method = root_method
-        # set reference x-value
-        if isinstance(x, Quantity) and not isinstance(x0, Quantity):
-            self.x0 = x0 * x.units
-        else:
-            self.x0 = x0
-
+        
     # Kolmogorov-Smirnov distance of fit
     def ks_distance(self):
         # sort data
@@ -52,8 +59,13 @@ class FitLikelihoodBase(FitBase):
         # differences between cumulatives curves: top and bottom of data
         d_top = np.max(np.abs(y1 - y0))
         d_bot = np.max(np.abs(y1 - np.append(0.0, y0[:-1])))
-        # return
-        return(max(d_top, d_bot))
+        # distance
+        ks = max(d_top, d_bot)
+        # return non-dimensional value
+        if isinstance(ks, Quantity):
+            return(ks.magnitude)
+        else:
+            return(ks)
 
     # covariance
     def covariance(
@@ -66,6 +78,8 @@ class FitLikelihoodBase(FitBase):
         # method
         if J is None or method == 'bootstrap':
             # bootstrapping
+            # nondimensionalise data
+            xn = self.nondimensionalise(self.x, self.x0)
             # select random data indices
             rng = np.random.default_rng()
             indices = rng.choice(
@@ -74,12 +88,13 @@ class FitLikelihoodBase(FitBase):
                 replace = True
                 )
             # generate fit results
-            fits = [self.generate_fit(self.x[i], self.weights[i])
-                    for i in indices]
-            multiplier, exponent, shape = zip(*fits)
-            xyw = np.column_stack((self.x, self.y, self.weights))
-            data = rng.choice(xyw, (n, len(self.x)), axis = 0, replace = True)
-            fits = np.array([self.fit(zip(*datai)) for datai in data])
+            fits = np.array([
+                np.array(self.generate_fit(
+                    xn[i], self.weights[i], 
+                    nondimensional_input = True, nondimensional_output = True
+                    ))
+                for i in indices
+                ])
             return(np.cov(fits.transpose()))
         else:
             fisher = -J
@@ -93,7 +108,7 @@ class FitLikelihoodBase(FitBase):
 #### FIT GUMBEL DISTRIBUTION ####
 #################################
 
-class GumbelFit(FitLikelihoodBase):
+class GumbelFit(FitBaseX):
 
     def __init__(
             self,
@@ -103,28 +118,34 @@ class GumbelFit(FitLikelihoodBase):
             root_method = 'newton'
     ):
         # call initialiser of parent class
-        super().__init__(x, weights, start, root_method)
+        super().__init__(
+            x, 
+            weights = weights, 
+            start = start, 
+            root_method = root_method      
+            )
         # generate fit
-        location_nondimensional, scale_nondimensional = self.generate_fit_nondimensional(
-            self.nondimensionalise(self.x, self.x0),
-            self.weights
-        )
-        # assign fit parameters
-        self.location = self.redimensionalise(location_nondimensional, self.x0)
-        self.scale = self.redimensionalise(scale_nondimensional, self.x0)
+        self.location, self.scale = self.generate_fit(self.x, self.weights)
 
     # generate MLE parameters
-    def generate_fit_nondimensional(
+    def generate_fit(
             self,
-            xn,
-            weights
+            x,
+            weights,
+            nondimensional_input = False,
+            nondimensional_output = False
             ):
+        # make input data nondimensional
+        if nondimensional_input is True:
+            xn = x
+        else:
+            xn = self.nondimensionalise(x, self.x0)
         # initial guess
         if self.start is None:
             self.start = self._initialguess_scale_nondimensional(xn, weights)
         # find scale parameter using root solving
         ft = root_scalar(
-            self._root,
+            self._root_nondimensional,
             method = self.root_method,
             fprime = True,
             x0 = self.start,
@@ -136,7 +157,13 @@ class GumbelFit(FitLikelihoodBase):
         c3 = np.sum(self.weights * np.exp(-xn / scale_nondimensional))
         location_nondimensional = scale_nondimensional * np.log(c1 / c3)
         # return
-        return(location_nondimensional, scale_nondimensional)
+        if nondimensional_output is True:
+            return(location_nondimensional, scale_nondimensional)
+        else:
+            return(
+                self.redimensionalise(location_nondimensional, self.x0),
+                self.redimensionalise(scale_nondimensional, self.x0),
+            )
     
     # initial guess for (nondimensional) scale parameter
     def _initialguess_scale_nondimensional(
@@ -151,7 +178,7 @@ class GumbelFit(FitLikelihoodBase):
         return(np.sqrt(6. * var) / np.pi)
 
     # root function to solve
-    def _root(
+    def _root_nondimensional(
             self,
             scale_nondimensional,
             xn,
@@ -215,7 +242,8 @@ class GumbelFit(FitLikelihoodBase):
             location = None, 
             scale = None,
             deriv = 0,
-            weights = None
+            weights = None,
+            nondimensional_input = False
             ):
         # get data
         x = self.x if x is None else x
@@ -223,10 +251,13 @@ class GumbelFit(FitLikelihoodBase):
         # unpack input parameters
         location = self.location if location is None else location
         scale = self.scale if scale is None else scale
-        # nondimensional form
-        xn = self.nondimensionalise(x, self.x0)
-        location = self.nondimensionalise(location, self.x0)
-        scale = self.nondimensionalise(scale, self.x0)
+        # data in nondimensional form
+        if nondimensional_input is True:
+            xn = self.x
+        else:
+            xn = self.nondimensionalise(x, self.x0)
+            location = self.nondimensionalise(location, self.x0)
+            scale = self.nondimensionalise(scale, self.x0)
         # coefficients
         c1 = np.sum(weights)
         c2 = np.sum(weights * xn)
@@ -271,7 +302,7 @@ class GumbelFit(FitLikelihoodBase):
 #### WEIBULL DISTRIBUTION ####
 ##############################
 
-class WeibullFit(FitLikelihoodBase):
+class WeibullFit(FitBaseX):
 
     def __init__(
             self,
@@ -281,26 +312,36 @@ class WeibullFit(FitLikelihoodBase):
             root_method = 'halley'
     ):
         # call initialiser of parent class
-        super().__init__(x, weights, start, root_method)
+        super().__init__(
+            x, 
+            weights = weights, 
+            start = start, 
+            root_method = root_method,
+            xmin = 0.0,
+            xmin_include = True            
+        )
         # generate fit
-        self.shape, scale_nondimensional = self.generate_fit_nondimensional(
-            self.nondimensionalise(self.x, self.x0), 
-            self.weights
-            )
-        self.scale = self.redimensionalise(scale_nondimensional, self.x0)
+        self.shape, self.scale = self.generate_fit(self.x, self.weights)
 
     # generate a fit, using nondimensional values
-    def generate_fit_nondimensional(
+    def generate_fit(
             self,
-            xn,
-            weights
+            x,
+            weights,
+            nondimensional_input = False,
+            nondimensional_output = False
             ):
+        # make input data nondimensional
+        if nondimensional_input is True:
+            xn = x
+        else:
+            xn = self.nondimensionalise(x, self.x0)
         # initial guess
         if self.start is None:
             self.start = self._initialguess_shape_nondimensional(xn, weights)
         # root solve for shape parameter
         ft = root_scalar(
-            self._root,
+            self._root_nondimensional,
             fprime = True,
             fprime2 = True,
             x0 = self.start,
@@ -313,7 +354,13 @@ class WeibullFit(FitLikelihoodBase):
         c3 = np.sum(self.weights * xn**shape)
         scale_nondimensional = (c3 / c1) ** (1. / shape)
         # return
-        return(shape, scale_nondimensional)
+        if nondimensional_output is True:
+            return(shape, scale_nondimensional)
+        else:
+            return(
+                shape,
+                self.redimensionalise(scale_nondimensional, self.x0)
+            )
     
     # initial guess for shape function
     def _initialguess_shape_nondimensional(
@@ -334,7 +381,7 @@ class WeibullFit(FitLikelihoodBase):
         return(linear_fit.gradient)
     
     # root solving function
-    def _root(
+    def _root_nondimensional(
             self,
             shape,
             xn,
@@ -419,7 +466,8 @@ class WeibullFit(FitLikelihoodBase):
             weights = None,
             shape = None, 
             scale = None, 
-            deriv = 0      
+            deriv = 0,
+            nondimensional_input = False
             ):
         # get data
         x = self.x if x is None else x
@@ -428,8 +476,11 @@ class WeibullFit(FitLikelihoodBase):
         shape = self.shape if shape is None else shape
         scale = self.scale if scale is None else scale
         # make nondimensional
-        xn = self.nondimensionalise(x, self.x0)
-        scale = self.nondimensionalise(scale, self.x0)
+        if nondimensional_input is True:
+            xn = x
+        else:
+            xn = self.nondimensionalise(x, self.x0)
+            scale = self.nondimensionalise(scale, self.x0)
         # coefficients
         c1 = np.sum(weights * np.log(xn))
         c2 = np.sum(weights * xn**shape)
@@ -481,7 +532,7 @@ class WeibullFit(FitLikelihoodBase):
 #### POWER DISTRIBUTION FIT ####
 ################################
 
-class PowerFit(FitLikelihoodBase):
+class PowerFit(FitBaseX):
 
     def __init__(
             self,
@@ -493,52 +544,77 @@ class PowerFit(FitLikelihoodBase):
             root_method = 'newton'
     ):
         # call initialiser of parent class
-        super().__init__(x, weights, start, root_method)
-        # set limits
-        if lower is None:
-            self.lower = np.min(x)
-        else:
-            self.lower = lower
-        if lower is None:
-            self.upper = np.max(x)
-        else:
-            self.upper = upper
+        super().__init__(
+            x, 
+            weights = weights, 
+            start = start, 
+            root_method = root_method,
+            xmin = 0.0,
+            xmin_include = False            
+        )
         # generate fit
-        self.multiplier, self.exponent = self.generate_fit_nondimensional(
-            self.nondimensionalise(self.x, self.x0), 
-            self.weights
+        self.multiplier, self.exponent, self.lower, self.upper = self.generate_fit(
+            self.x, self.weights, 
+            lower = lower, upper = upper
             )
 
-
-    def generate_fit_nondimensional(
+    def generate_fit(
             self,
-            xn,
-            weights
+            x,
+            weights,
+            lower = None,
+            upper = None,
+            nondimensional_input = False,
+            nondimensional_output = False
             ):
+        # set lower and upper
+        if lower is None:
+            lower = np.min(x)
+        if upper is None:
+            upper = np.max(x)
+        # nondimensionalise data
+        if nondimensional_input is True:
+            xn = x
+        else:
+            xn = self.nondimensionalise(x, self.x0)
+            lower = self.nondimensionalise(lower, self.x0)
+            upper = self.nondimensionalise(upper, self.x0)
         # initial guess
         if self.start is None:
             self.start = self._initialguess_exponent_nondimensional()
-        # redimensionalise
-        x = self.redimensionalise(xn, self.x0)
         # root solve for power law exponent
         ft = root_scalar(
-            lambda b: self.loglikelihood(exponent = b, x = x, weights = weights, deriv = 1),
+            lambda b: self.loglikelihood(
+                exponent = b, x = xn, weights = weights,
+                lower = lower, upper = upper,
+                nondimensional_input = True,
+                deriv = 1
+                ),
             x0 = self.start,
-            fprime = lambda b: self.loglikelihood(exponent = b, x = x, weights = weights, deriv = 2),
+            fprime = lambda b: self.loglikelihood(
+                exponent = b, x = xn, weights = weights, 
+                lower = lower, upper = upper,
+                nondimensional_input = True,
+                deriv = 2
+                ),
             method = self.root_method,
             )
         exponent = ft.root
         # multiplier - nondimensionalised
-        multiplier = self.get_multiplier(
-            exponent, 
-            self.nondimensionalise(self.lower, self.x0), 
-            self.nondimensionalise(self.upper, self.x0)
-            )
+        multiplier_nondimensional = self.get_multiplier_nondimensional(exponent, lower, upper)
         # return
-        return(multiplier, exponent)
+        if nondimensional_output is True:
+            return(multiplier_nondimensional, exponent, lower, upper)
+        else:
+            return(
+                self.redimensionalise(multiplier_nondimensional, 1. / self.x0),
+                exponent,
+                self.redimensionalise(lower, self.x0),
+                self.redimensionalise(upper, self.x0)
+            )
         
     # power law multiplier (asssuming nondimensionalised lower and upper limits)
-    def get_multiplier(
+    def get_multiplier_nondimensional(
         self,
         exponent, 
         lower,
@@ -596,6 +672,7 @@ class PowerFit(FitLikelihoodBase):
             lower = None, 
             upper = None, 
             deriv = 0,
+            nondimensional_input = False
         ):
         # get data
         x = self.x if x is None else x
@@ -604,11 +681,14 @@ class PowerFit(FitLikelihoodBase):
         lower = self.lower if lower is None else lower
         upper = self.upper if upper is None else upper 
         # make data nondimensional
-        xn = self.nondimensionalise(x, self.x0)
-        lower = self.nondimensionalise(lower, self.x0)
-        upper = self.nondimensionalise(upper, self.x0)
-        # calculate multiplier
-        multiplier = self.get_multiplier(exponent, lower, upper)
+        if nondimensional_input is True:
+            xn = x
+        else:
+            xn = self.nondimensionalise(x, self.x0)
+            lower = self.nondimensionalise(lower, self.x0)
+            upper = self.nondimensionalise(upper, self.x0)
+        # calculate (dimensionless) multiplier
+        multiplier = self.get_multiplier_nondimensional(exponent, lower, upper)
         # calculate
         if deriv == 0:
             # calculate log-probability
@@ -617,15 +697,15 @@ class PowerFit(FitLikelihoodBase):
             return(np.sum(weights * logpi))
         elif deriv == 1:
             # calculate derivatives of multiplier
-            dmultiplier_dexponent = self.get_multiplier(exponent, lower, upper, deriv = 1)
+            dmultiplier_dexponent = self.get_multiplier_nondimensional(exponent, lower, upper, deriv = 1)
             # calculate derivative of log-probabilities
             dlogpi_dexponent = dmultiplier_dexponent / multiplier + np.log(xn)
             # return derivative of loglikelihoood
             return(np.sum(weights * dlogpi_dexponent))
         elif deriv == 2:
             # calculate derivatives of multiplier
-            dmultiplier_dexponent = self.get_multiplier(exponent, lower, upper, deriv = 1)
-            d2multiplier_dexponent2 = self.get_multiplier(exponent, lower, upper, deriv = 2)
+            dmultiplier_dexponent = self.get_multiplier_nondimensional(exponent, lower, upper, deriv = 1)
+            d2multiplier_dexponent2 = self.get_multiplier_nondimensional(exponent, lower, upper, deriv = 2)
             # calculate second derivative of log-probabilities
             d2logpi_dexponent2 = (
                 d2multiplier_dexponent2 / multiplier 
@@ -650,12 +730,10 @@ class PowerFit(FitLikelihoodBase):
     def density(
             self, 
             x = None, 
-            weights = None,
             cumulative = False
         ):
         # get data
         x = self.x if x is None else x
-        weights = self.weights if weights is None else weights
         # get densities
         if cumulative is False:
             # probability density
@@ -665,13 +743,16 @@ class PowerFit(FitLikelihoodBase):
             return(y)
         else:
             # cumulative density
+            x = self.nondimensionalise(x, self.x0)
+            lower = self.nondimensionalise(self.lower, self.x0)
+            upper = self.nondimensionalise(self.upper, self.x0)
             if np.isclose(self.exponent, -1.0):
-                y = np.log(x / self.lower) / np.log(self.upper / self.lower)
+                y = np.log(x / lower) / np.log(upper / lower)
             else:
                 y = (
-                    (x**(self.exponent + 1.) - self.lower**(self.exponent + 1.))
-                    / (self.upper**(self.exponent + 1.) - self.lower**(self.exponent + 1.))
+                    (x**(self.exponent + 1) - lower**(self.exponent + 1))
+                    / (upper**(self.exponent + 1) - lower**(self.exponent + 1))
                     )
-            y[x < self.lower] = 0. * y[x < self.lower]
-            y[x > self.upper] = 1. * y[x > self.upper]
+            y[x < lower] = 0.
+            y[x > upper] = 1.
             return(y) 
