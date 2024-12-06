@@ -70,7 +70,8 @@ class FitBase:
                 else:
                     raise DimensionalityError('units of x and x0 are not compatible')
             elif np.isscalar(x0):
-                raise DimensionalityError('units of x and x0 are not compatible')
+                UserWarning(f'units of reference value not given - value assumed in {x.units}')
+                return(x0 * x.units)
         else:
             # x defined without units
             if x0 is None:
