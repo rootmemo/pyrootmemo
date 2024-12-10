@@ -5,6 +5,13 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from pyrootmemo.tools.helpers import units
 from pint import Quantity
+from pyrootmemo.fit.fit_x import PowerFit
+from pyrootmemo.fit.fit_x_binned import PowerFitBinned
+
+###########
+### FBM ###
+###########
+
 
 # FBM class
 class Fbm():
@@ -270,3 +277,165 @@ class Fbm():
         # return figure
         return(fig, ax)
         
+
+############
+### FBMC ###
+############
+
+class Fbmc:
+
+    # initialise class
+    def __init__(
+            self, 
+            area,   # power law distribution: diameter--root crosssectional area
+            strength,  # power law: diameter--root tensile strength
+            load_sharing: float | int,
+            root_area_ratio = 1.0
+            ):
+        # set parameters
+        self.load_sharing = load_sharing
+        # check diameter - must be power law distribution
+        area_types_accepted = [PowerFit, PowerFitBinned]
+        if not any([isinstance(area, i) for i in area_types_accepted]):
+            raise TypeError(f'diameter distribution must be of type {area_types_accepted}')
+        else:
+            self.area = area
+        # check tensile strength power law
+        self.strength = strength
+
+    # calculate zeta factors
+    def zeta(self):
+        z1 = ((2. + self.strength.exponent - self.loadsharing)
+              * np.log(self.area.upper / self.area.lower))
+        z2 = ((1. + self.area.exponent + self.rar.exponent)
+              * np.log(self.area.upper / self.area.lower))
+        return(np.array([z1, z2]))
+    
+    # FBM reduction factor - at peak or at defined strain levels
+    def reduction_factor(
+            self, 
+            strain: np.ndarray = None
+            ):
+        # get zeta values
+        z1, z2 = self.zeta()
+        # decide on case - strain defined or not
+        if strain is None:
+            ## return strain and reinfocement at peak
+            # if zeta1 < 0, swap signs for zeta1 and zeta2
+            if z1 < 0.0:
+                z1 = -z1
+                z2 = -z2
+            # strength reduction factor, based on zeta-values
+            if z1 > 0.:
+                if z2 > 0.:
+                    if np.isclose(z1, z2):
+                        if z1 <= 1.:
+                            reduction = z2 * np.exp(-z2) / (1. - np.exp(-z2))
+                        else:
+                            reduction = np.exp(-1.) / (1. - np.exp(-z2))
+                    else:
+                        if (z1 / z2)**(1. / (z2 - z1) >= np.exp(1.)):
+                            reduction = (z1 / z2)**(z1 / (z2 - z1)) / (1. - np.exp(-z2))
+                        else:
+                            reduction = z2 / (z1 - z2) * (np.exp(-z2) - np.exp(-z1)) / (1. - np.exp(-z2))
+                elif (z2 == 0.):
+                    reduction = (1. - np.exp(-z1)) / z1
+                else:
+                    reduction = z2 / (z1 - z2) * (np.exp(-z2) - np.exp(-z1)) / (1. - np.exp(-z2))
+            else:
+                reduction = 1.            
+            ## strain at peak
+            # breakage strains of smallest and largest root
+            strain_min = (
+                (self.area.lower / self.area.x0)
+                ** (2. + self.strength.exponent - self.loadsharing)
+                )
+            strain_max = (
+                (self.area.upper / self.area.x0)
+                ** (2. + self.strength.exponent - self.loadsharing)
+                )
+            # peak strain multiplier
+            if (z1 * z2) <= 0:
+                if strain_max > strain_min:
+                    tmp1 = np.exp(-z1)
+                else:
+                    tmp1 = np.exp(z1)
+            else:
+                tmp1 = (z1 / z2) ** (z1 / (z2 - z1))
+            # temp value 2
+            if strain_max > strain_min:
+                tmp2 = np.exp(-z1)
+            else:
+                tmp2 = np.exp(z1)
+            # strain at peak reinforcement
+            strain_peak = max(strain_min, strain_max) * max(tmp1, tmp2)
+            # return
+            return(strain_peak, reduction)            
+        else:
+            ## return value at specific values of strain. 
+            ## `strain' is defined as the ratio between strain applied to the 
+            ## reference root and its failure strain
+            # WWM part (divided by k*tru0*phir0)
+            if np.isclose(self.strength.exponent + self.area.exponent, -1.):
+
+    # -> fix reference diameters, may be different for 'area' and 'strength'
+                wwm = self.reference_diameter*np.log(self.rar.upper/self.rar.lower)
+            else:
+                wwm = ((self.rar.upper*(self.rar.upper/self.reference_diameter)
+                        **(self.tensile.exponent + self.rar.exponent)
+                       - self.rar.lower*(self.rar.lower/self.reference_diameter)
+                       **(self.tensile.exponent + self.rar.exponent))
+                       / (1. + self.tensile.exponent + self.rar.exponent))
+            # calculate strain to failure in thicknest and thinnest root
+            strain_min = (
+                (self.area.lower / self.area.x0)
+                ** (2. - self.loadsharing + self.strength.exponent)
+                )
+            strain_max = (
+                (self.area.upper / self.area.x0)
+                ** (2. - self.loadsharing + self.strength.exponent)
+                )
+            # calculate reinforcements
+            if np.isclose(self.loadsharing, 2. + self.strength.exponent) or np.isclose(self.area.lower, self.area.upper):
+                ## WWM solution - all roots break at the same time
+                return(strain / strain_min * (strain <= strain_min))
+            else:
+                ## FBMc solution 
+                if (self.loadsharing < (2. + self.strength.exponent)):
+                    ## Thin roots will break first
+                    # domains
+                    t1 = (strain > 0.) & (strain <= strain_min)
+                    t2 = (strain > strain_min) & (strain < strain_max)
+                    # lower diameter integration limit
+                    d1 = self.area.upper * np.ones(len(strain))
+                    d1[t1] = self.area.lower
+                    d1[t2] = (
+                        (self.area.x0 * strain[t2])
+                        ** (-1. / (self.loadsharing - 2. - self.strength.exponent))
+                        )
+                    # upper diameter integration limit
+                    d2 = self.area.upper
+                else:
+                    ## Thick roots will break first
+                    # domains
+                    t1 = (strain > 0.) & (strain <= strain_max)
+                    t2 = (strain > strain_max) & (strain < strain_min)
+                    # lower diameter integration limit
+                    d1 = self.rar.lower
+                    # upper diameter integration limit
+                    d2 = self.rar.lower*np.ones(len(strain))
+                    d2[t1] = self.rar.upper
+                    d2[t2] = (self.reference_diameter*strain[t2]
+                              **(-1./(self.loadsharing - 2. - self.tensile.exponent)))
+                # integrate over all intact diameters
+                if np.isclose(self.loadsharing - 1. + self.rar.exponent, 0.):
+                    fbmc = self.reference_diameter*np.log(self.rar.upper/self.rar.lower)*strain
+                else:
+                    fbmc = (1./(self.loadsharing - 1. + self.rar.exponent)
+                            * (d2*(d2/self.reference_diameter)
+                               **(self.loadsharing- 2. + self.rar.exponent) 
+                               - d1*(d1/self.reference_diameter)
+                               **(self.loadsharing - 2. + self.rar.exponent))
+                            * strain)
+                # return scaled value
+                return(fbmc/wwm)
