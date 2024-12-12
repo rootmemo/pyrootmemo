@@ -2442,236 +2442,311 @@ class PowerlawFitNormalForce(PowerlawFitNormal):
             )
 
 
-#########################
-### NORMAL - SD_FIXED ###
-#########################
+##########################################
+### NORMAL - SCALED STANDARD DEVIATION ###
+##########################################
 
-class PowerlawNormalSdfixed(PowerlawFitNormalBase):
+class PowerlawFitNormalScaled(PowerlawFitNormalBase):
 
-    def __init__():
-        None
-
-
-########################
-### NORMAL - FREE_SD ###
-########################
-
-class PowerlawFitNormalFreesd(PowerlawFitNormalBase):
-
-    def __init__():
-        None
-
-
-###########
-### OLD ###
-###########
-
-class Temp:
-
-    def _root_exponent_nondimensional(
-            self,
-            exponent,
-            xn,
-            yn,
-            weights,
-            sd_exponent = 0.0,
-            fprime = True
+    def __init__(
+            self, 
+            x,
+            y, 
+            weights = None,
+            start = None, 
+            root_method = 'newton',
+            x0 = 1.0,
             ):
-        # coefficients
-        c1 = np.sum(weights)
-        c3 = np.sum(weights * xn**(2. * exponent - 2. * sd_exponent))
-        c4 = np.sum(weights * xn**(2. * exponent - 2. * sd_exponent) * np.log(xn))
-        c6 = np.sum(weights * xn**(exponent - 2. * sd_exponent) * yn)
-        c7 = np.sum(weights * xn**(exponent - 2. * sd_exponent) * yn * np.log(xn))
-        c9 = np.sum(weights * xn**(-2. * sd_exponent) * yn**2)
-        # temporary variables
-        zeta = 1. / (c3**2 * c9 - c3 * c6**2)
-        # root
-        root = c1 * c6 * (c3 * c7 - c4 * c6) * zeta
-        # return
-        if fprime is False:
-            return(root)
-        else:
-            # additional coefficients
-            c5 = np.sum(weights * xn**(2. * exponent - 2. * sd_exponent) * np.log(xn)**2)
-            c8 = np.sum(weights * xn**(exponent - 2. * sd_exponent) * yn * np.log(xn)**2)
-            # temporary variables
-            dzeta_dexponent = -(
-                4. * c3 * c4 * c9 
-                - 2. * c4 * c6**2 
-                - 2. * c3 * c6 * c7
-                ) * zeta**2
-            # jacobian of root
-            droot_dexponent = (
-                c1 * (c3 * c7 - c4 * c6)
-                * (c6 * dzeta_dexponent + c7 * zeta) 
-                + c1 * c6 * (c4 * c7 + c3 * c8 - 2. * c5 * c6) * zeta
-            )
-            #return
-            return(root, droot_dexponent)
+        # call initialisation from parent class
+        super(PowerlawFitNormalScaled, self).__init__(x, y, weights, x0 = x0)
+        # set other arguments
+        self.start = start
+        self.root_method = root_method
+        # get fit (if data not colinear in log-log space, in which case there is zero variance)
+        if self.colinear is False:
+            self.multiplier, self.exponent, self.sd_multiplier = self.generate_fit(
+                self.x, self.y, self.weights,
+                nondimensional_input = False,
+                nondimensional_output = False
+                )
+        else: 
+            self.sd_multiplier = self.redimensionalise(0.0, self.y0)
+        # set sd_exponent, equal to fitted exponent
+        self.sd_exponent = self.exponent
 
-    def _root_sdexponent_nondimensional(
+    def generate_fit(
             self,
-            sd_exponent,
-            xn,
-            yn,
+            x,
+            y,
             weights,
-            exponent = 0.0,
-            fprime = True
+            nondimensional_input = False,
+            nondimensional_output = False
             ):
-        # coefficients
-        c1 = np.sum(weights)
-        c2 = np.sum(weights * np.log(xn))
-        c3 = np.sum(weights * xn**(2.*exponent - 2.*sd_exponent))
-        c4 = np.sum(weights * xn**(2.*exponent - 2.*sd_exponent) * np.log(xn))
-        c6 = np.sum(weights * xn**(exponent - 2.*sd_exponent) * yn)
-        c7 = np.sum(weights * xn**(exponent - 2.*sd_exponent) * yn * np.log(xn))
-        c9 = np.sum(weights * xn**(-2.*sd_exponent) * yn**2)
-        c10 = np.sum(weights * xn**(-2.*sd_exponent) * yn**2 * np.log(xn))
-        # temporary variables
-        zeta = 1. / (c3**2 * c9 - c3 * c6**2)
-        # root
-        root = c1 * (c3**2 * c10 - 2. * c3 * c6 * c7 + c4 * c6**2) * zeta - c2
-        if fprime is False:
-            return(root)
+        # nondimensionalise data
+        if nondimensional_input is True:
+            xn = x
+            yn = y            
         else:
-            # additional coefficients
-            c5 = np.sum(weights * xn**(2.*exponent - 2.*sd_exponent) * np.log(xn)**2)
-            c8 = np.sum(weights * xn**(exponent - 2.*sd_exponent) * yn * np.log(xn)**2)
-            c11 = np.sum(weights * xn**(-2.*sd_exponent) * yn**2 * np.log(xn)**2)
-            # temporary variables
-            dzeta_dsdexponent = -((
-                -4. * c3 * c4 * c9 
-                - 2. * c3**2 * c10 
-                + 2. * c4 * c6**2 
-                + 4. * c3 * c6 * c7
-                ) * zeta**2
+            xn = self.nondimensionalise(x, self.x0)
+            yn = self.nondimensionalise(y, self.y0)
+        # initial guess
+        if self.start is None:
+            self.start = self._initialguess_nondimensional(
+                xn, yn, weights
             )
-            # jacobian of root
-            droot_dsdexponent = (
-                c1 * (c3**2 * c10 - 2. * c3 * c6 * c7 + c4 * c6**2)
-                * dzeta_dsdexponent 
-                + c1 * (-4. * c3 * c4 * c10 
-                        - 2. * c3**2 * c11 
-                        + 4. * c3 * c7**2 
-                        + 4. * c3 * c6 * c8 
-                        - 2. * c5 * c6**2
-                        ) * zeta
+        # get exponents, solving root
+        ft = root_scalar(
+            self._root_nondimensional,
+            x0 = self.start,
+            fprime = True,
+            args = (xn, yn, weights, True),
+            method = self.root_method
             )
-            # return
-            return(root, droot_dsdexponent)
-        
-    def _root_linkedexponents_nondimensional(
-            self,
-            exponent,
-            xn,
-            yn,
-            weights,
-            fprime = True
-    ):
-        # unpack parameters
-        sd_exponent = exponent
-        # coefficients
+        exponent = ft.root
+        # coefficients 
         c1 = np.sum(weights)
-        c2 = np.sum(weights * np.log(xn))
-        c3 = np.sum(weights * xn**(2. * exponent - 2. * sd_exponent))
-        c4 = np.sum(weights * xn**(2. * exponent - 2. * sd_exponent) * np.log(xn))
-        c6 = np.sum(weights * xn**(exponent - 2. * sd_exponent) * yn)
-        c7 = np.sum(weights * xn**(exponent - 2. * sd_exponent) * yn * np.log(xn))
-        c9 = np.sum(weights * xn**(-2. * sd_exponent) * yn**2)
-        c10 = np.sum(weights * xn**(-2. * sd_exponent) * yn**2 * np.log(xn))
-        # temporary variables
-        zeta = 1. / (c3**2 * c9 - c3 * c6**2)
-        # roots
-        dlogL_dexponent = c1 * c6 * (c3 * c7 - c4 * c6) * zeta
-        dlogL_dsdexponent = c1 * (c3**2 * c10 - 2. * c3 * c6 * c7 + c4 * c6**2) * zeta - c2
-        # root
-        root = dlogL_dexponent + dlogL_dsdexponent
+        c3 = np.sum(weights * xn**(2. * exponent - 2. * self.sd_exponent))
+        c6 = np.sum(weights * xn**(exponent - 2. * self.sd_exponent) * yn)
+        c9 = np.sum(weights * xn**(-2. * self.sd_exponent) * yn**2)
+        # calculate power law multipliers
+        multiplier_nondimensional = c6 / c3
+        sd_multiplier_nondimensional = np.sqrt(c9 / c1 - c6**2 / (c1 * c3))
         # return
-        if fprime is False:
-            return(root)
+        if nondimensional_output is True:
+            return(
+                multiplier_nondimensional, 
+                exponent, 
+                sd_multiplier_nondimensional
+                )
         else:
-            # additional coefficients
-            c5 = np.sum(weights * xn**(2. * exponent - 2. * sd_exponent) * np.log(xn)**2)
-            c8 = np.sum(weights * xn**(exponent - 2. * sd_exponent) * yn * np.log(xn)**2)
-            c11 = np.sum(weights * xn**(-2. * sd_exponent) * yn**2 * np.log(xn)**2)
-            # derivatives of temp variable
-            dzeta_dexponent = -(
-                4. * c3 * c4 * c9 
-                - 2. * c4 * c6**2 
-                - 2. * c3 * c6 * c7) * zeta**2
-            dzeta_dsdexponent = -(
-                -4. * c3 * c4 * c9 
-                - 2. * c3**2 * c10 
-                + 2. * c4 * c6**2 
-                + 4. * c3 * c6 * c7) * zeta**2
-            # further derivatives of roots
-            d2logL_dexponent2 = (
-                c1 
-                * (c3 * c7 - c4 * c6)
-                * (c6 * dzeta_dexponent + c7 * zeta) 
-                + c1 * c6 * (c4 * c7 + c3 * c8 - 2. * c5 * c6) * zeta
+            return(
+                self.redimensionalise(multiplier_nondimensional, self.y0),
+                exponent,
+                self.redimensionalise(sd_multiplier_nondimensional, self.y0)
                 )
-            d2logL_dexponentdsdexponent = (
-                c1 
-                * (c3 * c7 - c4 * c6) 
-                * (c6 * dzeta_dsdexponent - 2. * c7 * zeta)
-                + 2. * c1 * c6 * (c5 * c6 - c3 * c8) * zeta
-                )
-            d2logL_dsdexponent2 = (
-                c1 
-                * (c3**2 * c10 - 2. * c3 * c6 * c7 + c4 * c6**2)
-                * dzeta_dsdexponent 
-                + c1 * (
-                    -4. * c3 * c4 * c10 
-                    - 2. * c3**2 * c11 
-                    + 4. * c3 * c7**2 
-                    + 4. * c3 * c6 * c8 
-                    - 2. * c5 * c6**2
-                    ) 
-                    * zeta
-                )
-            # final derivative
-            droot_dexponent = d2logL_dexponent2 + 2. * d2logL_dexponentdsdexponent + d2logL_dsdexponent2
-            # return
-            return(root, droot_dexponent)
-
-
-    def _initialguess_sdexponent_nondimensional(
-            self,
-            xn,
-            yn,
-            weights,
-            exponent = 0.0
-    ):
-        # simple guess - equal to mean power-law np.np.exponent
-        return(exponent)  
     
-    def _initialguess_linkedexponents_nondimensional(
+    def _root_nondimensional(
+            self,
+            exponent,
             xn,
             yn,
             weights,
-            sd_exponent = 0.0
+            fprime = True            
+            ):
+        # calculate roots (and derivatives, if frime is True), 
+        r = self._root_bothexponents_nondimensional(
+            [exponent, exponent],
+            xn, yn, weights, 
+            jac = fprime
+            )
+        # return
+        if fprime is False:
+            root = r
+            return(np.sum(root))
+        else:
+            root, droot_dpar = r
+            return(np.sum(root), np.sum(droot_dpar))
+
+    def _initialguess_nondimensional(
+            self,
+            xn,
+            yn,
+            weights,
             ):
         # simple guess - linear regression of np.log transformed x and y data
         ftL = LinearFit(np.log(xn), np.log(yn), weights = weights)
         # return
-        return(ftL.gradient)
+        return(ftL.gradient) 
 
-    def _initialguess_bothexponents_nondimensional(
+    def loglikelihood(
+            self,
+            x = None,
+            y = None,
+            weights = None,
+            multiplier = None,
+            exponent = None,
+            sd_multiplier = None,
+            sd_exponent = None,
+            nondimensional_input = False,
+            deriv = 0
+            ):
+        # assign measurements
+        x = self.x if x is None else x
+        y = self.y if y is None else y
+        weights = self.weights if weights is None else weights
+        # assign parameters
+        multiplier = self.multiplier if multiplier is None else multiplier
+        exponent = self.exponent if exponent is None else exponent
+        sd_multiplier = self.sd_multiplier if sd_multiplier is None else sd_multiplier
+        sd_exponent = self.sd_exponent if sd_exponent is None else sd_exponent
+        # loglikelihood with all parameters
+        L = self._loglikelihood_bothexponents(
+            x, y, weights, 
+            multiplier, exponent, sd_multiplier, sd_exponent,
+            nondimensional_input = nondimensional_input,
+            deriv = deriv
+        )
+        # return
+        if deriv == 0:
+            return(L)
+        elif deriv == 1:
+            return(np.array([L[0], L[1] + L[3], L[2]]))
+        elif deriv == 2:
+            return(np.array([
+                [L[0,0], L[0,1] + L[0,3], L[0,2]],
+                [L[1,0] + L[3,0], L[1,1] + L[3,1] + L[1,3] + L[3,3], L[1,2] + L[3,2]],
+                [L[2,0], L[2,1] + L[2,3], L[2,2]]
+                ]))
+
+
+####################################
+### NORMAL - BOTH EXPONENTS FREE ###
+####################################
+
+class PowerlawFitNormalFreesd(PowerlawFitNormalBase):
+
+    def __init__(
+            self, 
+            x,
+            y, 
+            weights = None,
+            start = None, 
+            root_method = 'hybr',
+            x0 = 1.0,
+            ):
+        # call initialisation from parent class
+        super(PowerlawFitNormalFreesd, self).__init__(x, y, weights, x0 = x0)
+        # set other arguments
+        self.start = start
+        self.root_method = root_method
+        # get fit (if data not colinear in log-log space, in which case there is zero variance)
+        if self.colinear is False:
+            self.multiplier, self.exponent, self.sd_multiplier, self.sd_exponent = self.generate_fit(
+                self.x, self.y, self.weights,
+                nondimensional_input = False,
+                nondimensional_output = False
+                )
+        else: 
+            self.sd_multiplier = self.redimensionalise(0.0, self.y0)
+            self.sd_exponent = 0.0
+
+    def generate_fit(
+            self,
+            x,
+            y,
+            weights,
+            nondimensional_input = False,
+            nondimensional_output = False
+            ):
+        # nondimensionalise data
+        if nondimensional_input is True:
+            xn = x
+            yn = y            
+        else:
+            xn = self.nondimensionalise(x, self.x0)
+            yn = self.nondimensionalise(y, self.y0)
+        # initial guess
+        if self.start is None:
+            self.start = self._initialguess_nondimensional(
+                xn, yn, weights
+            )
+        # get exponents, solving root
+        ft = root(
+            self._root_nondimensional,
+            x0 = self.start,
+            jac = True,
+            args = (xn, yn, weights, True),
+            method = self.root_method
+            )
+        exponent, sd_exponent = ft.x
+        # coefficients 
+        c1 = np.sum(weights)
+        c3 = np.sum(weights * xn**(2. * exponent - 2. * sd_exponent))
+        c6 = np.sum(weights * xn**(exponent - 2. * sd_exponent) * yn)
+        c9 = np.sum(weights * xn**(-2. * sd_exponent) * yn**2)
+        # calculate power law multipliers
+        multiplier_nondimensional = c6 / c3
+        sd_multiplier_nondimensional = np.sqrt(c9 / c1 - c6**2 / (c1 * c3))
+        # return
+        if nondimensional_output is True:
+            return(
+                multiplier_nondimensional, 
+                exponent, 
+                sd_multiplier_nondimensional,
+                sd_exponent
+                )
+        else:
+            return(
+                self.redimensionalise(multiplier_nondimensional, self.y0),
+                exponent,
+                self.redimensionalise(sd_multiplier_nondimensional, self.y0),
+                sd_exponent
+                )
+    
+    def _root_nondimensional(
+            self,
+            exponent,
+            xn,
+            yn,
+            weights,
+            jac = True            
+            ):
+        # calculate roots (and derivatives, if jac is True), 
+        return(self._root_bothexponents_nondimensional(
+            [exponent, exponent],
+            xn, yn, weights, 
+            jac = jac
+            ))
+
+    def _initialguess_nondimensional(
             self,
             xn,
             yn,
             weights,
-            sd_exponent_offset = 1., 
-            nrange = 9
+            sd_exponent_offset = 1.0,
+            n_range = 9
             ):
-        # initial guess for exponent - linear regression on log-transformed data
-        exponent = self._initialguess_exponent_nondimensional(yx, yn, weights, 0.0)
-        # try a number of guesses for sd_exponent
-        sd_exponent_guess = exponent + np.linspace(-sd_exponent_offset, sd_exponent_offset, nrange)
-        # fit using assumed values for sd_exponent
-        fts = [PowerlawFitSdfixed(np.column_stack((x, y, w)), sd_exponent=d) for d in delta_guess]
-        # return guesses with largest likelihood
-        imaxL = np.argmax([ft.loglikelihood() for ft in fts])
-        return(np.array([fts[imaxL].exponent, fts[imaxL].sd_exponent]))
+        # exponent - simple guess: linear regression of np.log transformed x and y data
+        ftL = LinearFit(np.log(xn), np.log(yn), weights = weights)
+        exponent = ftL.gradient
+        # generate a number of guesses for sd_exponent
+        sd_exponent_guess = exponent + np.linspace(-sd_exponent_offset, sd_exponent_offset, n_range)
+        # fit using assumed values for delta
+        fts = [PowerlawFitNormal(xn, yn, weights = weights, sd_exponent = d) 
+               for d in sd_exponent_guess]
+        # get guess with largest likelihood
+        L = [ft.loglikelihood() for ft in fts]
+        i_max = np.argmax(L)
+        # return guesses for both exponents
+        return(np.array([fts[i_max].exponent, fts[i_max].sd_exponent]))
+
+    def loglikelihood(
+            self,
+            x = None,
+            y = None,
+            weights = None,
+            multiplier = None,
+            exponent = None,
+            sd_multiplier = None,
+            sd_exponent = None,
+            nondimensional_input = False,
+            deriv = 0
+            ):
+        # assign measurements
+        x = self.x if x is None else x
+        y = self.y if y is None else y
+        weights = self.weights if weights is None else weights
+        # assign parameters
+        multiplier = self.multiplier if multiplier is None else multiplier
+        exponent = self.exponent if exponent is None else exponent
+        sd_multiplier = self.sd_multiplier if sd_multiplier is None else sd_multiplier
+        sd_exponent = self.sd_exponent if sd_exponent is None else sd_exponent
+        # loglikelihood with all parameters
+        L = self._loglikelihood_bothexponents(
+            x, y, weights, 
+            multiplier, exponent, sd_multiplier, sd_exponent,
+            nondimensional_input = nondimensional_input,
+            deriv = deriv
+        )
+        # return
+        return(L)
