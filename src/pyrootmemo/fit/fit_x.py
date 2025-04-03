@@ -6,6 +6,7 @@
 # import packages
 import numpy as np
 from scipy.optimize import root_scalar
+from scipy.special import gamma, digamma, polygamma, gammainc, gammaincinv
 from pyrootmemo.fit.fit import FitBase
 from pyrootmemo.fit.fit_xy_linear import LinearFit
 from pint import Quantity
@@ -756,3 +757,217 @@ class PowerFit(FitBaseX):
             y[x < lower] = 0.
             y[x > upper] = 1.
             return(y) 
+
+
+##############################
+### FIT GAMMA DISTRIBUTION ###
+##############################
+
+class GammaFit(FitBaseX):
+
+    def __init__(
+            self,
+            x,
+            weights = None,
+            start = None,
+            root_method = 'halley'
+    ):
+        # call initialiser of parent class
+        super().__init__(
+            x, 
+            weights = weights, 
+            start = start, 
+            root_method = root_method,
+            xmin = 0.0,
+            xmin_include = True            
+        )
+        # generate fit
+        self.shape, self.scale = self.generate_fit(self.x, self.weights)
+
+    # generate a fit, using nondimensional values
+    def generate_fit(
+            self,
+            x,
+            weights,
+            nondimensional_input = False,
+            nondimensional_output = False
+            ):
+        # make input data nondimensional
+        if nondimensional_input is True:
+            xn = x
+        else:
+            xn = self.nondimensionalise(x, self.x0)
+        # initial guess
+        if self.start is None:
+            self.start = self._initialguess_shape_nondimensional(xn, weights)
+        # root solve for shape parameter
+        ft = root_scalar(
+            self._root_nondimensional,
+            fprime = True,
+            fprime2 = True,
+            x0 = self.start,
+            method = self.root_method,
+            args = (xn, weights)
+            )
+        shape = ft.root
+        # calculate scale parameter
+        c1 = np.sum(self.weights)
+        c3 = np.sum(self.weights * xn)
+        scale_nondimensional = c3 / (shape * c1)
+        # return
+        if nondimensional_output is True:
+            return(shape, scale_nondimensional)
+        else:
+            return(
+                shape,
+                self.redimensionalise(scale_nondimensional, self.x0)
+            )
+    
+    # initial guess for shape function
+    def _initialguess_shape_nondimensional(
+            self,
+            xn,
+            weights
+            ):
+        # mean and variance
+        #mean = np.sum(weights * xn) / np.sum(weights)
+        #variance = np.sum(weights * (xn - mean)**2) / np.sum(weights)
+        # return guess for shape
+        #return(mean**2 / variance)
+        c1 = np.sum(weights)
+        c2 = np.sum(weights * np.log(xn))
+        c3 = np.sum(weights * xn)
+        return(c1 / (2. * c1 * np.log(c3 / c1) - 2. * c2))
+    
+    # root solving function
+    def _root_nondimensional(
+            self,
+            shape,
+            xn,
+            weights, 
+            fprime = True, 
+            fprime2 = True
+            ):
+        # coefficients
+        c1 = np.sum(weights)
+        c2 = np.sum(weights * np.log(xn))
+        c3 = np.sum(weights * xn)
+        # root
+        root = (
+            c1 * (np.log(shape) - np.log(c3 / c1))
+            - c1 * digamma(shape)
+            + c2
+            )
+        if fprime is True or fprime2 is True:
+            # jacobian
+            root_jacobian = c1 / shape  - c1 * polygamma(1, shape)
+            if fprime2 is True:
+                # hessian
+                root_hessian = -c1 / shape**2 - c1 * polygamma(2, shape)
+                return(root, root_jacobian, root_hessian)
+            else:
+                return(root, root_jacobian)
+        else:
+            return(root)
+        
+    # random draw
+    def random(
+            self, 
+            n
+            ):
+        y = np.random.rand(n)
+        return(self.scale * gammaincinv(self.shape, y))
+    
+    # calculate probability density
+    def density(
+            self, 
+            x = None, 
+            log = False, 
+            cumulative = False
+            ):
+        # get data
+        if x is None:
+            x = self.x
+        # make dimensionless
+        xn = self.nondimensionalise(x, self.x0)
+        scale = self.nondimensionalise(self.scale, self.x0)
+        # get densities
+        if cumulative is False:
+            # probability density
+            if log is True:
+                out = (
+                    (self.shape - 1.) * np.log(xn)
+                    - np.log(gamma(self.shape)) - self.shape * np.log(scale)
+                    - xn / scale
+                    )
+            else:
+                out = (
+                    xn**(self.shape - 1.)
+                    / (gamma(self.shape) * scale**self.shape)
+                    * np.exp(-xn / scale)
+                    )
+            return(self.redimensionalise(out, 1. / self.x0))
+        else:
+            # cumulative density
+            P = gammainc(self.shape, xn / scale)
+            if log is True:
+                return(np.log(P))
+            else:
+                return(P)
+
+    def loglikelihood(
+            self,
+            x = None, 
+            weights = None,
+            shape = None, 
+            scale = None, 
+            deriv = 0,
+            nondimensional_input = False
+            ):
+        # get data
+        x = self.x if x is None else x
+        weights = self.weights if weights is None else weights
+        # unpack input parameters
+        shape = self.shape if shape is None else shape
+        scale = self.scale if scale is None else scale
+        # make nondimensional
+        if nondimensional_input is True:
+            xn = x
+        else:
+            xn = self.nondimensionalise(x, self.x0)
+            scale = self.nondimensionalise(scale, self.x0)
+        # coefficients
+        c1 = np.sum(weights * np.log(xn))
+        c2 = np.sum(weights * np.log(xn))
+        c3 = np.sum(weights * xn)
+        # derivatives
+        if deriv == 0:
+            return(
+                - c1 * shape * np.log(scale) 
+                - c1 * np.log(gamma(shape))
+                + c2 * (shape - 1.)
+                - c3 / scale
+                )
+        elif deriv == 1:
+            dlogL_dshape = (
+                - c1 * np.log(scale)
+                - c1 * digamma(shape)
+                + c2
+                )
+            dlogL_dscale = (
+                - c1 * shape / scale
+                + c3 / scale**2
+                )
+            return(np.array([dlogL_dshape, dlogL_dscale]))
+        elif deriv == 2:
+            d2logL_dshape2 = -c1 * polygamma(1, shape)
+            d2logL_dshapedscale = -c1 / scale
+            d2logL_dscale2 = (
+                c1 * shape / scale**2
+                - 2. * c3 / scale**3
+                )
+            return(np.array([
+                [d2logL_dshape2, d2logL_dshapedscale],
+                [d2logL_dshapedscale, d2logL_dscale2]
+                ]))
+        

@@ -163,7 +163,9 @@ class Fbm():
     
     
     # reduction factor
-    def reduction_factor(self) -> float:
+    def reduction_factor(
+            self
+            ) -> float:
         """
         Calculate the ratio between bundle peak force and the sum of 
         individual fibre strengths. Function will thus return a value between
@@ -175,8 +177,8 @@ class Fbm():
             reduction factor.
 
         """
-        force_fbm = self.soil_area * self.peak_force()
-        force_root = np.sum(self._tensile_capacity())
+        force_fbm = self.peak_force()
+        force_root = np.sum(self.roots.xsection * self.roots.tensile_strength)
         return(force_fbm / force_root)
     
   
@@ -185,9 +187,9 @@ class Fbm():
             self,
             labels: bool = True, 
             margin: float = 0.05, 
-            xlabel: chr = 'Force in reference root', 
+            xlabel: chr = 'Force in individual root', 
             ylabel: chr = 'Total force in root bundle',
-            unit: str = "N"
+            unit: str = 'N'
             ) -> tuple:
         """
         Generate a matplotlib plot showing how forces in each roots are 
@@ -252,9 +254,9 @@ class Fbm():
         # label text
         if labels is True:
             labels = self.sort_order + 1
-            labels = labels[self.sort_order]
             plot_labels = True
         elif isinstance(labels, list):
+            labels = np.array(labels)[self.sort_order]
             plot_labels = True
         else:
             plot_labels = False

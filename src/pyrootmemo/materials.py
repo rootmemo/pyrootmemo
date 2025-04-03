@@ -10,6 +10,7 @@ ROOT_PARAMETERS = {
     "elastic_modulus": {"type": (float | int), "unit": units("MPa")},
     "diameter": {"type": (float | int), "unit": units("m")},
     "tensile_strength": {"type": (float | int), "unit": units("MPa")},
+    "length": {"type": (float | int), "unit": units("m")}
 }
 
 SOIL_PARAMETERS = {
