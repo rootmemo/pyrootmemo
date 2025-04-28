@@ -96,7 +96,8 @@ class Waldron():
     # x,y,z components of root length within shearzone
     def _root_length_in_shearzone(
             self,
-            shear_displacement = 0.0
+            shear_displacement = 0.0,
+            jac = False
     ):
         # initial length of vector components within shearzone
         vx = (
@@ -111,42 +112,126 @@ class Waldron():
         )
         vz = self.shearzone.thickness * np.ones_like(self.roots.orientation[..., 2])
         # return
-        return(np.stack([vx + shear_displacement, vy, vz], axis = 1))
+        L = np.stack([vx + shear_displacement, vy, vz], axis = 1)
+        if jac is False:
+            return(L)
+        else:
+            dL_dvxyz = np.stack([
+                np.ones_like(vx),
+                np.zeros_like(vy),
+                np.zeros_like(vz)
+            ], axis = -1)
+            return(L, dL_dvxyz)
+
 
     # calculate elongation in roots based on current shear displacement
-    def _root_elongation(
+    def _pullout_displacement(
             self, 
             shear_displacement,
-            distribution = 0.5
+            distribution = 0.5,
+            jac = False
             ):
-        length_initial = np.linalg.norm(
-            self._root_length_in_shearzone(shear_displacement = 0.0),
-            axis = 1
-        )
-        length_displaced = np.linalg.norm(
-            self._root_length_in_shearzone(shear_displacement = shear_displacement),
-            axis = 1
-        )
-        return(distribution * (length_displaced - length_initial))
+        vxyz0 = self._root_length_in_shearzone(shear_displacement = 0.0)
+        length0 = np.linalg.norm(vxyz0, axis = -1)
+        if jac is False:
+            vxyz1 = self._root_length_in_shearzone(shear_displacement = shear_displacement)
+        else:
+            vxyz1, dvxyz1_shear = self._root_length_in_shearzone(
+                shear_displacement = shear_displacement, jac = True
+                )
+        length1 = np.linalg.norm(vxyz1, axis = -1)
+        pullout_displacement = distribution * (length1 - length0)
+        if jac is False:
+            return(pullout_displacement)
+        else:
+            dlength1_dvxyz1 = vxyz1 / length1[..., np.newaxis]
+            dlength1_dshear = np.tensordot(dlength1_dvxyz1, dvxyz1_shear, axes = (-1, -1))
+            dpullout_dlength1 = distribution
+            dpullout_dshear = dpullout_dlength1 * dlength1_dshear
+            return(
+                pullout_displacement,
+                dpullout_dshear
+            )        
 
     # calculate reinforcing force
-    def _shear_force(
+    def _shear_reinforcement(
             self,
             shear_displacement,
             force,
-    ):
-        length_components = self._root_length_in_shearzone(shear_displacement = shear_displacement)
-        length_displaced = np.linalg.norm(length_components, axis = -1)
-        force_components = length_components * (force / length_displaced)[..., np.newaxis]
-        return(
-            force_components[..., 0] + 
-            force_components[..., 1] * np.tan(self.soil.friction_angle)
-        )        
+            jac = False
+    ):  
+        if jac is False:
+            vxyz = self._root_length_in_shearzone(shear_displacement = shear_displacement)
+        else:
+            vxyz, dvxyz_dshear = self._root_length_in_shearzone(
+                shear_displacement = shear_displacement, jac = True
+                )
+        length1 = np.linalg.norm(vxyz, axis = -1)
+        Fxyz = vxyz * (force / length1)[..., np.newaxis]
+        shearforce = (
+            Fxyz[..., 0]
+            + Fxyz[..., 2] * np.tan(self.soil.friction_angle)
+        )
+        if jac is False:
+            return(shearforce / self.soil.area)
+        else:
+            dlength1_dvxyz = vxyz / length1[..., np.newaxis]
+            dlength1_dshear = np.tensordot(dlength1_dvxyz, dvxyz_dshear, axes = (-1, -1))
+            dFxyz_dlength1 = -vxyz * (force / length1**2)[..., np.newaxis]
+            dFxyz_dforce = vxyz / length1[..., np.newaxis]
+            dshearforce_force = (
+                dFxyz_dforce[..., 0]
+                + dFxyz_dforce[..., 2] * np.tan(self.soil.friction_angle)
+            )
+            dshearforce_dlength1 = (
+                dFxyz_dlength1[..., 0]
+                + dFxyz_dlength1[..., 2] * np.tan(self.soil.friction_angle)
+            )
+            dshearforce_dshear = dshearforce_dlength1 * dlength1_dshear
+            return(
+                shearforce / self.soil.area,
+                dshearforce_dshear / self.soil.area,
+                dshearforce_force / self.soil.area,
+            )
+
 
     # reinforcement at current level of shear displacement
-    def reinforcement(displacement):
-        None
+    def reinforcement(
+            self,
+            shear_displacement, 
+            jac = False   
+            ):
+        if jac is False:
+            pullout_displacement = self._pullout_displacement(shear_displacement)
+            force, survival, behaviour_type = self.pullout.force(pullout_displacement)
+            reinforcement = self._shear_reinforcement(shear_displacement, force)
+            return(np.sum(reinforcement))
+        else:
+            pullout_displacement, dpullout_dshear = self._pullout_displacement(
+                shear_displacement, jac = True
+                )
+            force, survival, behaviour_type, dforce_dpullout = self.pullout.force(
+                pullout_displacement, jac = True
+                )
+            reinforcement, dreinforcement_dshear, dreinforcement_dforce = self._shear_reinforcement(
+                shear_displacement, force, jac = True
+                )
+            dreinforcement_dshear = (
+                dreinforcement_dshear + 
+                dreinforcement_dforce * dforce_dpullout * dpullout_dshear
+            )
+            return(
+                np.sum(reinforcement),
+                np.sum(dreinforcement_dshear)
+            )            
 
     # peak reinforcement
     def peak_reinforcement():
+        # if no breakage and slippage -> infinite
+        # else if weibullshape = None --> discrete breakages
+        # get displacement at each root breakage event
+        # -> get forces at these events
+        # -> find max (but does not have to be max because of orientation effect)
+        # -> find 'real' max
+
         None

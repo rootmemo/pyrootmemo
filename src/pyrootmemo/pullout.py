@@ -139,13 +139,36 @@ class Pullout_base():
     def _get_behaviour_type(self, displacement):
         return((displacement > self.limits[0]).sum(axis = 1))
 
-    def _get_survival_weibull(self, force, weibull_shape = None):
+    def _get_survival_weibull(
+            self, 
+            force, 
+            weibull_shape = None,
+            jac = False
+            ):
         stress = force / self.roots.xsection
         if weibull_shape is None:
-            return((stress <= self.roots.tensile_strength).astype('float'))
+            survival = (stress <= self.roots.tensile_strength).astype('float')
+            if jac is False:
+                return(survival)
+            else:
+                dsurvival_dforce = np.zeros(self.nroots) * units('1/N')
+                return(survival, dsurvival_dforce)
         else:
             weibull_scale = self.roots.tensile_strength / gamma(1.0 + 1.0 / weibull_shape)
-            return(np.exp(-(stress / weibull_scale)**weibull_shape))
+            survival = np.exp(-(stress / weibull_scale)**weibull_shape)
+            if jac is False:
+                return(survival)
+            else:
+                dstress_dforce = 1.0 / self.roots.xsection
+                dsurvival_dstress = (
+                    -weibull_shape / weibull_scale
+                    * (stress / weibull_scale) ** (weibull_shape - 1.0)
+                    * survival
+                )
+                return(
+                    survival,
+                    dsurvival_dstress * dstress_dforce
+                )
 
     def calculate(self, displacements):
         # make vector of displacements
@@ -186,20 +209,43 @@ class Pullout_embedded_elastic(Pullout_base):
             embedded_coefficients_anchored_elastic(self.roots, self.interface_resistance)
             ])
 
-    def _force_unbroken(self, displacement):
+    def _force_unbroken(self, displacement, jac = False):
         # initialise force vector and find behaviour indices
         force = np.zeros(self.nroots) * units('N')
         behaviour_type = self._get_behaviour_type(displacement)
-        # elastic behaviout
+        # elastic behaviour
         index1 = (behaviour_type == 1)
         force[index1] = np.sqrt(displacement / self.coefficients[0][index1, 1])
         # return
-        return(force, behaviour_type)
+        if jac is False:
+            return(force, behaviour_type)
+        else:
+            dforce_ddisplacement = np.zeros(self.nroots) * units['N/m']
+            dforce_ddisplacement[index1] = (
+                1.0 
+                / (2.0 * force[index1] * self.coefficients[0][index1, 1])
+                )
+            return(force, behaviour_type, dforce_ddisplacement)
 
-    def force(self, displacement):
-        force, behaviour_type = self._force_unbroken(displacement)
+    def force(
+            self, 
+            displacement, 
+            jac = False
+            ):
         survival = np.ones(self.nroots)
-        return(force, survival, behaviour_type)
+        if jac is False:
+            force, behaviour_type = self._force_unbroken(displacement)
+            return(force, survival, behaviour_type)
+        else:
+            force, behaviour_type, dforce_ddisplacement = self._force_unbroken(
+                displacement, jac = True
+                )
+            return(
+                force,
+                survival,
+                behaviour_type,
+                dforce_ddisplacement
+            )
 
 
 # embedded - elastic, slipping
@@ -234,7 +280,11 @@ class Pullout_embedded_elastic_slipping(Pullout_embedded_elastic):
             embedded_coefficients_slipping(self.roots)
             ])
 
-    def _force_unbroken(self, displacement):
+    def _force_unbroken(
+            self, 
+            displacement,
+            jac = False
+            ):
         # initialise force vector and find behaviour indices
         force = np.zeros(self.nroots) * units('N')
         behaviour_type = self._get_behaviour_type(displacement)
@@ -245,7 +295,19 @@ class Pullout_embedded_elastic_slipping(Pullout_embedded_elastic):
         index2 = (behaviour_type == 2)
         force[index2] = self.limits[1][index2, 1]
         # return
-        return(force, behaviour_type)
+        if jac is False:
+            return(force, behaviour_type)
+        else:
+            dforce_ddisplacement = np.zeros(self.nroots) * units['N/m']
+            dforce_ddisplacement[index1] = (
+                1.0 
+                / (2.0 * force[index1] * self.coefficients[0][index1, 1])
+                )
+            return(
+                force, 
+                behaviour_type, 
+                dforce_ddisplacement
+                )
 
 
 # embedded - elastic, breakage
@@ -267,14 +329,38 @@ class Pullout_embedded_elastic_breakage(Pullout_embedded_elastic):
         # set weibull shape parameter
         self.weibull_shape = weibull_shape
 
-    def force(self, displacement):
-        force_unbroken, behaviour_type = self._force_unbroken(displacement)
-        survival = self._get_survival_weibull(force_unbroken, self.weibull_shape)
-        return(
-            force_unbroken * survival, 
-            survival, 
-            behaviour_type
-        )
+    def force(
+            self, 
+            displacement,
+            jac = False
+            ):
+        if jac is False:
+            force_unbroken, behaviour_type = self._force_unbroken(displacement)
+            survival = self._get_survival_weibull(force_unbroken, self.weibull_shape)
+            return(
+                force_unbroken * survival, 
+                survival, 
+                behaviour_type
+            )
+        else:
+            force_unbroken, behaviour_type, dforceunbroken_ddisplacement = self._force_unbroken(
+                displacement, jac = True
+                )
+            survival, dsurvival_dforceunbroken = self.get_survival_weibull(
+                force_unbroken,
+                self.weibull_shape, 
+                jac = True
+            )
+            dforce_displacement = (
+                dforceunbroken_ddisplacement * survival
+                + force_unbroken * dsurvival_dforceunbroken * dforceunbroken_ddisplacement
+            )
+            return(
+                force_unbroken * survival, 
+                survival, 
+                behaviour_type,
+                dforce_displacement
+            )
 
 
 # embedded - elastic, breakage, slipping
@@ -299,15 +385,36 @@ class Pullout_embedded_elastic_breakage_slipping(Pullout_embedded_elastic_slippi
         # set weibull shape parameter
         self.weibull_shape = weibull_shape
 
-    def force(self, displacement):
-        force_unbroken, behaviour_type = self._force_unbroken(displacement)
-        survival = self._get_survival_weibull(force_unbroken, self.weibull_shape)
-        return(
-            force_unbroken * survival, 
-            survival, 
-            behaviour_type
-        )
-    
+    def force(
+            self, 
+            displacement,
+            jac = False
+            ):
+        if jac is False:
+            force_unbroken, behaviour_type = self._force_unbroken(displacement)
+            survival = self._get_survival_weibull(force_unbroken, self.weibull_shape)
+            return(
+                force_unbroken * survival, 
+                survival, 
+                behaviour_type
+            )
+        else:
+            force_unbroken, behaviour_type, dforceunbroken_ddisplacement = self._force_unbroken(
+                displacement, jac = True
+                )
+            survival, dsurvival_dforce = self._get_survival_weibull(
+                force_unbroken, self.weibull_shape, jac = True
+                )
+            dforce_ddisplacement = (
+                dforceunbroken_ddisplacement * survival 
+                + force_unbroken * dsurvival_dforce * dforceunbroken_ddisplacement
+            )
+            return(
+                force_unbroken * survival, 
+                survival, 
+                behaviour_type,
+                dforce_ddisplacement
+            )
 
 # embedded - elasto-plastic
 class Pullout_embedded_elastoplastic(Pullout_base):
@@ -348,7 +455,11 @@ class Pullout_embedded_elastoplastic(Pullout_base):
             embedded_coefficients_anchored_plastic(self.roots, self.interface_resistance)
             ])
 
-    def _force_unbroken(self, displacement):
+    def _force_unbroken(
+            self, 
+            displacement,
+            jac = False
+            ):
         # initialise force vector and find behaviour indices
         force = np.zeros(self.nroots) * units('N')
         behaviour_type = self._get_behaviour_type(displacement)
@@ -363,12 +474,45 @@ class Pullout_embedded_elastoplastic(Pullout_base):
             self.coefficients[2][index2, 2] - displacement
         )
         # return
-        return(force, behaviour_type)
+        if jac is False:
+            return(force, behaviour_type)
+        else:
+            dforce_ddisplacement = np.zeros(self.nroots) * units['N/m']
+            dforce_ddisplacement[index1] = (
+                1.0
+                / (2.0 * self.coefficients[0][index1, 1] * force[index1])                
+            )
+            dforce_ddisplacement[index2] = (
+                1.0
+                / (2.0 * self.coefficients[0][index2, 2] * force[index2]
+                   + self.coefficients[1][index2, 2])
+                )
+            return(
+                force,
+                behaviour_type,
+                dforce_ddisplacement
+            )
 
-    def force(self, displacement):
-        force, behaviour_type = self._force_unbroken(displacement)
+
+    def force(
+            self, 
+            displacement,
+            jac = False
+            ):
         survival = np.ones(self.nroots)
-        return(force, survival, behaviour_type)
+        if jac is False:
+            force, behaviour_type = self._force_unbroken(displacement)
+            return(force, survival, behaviour_type)
+        else:
+            force, behaviour_type, dforce_ddisplacement = self._force_unbroken(
+                displacement, jac = True
+                )
+            return(
+                force,
+                survival,
+                behaviour_type,
+                dforce_ddisplacement
+            )
 
 
 # embedded - elasto-plastic, slipping
@@ -426,7 +570,11 @@ class Pullout_embedded_elastoplastic_slipping(Pullout_embedded_elastoplastic):
             embedded_coefficients_slipping(self.roots)
             ])
 
-    def _force_unbroken(self, displacement):
+    def _force_unbroken(
+            self, 
+            displacement,
+            jac = False
+            ):
         # initialise force vector and find behaviour indices
         force = np.zeros(self.nroots) * units('N')
         behaviour_type = self._get_behaviour_type(displacement)
@@ -444,7 +592,24 @@ class Pullout_embedded_elastoplastic_slipping(Pullout_embedded_elastoplastic):
         index24 = (behaviour_type == 2) | (behaviour_type == 4)
         force[index24] = self.limits[1][index24, 3]
         # return
-        return(force, behaviour_type)
+        if jac is False:
+            return(force, behaviour_type)
+        else:
+            dforce_ddisplacement = np.zeros(self.nroots) * units['N/m']
+            dforce_ddisplacement[index1] = (
+                1.0
+                / (2.0 * self.coefficients[0][index1, 1] * force[index1])                
+            )
+            dforce_ddisplacement[index3] = (
+                1.0
+                / (2.0 * self.coefficients[0][index3, 2] * force[index3]
+                   + self.coefficients[1][index3, 2])
+                )
+            return(
+                force,
+                behaviour_type,
+                dforce_ddisplacement
+            )            
 
 
 # embedded - elastic, breakage
@@ -470,14 +635,36 @@ class Pullout_embedded_elastoplastic_breakage(Pullout_embedded_elastoplastic):
         # set weibull shape parameter
         self.weibull_shape = weibull_shape
 
-    def force(self, displacement):
-        force_unbroken, behaviour_type = self._force_unbroken(displacement)
-        survival = self._get_survival_weibull(force_unbroken, self.weibull_shape)
-        return(
-            force_unbroken * survival, 
-            survival, 
-            behaviour_type
-        )
+    def force(
+            self, 
+            displacement,
+            jac = False
+            ):
+        if jac is False:
+            force_unbroken, behaviour_type = self._force_unbroken(displacement)
+            survival = self._get_survival_weibull(force_unbroken, self.weibull_shape)
+            return(
+                force_unbroken * survival, 
+                survival, 
+                behaviour_type
+            )
+        else:
+            force_unbroken, behaviour_type, dforceunbroken_ddisplacement = self._force_unbroken(
+                displacement, jac = True
+                )
+            survival, dsurvival_dforceunbroken = self._get_survival_weibull(
+                force_unbroken, self.weibull_shape, jac = True
+                )
+            dforce_ddisplacement = (
+                dforceunbroken_ddisplacement * survival
+                + force_unbroken * dsurvival_dforceunbroken * dforceunbroken_ddisplacement
+            )
+            return(
+                force_unbroken * survival, 
+                survival, 
+                behaviour_type,
+                dforce_ddisplacement
+            )
 
 # embedded - elasto-plastic, breakage, slipping
 class Pullout_embedded_elastoplastic_breakage_slipping(Pullout_embedded_elastoplastic_slipping):
@@ -503,12 +690,34 @@ class Pullout_embedded_elastoplastic_breakage_slipping(Pullout_embedded_elastopl
         # set weibull shape parameter
         self.weibull_shape = weibull_shape
 
-    def force(self, displacement):
-        force_unbroken, behaviour_type = self._force_unbroken(displacement)
-        survival = self._get_survival_weibull(force_unbroken, self.weibull_shape)
-        return(
-            force_unbroken * survival, 
-            survival, 
-            behaviour_type
-        )
+    def force(
+            self, 
+            displacement,
+            jac = False
+            ):
+        if jac is False:
+            force_unbroken, behaviour_type = self._force_unbroken(displacement)
+            survival = self._get_survival_weibull(force_unbroken, self.weibull_shape)
+            return(
+                force_unbroken * survival, 
+                survival, 
+                behaviour_type
+            )
+        else:
+            force_unbroken, behaviour_type, dforceunbroken_ddisplacement = self._force_unbroken(
+                displacement, jac = True
+                )
+            survival, dsurvival_dforceunbroken = self._get_survival_weibull(
+                force_unbroken, self.weibull_shape, jac = True
+                )
+            dforce_ddisplacement = (
+                dforceunbroken_ddisplacement * survival
+                + force_unbroken * dsurvival_dforceunbroken * dforceunbroken_ddisplacement
+            )
+            return(
+                force_unbroken * survival, 
+                survival, 
+                behaviour_type,
+                dforce_ddisplacement
+            )
 
