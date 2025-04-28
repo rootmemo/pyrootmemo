@@ -6,7 +6,7 @@ from pyrootmemo.tools.helpers import units
 from pyrootmemo.utils_plot import round_range
 from pint import Quantity
 import matplotlib.pyplot as plt
-from collections import namedtuple
+import warnings
 
 
 # RBMw class
@@ -272,7 +272,7 @@ class Rbmw():
         # convert area
         if not isinstance(soil_area, Quantity):
             if isinstance(soil_area, int) or isinstance(soil_area, float):
-                Warning("soil area unit not defined - assumed as m^2")
+                warnings.warn("soil area unit not defined - assumed as m^2")
                 soil_area = soil_area * units("m^2")
             else:
                 TypeError("soil area must be defined as area quantity")

@@ -7,6 +7,8 @@ from pyrootmemo.tools.helpers import units
 from pint import Quantity
 from pyrootmemo.fit.fit_x import PowerFit
 from pyrootmemo.fit.fit_x_binned import PowerFitBinned
+import warnings
+
 
 ###########
 ### FBM ###
@@ -153,7 +155,7 @@ class Fbm():
         # convert area
         if not isinstance(soil_area, Quantity):
             if isinstance(soil_area, int) or isinstance(soil_area, float):
-                Warning("soil area unit not defined - assumed as m^2")
+                warnings.warn("soil area unit not defined - assumed as m^2")
                 soil_area = soil_area * units("m^2")
             else:
                 TypeError("soil area must be defined as integer or float")
