@@ -179,6 +179,7 @@ class Soil:
     ):
         if not isinstance(name, str):
             raise TypeError("Soil name should be entered as a string")
+        self.name = name.lower().replace(" ", "_")
         for k, v in kwargs.items():
             if k not in SOIL_PARAMETERS.keys():
                 raise ValueError(
