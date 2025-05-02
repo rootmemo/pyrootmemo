@@ -26,13 +26,6 @@ SOIL_PARAMETERS = {
     "water_content": {"type": (float | int), "unit": units("").to("percent")}
 }
 
-SHEARZONE_PARAMETERS = {
-    "area": {"type": (float | int), "unit": units("m^2")},
-    "effective_stress": {"type": (float | int), "unit": units("kN/m^2")},
-    "thickness": {"type": (float | int), "unit": units("mm")},
-    "orientation": {"type": list, "unit": units("")}  # axis-angle rotation vector
-}
-
 ROOT_SOIL_INTERFACE_PARAMETERS = {
     "shear_strength": {"type": (float | int), "unit": units("kPa")},
     "adhesion": {"type": (float | int), "unit": units("kPa")},
@@ -203,38 +196,6 @@ class Soil:
                 ):
                     raise TypeError(
                         f"{k} should only be of type {SOIL_PARAMETERS[k]["type"]} in a list"
-                    )
-
-            setattr(self, k, v.value * units(v.unit))
-
-class Shearzone:
-    def __init__(
-        self,
-        **kwargs,
-    ):
-        for k, v in kwargs.items():
-            if k not in SHEARZONE_PARAMETERS.keys():
-                raise ValueError(
-                    f"Undefined parameter. Choose one of the following: {SHEARZONE_PARAMETERS.keys()}"
-                )
-            if not is_namedtuple(v):
-                raise TypeError("Parameter should be of type Parameter(value, unit)")
-            if not isinstance(v.value, (SHEARZONE_PARAMETERS[k]["type"] | list)):
-                raise TypeError(
-                    f"Value should be of type {SHEARZONE_PARAMETERS[k]["type"]} or a list"
-                )
-            if not isinstance(v.unit, str):
-                raise TypeError("Unit should be entered as a string")
-            if not units(v.unit).check(SHEARZONE_PARAMETERS[k]["unit"].dimensionality):
-                raise DimensionalityError(
-                    units1=v.unit, units2=SHEARZONE_PARAMETERS[k]["unit"]
-                )
-            if isinstance(v.value, list):
-                if not all(
-                    [isinstance(entry, SHEARZONE_PARAMETERS[k]["type"]) for entry in v.value]
-                ):
-                    raise TypeError(
-                        f"{k} should only be of type {SHEARZONE_PARAMETERS[k]["type"]} in a list"
                     )
 
             setattr(self, k, v.value * units(v.unit))

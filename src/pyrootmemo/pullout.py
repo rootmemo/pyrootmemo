@@ -1,163 +1,288 @@
 # import packages
 import numpy as np
 from scipy.special import gamma
+import matplotlib.pyplot as plt
 from pyrootmemo.tools.helpers import units
 from pint import Quantity
-import matplotlib.pyplot as plt
 
 
-# each function
-# - behaviour_types
-# - behaviour_limits (displacement/force tuples)
-# - force(displacement): calculate force, survival function and type
-
-# COMMON FUNCTIONS
-
-def _number_of_roots(roots):
-    return(len(roots.xsection.magnitude))
-
-def _solve_quadratic(a, b, c):
-    ## solve equations a*x^2 + b*x^2 + c = 0 in DRAM
-    ## a = always positive in DRAM equations
-    ## function returns largest root
-    discriminant = b**2 - 4.0 * a * c
-    x = (-b + np.sqrt(discriminant)) / (2.0 * a)
-    return(x)
+# DATA
+BEHAVIOUR_NAMES = [
+    'Not in tension',
+    'Anchored, elastic',
+    'Slipping, elastic',
+    'Anchored, plastic',   
+    'Slipping, plastic'
+]
 
 
-# POLYNOMIAL COEFFICIENTS
-
-def embedded_coefficients_notintension(roots):
-    nroots = _number_of_roots(roots)
-    c2 = np.zeros(nroots) * units['m/N^2']
-    c1 = np.zeros(nroots) * units['m/N']
-    c0 = np.zeros(nroots) * units['m']
-    return(c2, c1, c0)
-
-def embedded_coefficients_anchored_elastic(roots, interface_resistance):
-    nroots = _number_of_roots(roots)
-    c2 = 1.0 / (2.0 * roots.elastic_modulus * roots.xsection * roots.circumference * interface_resistance)
-    c1 = np.zeros(nroots) * units['m/N']
-    c0 = np.zeros(nroots) * units['m']
-    return(c2, c1, c0)
-
-def embedded_coefficients_slipping(roots):
-    nroots = _number_of_roots(roots)
-    c2 = np.zeros(nroots) * units['m/N^2']
-    c1 = np.zeros(nroots) * units['m/N']
-    c0 = np.inf * np.ones(nroots) * units['m']
-    return(c2, c1, c0)
-
-def embedded_coefficients_anchored_plastic(roots, interface_resistance):
-    c2 = (
-        1.0 
-        / (2.0 * roots.plastic_modulus * roots.xsection * roots.circumference * interface_resistance)
-        )
-    c1 = (
-        roots.yield_strength 
-        / (roots.elastic_modulus * roots.circumference * interface_resistance)
-        - roots.yield_strength 
-        / (roots.plastic_modulus * roots.circumference * interface_resistance)
-        )
-    c0 = (
-        -roots.yield_strength**2 * roots.xsection 
-        / (2.0 * roots.elastic_modulus * roots.circumference * interface_resistance)
-        + roots.yield_strength**2 * roots.xsection 
-        / (2.0 * roots.plastic_modulus * roots.circumference * interface_resistance)
-        )
-    return(c2, c1, c0)
+########################
+### EMBEDDED ELASTIC ###
+########################
 
 
-# LIMITS 
-
-def embedded_limits_notintension(roots):
-    nroots = _number_of_roots(roots)
-    force = np.zeros(nroots) * units['N']
-    displacement = np.zeros(nroots) * units['m']
-    return(displacement, force)
-
-def embedded_limits_elastic_slipping(roots, interface_resistance):
-    force = roots.length * roots.circumference * interface_resistance
-    c2,_,_ = embedded_coefficients_anchored_elastic(roots, interface_resistance)
-    displacement = c2 * force**2
-    return(displacement, force)
-
-def embedded_limits_plastic_slipping(roots, interface_resistance):
-    force = roots.length * roots.circumference * interface_resistance
-    c2,c1,c0 = embedded_coefficients_anchored_plastic(roots, interface_resistance)
-    displacement = c2 * force**2 + c1 * force + c0
-    return(displacement, force)
-
-def embedded_limits_yield_anchored(roots, interface_resistance):
-    force = roots.yield_strength * roots.xsection
-    c2,_,_ = embedded_coefficients_anchored_elastic(roots, interface_resistance)
-    displacement = c2 * force**2
-    return(displacement, force)
-
-
-# BASE CLASS
-
-class Pullout_base():
+# EMBEDDED - ELASTIC
+class Pullout_embedded_elastic():
 
     def __init__(
-            self, 
-            roots, 
-            interface_resistance,
-            roots_required_attr = ['xsection', 'circumference', 'elastic_modulus'],
+            self,
+            roots,
+            interface,
+            **kwargs
             ):
-        # set multiple roots input
-        self._check_fields(roots, roots_required_attr)
+        # check input, then assign
+        self._check_input(roots, interface)
         self.roots = roots
-        # set number of roots 
-        self.nroots = _number_of_roots(roots)
-        # set interface resistance
-        if not isinstance(interface_resistance, Quantity):
-            raise TypeError('soil resistance must be defined as a Quantity')
-        else:
-            unit_input = interface_resistance.to_base_units().units
-            unit_required = units('kPa').to_base_units().units
-            if unit_input != unit_required:
-                raise ValueError('soil resitance must be specified as a stress')
-            if not np.isscalar(interface_resistance.magnitude):
-                if len(interface_resistance.magnitude) == self.nroots:
-                    raise ValueError('soil resistance must be scalar or defined per root')
-        self.interface_resistance = interface_resistance
-        # set behaviour types, displacement/force limits and polynomial coefficients
+        self.interface = interface
+        # set behaviour types, coefficients and limits
         self._set_behaviour_types()
-        self._set_limits()
         self._set_coefficients()
+        self._set_limits()
+        # set keyword arguments
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
-    def _check_fields(self, object, fields):
-        missing = [f for f in fields if not hasattr(object, f)]
+    def _check_contains_attributes(
+            self,
+            object, 
+            attributes
+            ):
+        missing = [a for a in attributes if not hasattr(object, a)]
         if len(missing) > 0:
-            error_message = "Object is missing attributes {0}".format(missing)
+            error_message = "Object of type {0} is missing attributes {1}".format(type(object), missing)
             raise(TypeError(error_message))
 
-    def _combine_coefficients(self, list):
+    def _check_input(
+            self,
+            roots,
+            interface
+    ):
+        self._check_contains_attributes(
+            roots, 
+            ['xsection', 'circumference', 'elastic_modulus']
+            )
+        self._check_contains_attributes(interface, ['shear_strength'])
+
+    def _nroots(self):
+        return(len(self.roots.xsection.magnitude))
+
+    def _set_behaviour_types(self):
+        self.behaviour_types = [BEHAVIOUR_NAMES[i] for i in [0, 1]]
+
+    def _get_coefficients_notintension(self):
+        nroots = self._nroots()
+        c2 = np.zeros(nroots) * units['m/N^2']
+        c1 = np.zeros(nroots) * units['m/N']
+        c0 = np.zeros(nroots) * units['m']
+        return(c2, c1, c0)
+
+    def _get_coefficients_anchored_elastic(self):
+        nroots = self._nroots()
+        c2 = 1.0 / (2.0 * self.roots.elastic_modulus * self.roots.xsection 
+                    * self.roots.circumference * self.interface.shear_strength)
+        c1 = np.zeros(nroots) * units['m/N']
+        c0 = np.zeros(nroots) * units['m']
+        return(c2, c1, c0)
+
+    def _combine_coefficients(
+            self,
+            list
+            ):
         return([np.column_stack(x) for x in zip(*list)])
 
-    def _get_behaviour_type(self, displacement):
+    def _set_coefficients(self):
+        self.coefficients = self._combine_coefficients([
+            self._get_coefficients_notintension(),
+            self._get_coefficients_anchored_elastic()
+            ])
+
+    def _get_limits_notintension(self):
+        nroots = self._nroots()
+        force = np.zeros(nroots) * units['N']
+        displacement = np.zeros(nroots) * units['m']
+        return(displacement, force)
+
+    def _set_limits(self):
+        self.limits = self._combine_coefficients([
+            self._get_limits_notintension()
+            ])
+        
+    def _get_behaviour_type(
+            self, 
+            displacement
+            ):
         return((displacement > self.limits[0]).sum(axis = 1))
 
-    def _get_survival_weibull(
+    def _get_force_unbroken(
+            self, 
+            displacement, 
+            jac = False
+        ):
+        # initialise force vector and find behaviour indices
+        nroots = self._nroots()
+        force_unbroken = np.zeros(nroots) * units('N')
+        behaviour_type = self._get_behaviour_type(displacement)
+        # elastic behaviour
+        index1 = (behaviour_type == 1)
+        force_unbroken[index1] = np.sqrt(displacement / self.coefficients[0][index1, 1])
+        # derivative of force with respect to pullout displacement
+        if jac is False:
+            dforceunbroken_ddisplacement = None
+        else:
+            dforceunbroken_ddisplacement = np.zeros_like(force_unbroken) * units['N/m']
+            dforceunbroken_ddisplacement[index1] = (
+                1.0 
+                / (2.0 * force_unbroken[index1] * self.coefficients[0][index1, 1])
+                )
+        # return
+        return(
+            force_unbroken, 
+            dforceunbroken_ddisplacement, 
+            behaviour_type
+            )
+
+    def _get_survival(
             self, 
             force, 
-            weibull_shape = None,
+            jac = False,
+            ):
+        survival = np.ones_like(force)
+        if jac is False:
+            dsurvival_dforce = None
+        else:
+            dsurvival_dforce = np.zeros_like(survival) * units('1/N')
+        return(survival, dsurvival_dforce)
+    
+    def force(
+            self,
+            displacement,
+            jac = False
+    ):
+        force_unbroken, dforceunbroken_ddisplacement, behaviour_type = self._get_force_unbroken(
+            displacement, 
+            jac = jac
+            )
+        survival, dsurvival_dforceunbroken = self._get_survival(
+            force_unbroken, 
+            jac = jac
+            )
+        force = force_unbroken * survival
+        if jac is False:
+            dforce_ddisplacement = None
+        else:
+            dforce_ddisplacement = (
+                dforceunbroken_ddisplacement * survival
+                + force * dsurvival_dforceunbroken * dforceunbroken_ddisplacement
+            )
+        return(
+            force,
+            dforce_ddisplacement,
+            survival, 
+            behaviour_type
+        )
+
+
+# EMBEDDED - ELASTIC, SLIPPING
+class Pullout_embedded_elastic_slipping(Pullout_embedded_elastic):
+
+    def _check_input(
+            self,
+            roots,
+            interface
+    ):
+        self._check_contains_attributes(
+            roots, 
+            ['xsection', 'circumference', 'elastic_modulus', 'length']
+            )
+        self._check_contains_attributes(interface, ['shear_strength'])
+
+    def _set_behaviour_types(self):
+        self.behaviour_types = [BEHAVIOUR_NAMES[i] for i in [0, 1, 2]]
+
+    def _get_coefficients_slipping(self):
+        nroots = self._nroots()
+        c2 = np.zeros(nroots) * units['m/N^2']
+        c1 = np.zeros(nroots) * units['m/N']
+        c0 = np.inf * np.ones(nroots) * units['m']
+        return(c2, c1, c0)
+
+    def _set_coefficients(self):
+        self.coefficients = self._combine_coefficients([
+            self._get_coefficients_notintension(),
+            self._get_coefficients_anchored_elastic(),
+            self._get_coefficients_slipping()
+            ])
+
+    def _get_limits_elastic_slipping(self):
+        force = self.roots.length * self.roots.circumference * self.interface.shear_strength
+        c2, _, _ = self._get_coefficients_anchored_elastic()
+        displacement = c2 * force**2
+        return(displacement, force)
+
+    def _set_limits(self):
+        self.limits = self._combine_coefficients([
+            self._get_limits_notintension(),
+            self._get_limits_elastic_slipping()
+            ])
+        
+    def _get_force_unbroken(
+            self, 
+            displacement,
+            jac = False
+            ):
+        # initialise force vector and find behaviour indices
+        nroots = self._nroots()
+        force_unbroken = np.zeros(nroots) * units('N')
+        behaviour_type = self._get_behaviour_type(displacement)
+        # elastic behaviour
+        index1 = (behaviour_type == 1)
+        force_unbroken[index1] = np.sqrt(displacement / self.coefficients[0][index1, 1])
+        # slipping behaviour
+        index2 = (behaviour_type == 2)
+        force_unbroken[index2] = self.limits[1][index2, 1]
+        # derivatives
+        if jac is False:
+            dforceunbroken_ddisplacement = None
+        else:
+            dforceunbroken_ddisplacement = np.zeros_like(force_unbroken) * units['N/m']
+            dforceunbroken_ddisplacement[index1] = (
+                1.0 
+                / (2.0 * force_unbroken[index1] * self.coefficients[0][index1, 1])
+                )
+        # return
+        return(
+            force_unbroken, 
+            dforceunbroken_ddisplacement,
+            behaviour_type,             
+            )
+    
+
+# EMBEDDED - ELASTIC, BREAKAGE
+class Pullout_embedded_elastic_breakage(Pullout_embedded_elastic):
+
+    def _check_input(
+            self,
+            roots,
+            interface
+    ):
+        self._check_contains_attributes(
+            roots, 
+            ['xsection', 'circumference', 'elastic_modulus', 'tensile_strength']
+            )
+        self._check_contains_attributes(interface, ['shear_strength'])
+
+    def _get_survival(
+            self, 
+            force, 
             jac = False
             ):
         stress = force / self.roots.xsection
-        if weibull_shape is None:
-            survival = (stress <= self.roots.tensile_strength).astype('float')
-            if jac is False:
-                return(survival)
-            else:
-                dsurvival_dforce = np.zeros(self.nroots) * units('1/N')
-                return(survival, dsurvival_dforce)
-        else:
+        if hasattr(self, 'weibull_shape'):
+            weibull_shape = self.weibull_shape
             weibull_scale = self.roots.tensile_strength / gamma(1.0 + 1.0 / weibull_shape)
             survival = np.exp(-(stress / weibull_scale)**weibull_shape)
             if jac is False:
-                return(survival)
+                dsurvival_dforce = None
             else:
                 dstress_dforce = 1.0 / self.roots.xsection
                 dsurvival_dstress = (
@@ -165,559 +290,273 @@ class Pullout_base():
                     * (stress / weibull_scale) ** (weibull_shape - 1.0)
                     * survival
                 )
-                return(
-                    survival,
-                    dsurvival_dstress * dstress_dforce
-                )
-
-    def calculate(self, displacements):
-        # make vector of displacements
-        if np.isscalar(displacements.magnitude):
-            displacements = Quantity.from_list([displacements])
-        # calculate results for each displacement step
-        tmp = [self.force(i) for i in displacements]
-        force, survival, behaviour = zip(*tmp)
-        # generate results arrays (axis 1 = roots, axis 0 = displacements)
-        force = np.stack(force, axis = 0)
-        survival = np.array(survival)
-        behaviour = np.array(behaviour)
-        # return
-        return(force, survival, behaviour)
-
-    def plot(self, displacement_max, n = 251):
-        displacement = np.linspace(0.0, displacement_max, n)
-        force,survival,behaviour = self.calculate(displacement)
-        fig, ax = plt.subplots(1, 1)
-        ax.stackplot(displacement.magnitude, force.magnitude.transpose())
-        return(fig, ax)
+                dsurvival_dforce = dsurvival_dstress * dstress_dforce
+        else:
+            survival = (stress <= self.roots.tensile_strength).astype('float')
+            if jac is False:
+                dsurvival_dforce = None
+            else:
+                dsurvival_dforce = np.zeros(self._nroots()) * units('1/N')
+        return(survival, dsurvival_dforce)
 
 
-# embedded - elastic
-class Pullout_embedded_elastic(Pullout_base):
-    
+# EMBEDDED - ELASTIC, BREAKAGE, SLIPPING
+class Pullout_embedded_elastic_breakage_slipping(
+    Pullout_embedded_elastic_slipping,
+    Pullout_embedded_elastic_breakage
+):
+
+    def _check_input(
+            self,
+            roots,
+            interface
+    ):
+        self._check_contains_attributes(
+            roots, 
+            ['xsection', 'circumference', 'elastic_modulus', 'length', 'tensile_strength']
+            )
+        self._check_contains_attributes(interface, ['shear_strength'])
+
+
+###############################
+### EMBEDDED ELASTO_PLASTIC ###
+###############################
+
+# EMBEDDED, ELASTOPLASTIC
+class Pullout_embedded_elastoplastic(Pullout_embedded_elastic):
+
+    def _check_input(
+            self,
+            roots,
+            interface
+    ):
+        self._check_contains_attributes(
+            roots, 
+            ['xsection', 'circumference', 'elastic_modulus', 'plastic_modulus']
+            )
+        self._check_contains_attributes(interface, ['shear_strength'])
+
     def _set_behaviour_types(self):
-        self.behaviour_types = ['not in tension', 'anchored, elastic']
+        self.behaviour_types = [BEHAVIOUR_NAMES[i] for i in [0, 1, 3]]
 
-    def _set_limits(self):
-        self.limits = self._combine_coefficients([
-            embedded_limits_notintension(self.roots)
-            ])
-
-    def _set_coefficients(self):
-        self.coefficients = self._combine_coefficients([
-            embedded_coefficients_notintension(self.roots),
-            embedded_coefficients_anchored_elastic(self.roots, self.interface_resistance)
-            ])
-
-    def _force_unbroken(self, displacement, jac = False):
-        # initialise force vector and find behaviour indices
-        force = np.zeros(self.nroots) * units('N')
-        behaviour_type = self._get_behaviour_type(displacement)
-        # elastic behaviour
-        index1 = (behaviour_type == 1)
-        force[index1] = np.sqrt(displacement / self.coefficients[0][index1, 1])
-        # return
-        if jac is False:
-            return(force, behaviour_type)
-        else:
-            dforce_ddisplacement = np.zeros(self.nroots) * units['N/m']
-            dforce_ddisplacement[index1] = (
-                1.0 
-                / (2.0 * force[index1] * self.coefficients[0][index1, 1])
-                )
-            return(force, behaviour_type, dforce_ddisplacement)
-
-    def force(
-            self, 
-            displacement, 
-            jac = False
-            ):
-        survival = np.ones(self.nroots)
-        if jac is False:
-            force, behaviour_type = self._force_unbroken(displacement)
-            return(force, survival, behaviour_type)
-        else:
-            force, behaviour_type, dforce_ddisplacement = self._force_unbroken(
-                displacement, jac = True
-                )
-            return(
-                force,
-                survival,
-                behaviour_type,
-                dforce_ddisplacement
+    def _get_coefficients_anchored_plastic(self):
+        c2 = (
+            1.0 
+            / (2.0 * self.roots.plastic_modulus * self.roots.xsection 
+               * self.roots.circumference * self.interface.shear_strength)
             )
-
-
-# embedded - elastic, slipping
-class Pullout_embedded_elastic_slipping(Pullout_embedded_elastic):
-
-    def __init__(
-            self, 
-            roots, 
-            interface_resistance,
-            roots_required_attr = ['xsection', 'circumference', 'elastic_modulus', 'length']
-            ):
-        # call initialiser of parent class
-        super(Pullout_embedded_elastic_slipping, self).__init__(
-            roots, 
-            interface_resistance, 
-            roots_required_attr = roots_required_attr
+        c1 = (
+            self.roots.yield_strength 
+            / (self.roots.elastic_modulus * self.roots.circumference * self.interface.shear_strength)
+            - self.roots.yield_strength 
+            / (self.roots.plastic_modulus * self.roots.circumference * self.interface.shear_strength)
             )
-        
-    def _set_behaviour_types(self):
-        self.behaviour_types = ['not in tension', 'anchored, elastic', 'slipping_elastic']
-
-    def _set_limits(self):
-        self.limits = self._combine_coefficients([
-            embedded_limits_notintension(self.roots),
-            embedded_limits_elastic_slipping(self.roots, self.interface_resistance)
-            ])
-
-    def _set_coefficients(self):
-        self.coefficients = self._combine_coefficients([
-            embedded_coefficients_notintension(self.roots),
-            embedded_coefficients_anchored_elastic(self.roots, self.interface_resistance),
-            embedded_coefficients_slipping(self.roots)
-            ])
-
-    def _force_unbroken(
-            self, 
-            displacement,
-            jac = False
-            ):
-        # initialise force vector and find behaviour indices
-        force = np.zeros(self.nroots) * units('N')
-        behaviour_type = self._get_behaviour_type(displacement)
-        # elastic behaviour
-        index1 = (behaviour_type == 1)
-        force[index1] = np.sqrt(displacement / self.coefficients[0][index1, 1])
-        # slipping behaviour
-        index2 = (behaviour_type == 2)
-        force[index2] = self.limits[1][index2, 1]
-        # return
-        if jac is False:
-            return(force, behaviour_type)
-        else:
-            dforce_ddisplacement = np.zeros(self.nroots) * units['N/m']
-            dforce_ddisplacement[index1] = (
-                1.0 
-                / (2.0 * force[index1] * self.coefficients[0][index1, 1])
-                )
-            return(
-                force, 
-                behaviour_type, 
-                dforce_ddisplacement
-                )
-
-
-# embedded - elastic, breakage
-class Pullout_embedded_elastic_breakage(Pullout_embedded_elastic):
-
-    def __init__(
-            self, 
-            roots, 
-            interface_resistance,
-            roots_required_attr = ['xsection', 'circumference', 'elastic_modulus', 'tensile_strength'],
-            weibull_shape = None
-            ):
-        # call initialiser of parent class
-        super(Pullout_embedded_elastic_breakage, self).__init__(
-            roots, 
-            interface_resistance, 
-            roots_required_attr = roots_required_attr
+        c0 = (
+            -self.roots.yield_strength**2 * self.roots.xsection 
+            / (2.0 * self.roots.elastic_modulus * self.roots.circumference * self.interface.shear_strength)
+            + self.roots.yield_strength**2 * self.roots.xsection 
+            / (2.0 * self.roots.plastic_modulus * self.roots.circumference * self.interface.shear_strength)
             )
-        # set weibull shape parameter
-        self.weibull_shape = weibull_shape
-
-    def force(
-            self, 
-            displacement,
-            jac = False
-            ):
-        if jac is False:
-            force_unbroken, behaviour_type = self._force_unbroken(displacement)
-            survival = self._get_survival_weibull(force_unbroken, self.weibull_shape)
-            return(
-                force_unbroken * survival, 
-                survival, 
-                behaviour_type
-            )
-        else:
-            force_unbroken, behaviour_type, dforceunbroken_ddisplacement = self._force_unbroken(
-                displacement, jac = True
-                )
-            survival, dsurvival_dforceunbroken = self.get_survival_weibull(
-                force_unbroken,
-                self.weibull_shape, 
-                jac = True
-            )
-            dforce_displacement = (
-                dforceunbroken_ddisplacement * survival
-                + force_unbroken * dsurvival_dforceunbroken * dforceunbroken_ddisplacement
-            )
-            return(
-                force_unbroken * survival, 
-                survival, 
-                behaviour_type,
-                dforce_displacement
-            )
-
-
-# embedded - elastic, breakage, slipping
-class Pullout_embedded_elastic_breakage_slipping(Pullout_embedded_elastic_slipping):
-
-    def __init__(
-            self, 
-            roots, 
-            interface_resistance, 
-            roots_required_attr = [
-                'xsection', 'circumference', 'elastic_modulus', 
-                'tensile_strength', 'length'
-                ],
-            weibull_shape = None
-            ):
-        # call initialiser of parent class
-        super(Pullout_embedded_elastic_breakage_slipping, self).__init__(
-            roots, 
-            interface_resistance, 
-            roots_required_attr = roots_required_attr,
-            )
-        # set weibull shape parameter
-        self.weibull_shape = weibull_shape
-
-    def force(
-            self, 
-            displacement,
-            jac = False
-            ):
-        if jac is False:
-            force_unbroken, behaviour_type = self._force_unbroken(displacement)
-            survival = self._get_survival_weibull(force_unbroken, self.weibull_shape)
-            return(
-                force_unbroken * survival, 
-                survival, 
-                behaviour_type
-            )
-        else:
-            force_unbroken, behaviour_type, dforceunbroken_ddisplacement = self._force_unbroken(
-                displacement, jac = True
-                )
-            survival, dsurvival_dforce = self._get_survival_weibull(
-                force_unbroken, self.weibull_shape, jac = True
-                )
-            dforce_ddisplacement = (
-                dforceunbroken_ddisplacement * survival 
-                + force_unbroken * dsurvival_dforce * dforceunbroken_ddisplacement
-            )
-            return(
-                force_unbroken * survival, 
-                survival, 
-                behaviour_type,
-                dforce_ddisplacement
-            )
-
-# embedded - elasto-plastic
-class Pullout_embedded_elastoplastic(Pullout_base):
-
-    def __init__(
-            self, 
-            roots, 
-            interface_resistance,
-            roots_required_attr = [
-                'xsection', 'circumference', 'elastic_modulus',
-                'yield_strength', 'plastic_modulus'
-                ]
-            ):
-        # call initialiser of parent class
-        super(Pullout_embedded_elastoplastic, self).__init__(
-            roots, 
-            interface_resistance, 
-            roots_required_attr = roots_required_attr
-            )
-        
-    def _set_behaviour_types(self):
-        self.behaviour_types = [
-            'not in tension', 
-            'anchored, elastic', 
-            'anchored, plastic'
-            ]
-
-    def _set_limits(self):
-        self.limits = self._combine_coefficients([
-            embedded_limits_notintension(self.roots),
-            embedded_limits_yield_anchored(self.roots, self.interface_resistance)
-            ])
+        return(c2, c1, c0)
     
     def _set_coefficients(self):
         self.coefficients = self._combine_coefficients([
-            embedded_coefficients_notintension(self.roots),
-            embedded_coefficients_anchored_elastic(self.roots, self.interface_resistance),
-            embedded_coefficients_anchored_plastic(self.roots, self.interface_resistance)
+            self._get_coefficients_notintension(),
+            self._get_coefficients_anchored_elastic(),
+            self._get_coefficients_anchored_plastic()
             ])
 
-    def _force_unbroken(
+    def _get_limits_yield_anchored(self):
+        force = self.roots.yield_strength * self.roots.xsection
+        c2, _, _ = self._get_coefficients_anchored_elastic()
+        displacement = c2 * force**2
+        return(displacement, force)
+    
+    def _set_limits(self):
+        self.limits = self._combine_coefficients([
+            self._get_limits_notintension(),
+            self._get_limits_yield_anchored()
+            ])
+    
+    def _solve_quadratic(self, a, b, c):
+        # solve equations a*x^2 + b*x^2 + c = 0 in DRAM/Pullout
+        # a = always positive in DRAM/Pullout equations
+        # function returns largest root
+        discriminant = b**2 - 4.0 * a * c
+        x = (-b + np.sqrt(discriminant)) / (2.0 * a)
+        return(x)
+
+    def _get_force_unbroken(
             self, 
             displacement,
             jac = False
             ):
         # initialise force vector and find behaviour indices
-        force = np.zeros(self.nroots) * units('N')
+        nroots = self._nroots()
+        force_unbroken = np.zeros(nroots) * units('N')
         behaviour_type = self._get_behaviour_type(displacement)
         # elastic behaviour
         index1 = (behaviour_type == 1)
-        force[index1] = np.sqrt(displacement / self.coefficients[0][index1, 1])
+        force_unbroken[index1] = np.sqrt(displacement / self.coefficients[0][index1, 1])
         # plastic behaviour
         index2 = (behaviour_type == 2)
-        force[index2] = _solve_quadratic(
+        force_unbroken[index2] = self._solve_quadratic(
             self.coefficients[0][index2, 2],
             self.coefficients[1][index2, 2],
             self.coefficients[2][index2, 2] - displacement
         )
-        # return
+        # derivative of force with respect to displacement
         if jac is False:
-            return(force, behaviour_type)
+            dforceunbroken_ddisplacement = None
         else:
-            dforce_ddisplacement = np.zeros(self.nroots) * units['N/m']
-            dforce_ddisplacement[index1] = (
+            dforceunbroken_ddisplacement = np.zeros(nroots) * units['N/m']
+            dforceunbroken_ddisplacement[index1] = (
                 1.0
-                / (2.0 * self.coefficients[0][index1, 1] * force[index1])                
+                / (2.0 * self.coefficients[0][index1, 1] * force_unbroken[index1])                
             )
-            dforce_ddisplacement[index2] = (
+            dforceunbroken_ddisplacement[index2] = (
                 1.0
-                / (2.0 * self.coefficients[0][index2, 2] * force[index2]
+                / (2.0 * self.coefficients[0][index2, 2] * force_unbroken[index2]
                    + self.coefficients[1][index2, 2])
                 )
-            return(
-                force,
-                behaviour_type,
-                dforce_ddisplacement
-            )
+        # return
+        return(
+            force_unbroken,
+            dforceunbroken_ddisplacement,
+            behaviour_type
+        )
+    
 
+# EMBEDDED, ELASTOPLASTIC, SLIPPING
+class Pullout_embedded_elastoplastic_slipping(
+    Pullout_embedded_elastoplastic,
+    Pullout_embedded_elastic_slipping
+    ):
 
-    def force(
-            self, 
-            displacement,
-            jac = False
-            ):
-        survival = np.ones(self.nroots)
-        if jac is False:
-            force, behaviour_type = self._force_unbroken(displacement)
-            return(force, survival, behaviour_type)
-        else:
-            force, behaviour_type, dforce_ddisplacement = self._force_unbroken(
-                displacement, jac = True
-                )
-            return(
-                force,
-                survival,
-                behaviour_type,
-                dforce_ddisplacement
-            )
-
-
-# embedded - elasto-plastic, slipping
-class Pullout_embedded_elastoplastic_slipping(Pullout_embedded_elastoplastic):
-
-    def __init__(
-            self, 
+    def _check_input(
+        self,
+        roots,
+        interface
+    ):
+        self._check_contains_attributes(
             roots, 
-            interface_resistance,
-            roots_required_attr = [
-                'xsection', 'circumference', 'elastic_modulus',
-                'yield_strength', 'plastic_modulus',
-                'length'
-                ]
-            ):
-        # call initialiser of parent class
-        super(Pullout_embedded_elastoplastic_slipping, self).__init__(
-            roots, 
-            interface_resistance, 
-            roots_required_attr = roots_required_attr
+            ['xsection', 'circumference', 'elastic_modulus', 'plastic_modulus',
+             'length']
             )
-        
+        self._check_contains_attributes(interface, ['shear_strength'])
+
     def _set_behaviour_types(self):
-        self.behaviour_types = [
-            'not in tension', 
-            'anchored, elastic', 
-            'slipping, elastic',
-            'anchored, plastic',            
-            'slipping, plastic'
-            ]
+        self.behaviour_types = [BEHAVIOUR_NAMES[i] for i in [0, 1, 2, 3, 4]]
 
+    def _set_coefficients(self):
+        self.coefficients = self._combine_coefficients([
+            self._get_coefficients_notintension(),
+            self._get_coefficients_anchored_elastic(),
+            self._get_coefficients_slipping(),
+            self._get_coefficients_anchored_plastic(),
+            self._get_coefficients_slipping()
+            ])
+
+    def _get_limits_plastic_slipping(self):
+        force = self.roots.length * self.roots.circumference * self.interface.shear_strength
+        c2, c1, c0 = self._get_coefficients_anchored_plastic()
+        displacement = c2 * force**2 + c1 * force + c0
+        return(displacement, force)
+    
     def _set_limits(self):
         # calculate limits
         displacement_limits, force_limits = self._combine_coefficients([
-            embedded_limits_notintension(self.roots),
-            embedded_limits_elastic_slipping(self.roots, self.interface_resistance),
-            embedded_limits_yield_anchored(self.roots, self.interface_resistance),            
-            embedded_limits_plastic_slipping(self.roots, self.interface_resistance)
+            self._get_limits_notintension(),
+            self._get_limits_elastic_slipping(),
+            self._get_limits_yield_anchored(),
+            self._get_limits_plastic_slipping()
             ])
         # adjust: slippage before yielding --> never plasticity
         index = displacement_limits[:, 1] <= displacement_limits[:, 2]
-        displacement_limits[index, 2] = np.inf * displacement_limits[index, 2]
-        displacement_limits[index, 3] = np.inf * displacement_limits[index, 3]
+        displacement_limits[index, 2] = np.inf * units('mm')
+        displacement_limits[index, 3] = np.inf * units('mm')
         # adjust slippage after yielding --> never elastic slippage
         displacement_limits[~index, 1] = displacement_limits[~index, 2]
-        # return
+        # set limits
         self.limits = [displacement_limits, force_limits]
     
-    def _set_coefficients(self):
-        self.coefficients = self._combine_coefficients([
-            embedded_coefficients_notintension(self.roots),
-            embedded_coefficients_anchored_elastic(self.roots, self.interface_resistance),
-            embedded_coefficients_slipping(self.roots),
-            embedded_coefficients_anchored_plastic(self.roots, self.interface_resistance),
-            embedded_coefficients_slipping(self.roots)
-            ])
-
-    def _force_unbroken(
+    def _get_force_unbroken(
             self, 
             displacement,
             jac = False
             ):
         # initialise force vector and find behaviour indices
-        force = np.zeros(self.nroots) * units('N')
+        nroots = self._nroots()
+        force_unbroken = np.zeros(nroots) * units('N')
         behaviour_type = self._get_behaviour_type(displacement)
         # elastic anchored behaviour
         index1 = (behaviour_type == 1)
-        force[index1] = np.sqrt(displacement / self.coefficients[0][index1, 1])
+        force_unbroken[index1] = np.sqrt(displacement / self.coefficients[0][index1, 1])
         # plastic anchored behaviour
         index3 = (behaviour_type == 3)
-        force[index3] = _solve_quadratic(
+        force_unbroken[index3] = self._solve_quadratic(
             self.coefficients[0][index3, 3],
             self.coefficients[1][index3, 3],
             self.coefficients[2][index3, 3] - displacement
         )
         # slipping behaviour
         index24 = (behaviour_type == 2) | (behaviour_type == 4)
-        force[index24] = self.limits[1][index24, 3]
+        force_unbroken[index24] = self.limits[1][index24, 3]
         # return
         if jac is False:
-            return(force, behaviour_type)
+            dforceunbroken_ddisplacement = None
         else:
-            dforce_ddisplacement = np.zeros(self.nroots) * units['N/m']
-            dforce_ddisplacement[index1] = (
+            dforceunbroken_ddisplacement = np.zeros(nroots) * units['N/m']
+            dforceunbroken_ddisplacement[index1] = (
                 1.0
-                / (2.0 * self.coefficients[0][index1, 1] * force[index1])                
+                / (2.0 * self.coefficients[0][index1, 1] * force_unbroken[index1])                
             )
-            dforce_ddisplacement[index3] = (
+            dforceunbroken_ddisplacement[index3] = (
                 1.0
-                / (2.0 * self.coefficients[0][index3, 2] * force[index3]
-                   + self.coefficients[1][index3, 2])
+                / (2.0 * self.coefficients[0][index3, 3] * force_unbroken[index3]
+                   + self.coefficients[1][index3, 3])
                 )
-            return(
-                force,
-                behaviour_type,
-                dforce_ddisplacement
-            )            
+        # return
+        return(
+            force_unbroken,
+            dforceunbroken_ddisplacement,
+            behaviour_type            
+        )
+    
 
+# EMBEDDED, ELASTOPLASTIC, BREAKAGE
+class Pullout_embedded_elastoplastic_breakage(
+    Pullout_embedded_elastoplastic,
+    Pullout_embedded_elastic_breakage
+    ):
 
-# embedded - elastic, breakage
-class Pullout_embedded_elastoplastic_breakage(Pullout_embedded_elastoplastic):
-
-    def __init__(
-            self, 
+    def _check_input(
+        self,
+        roots,
+        interface
+    ):
+        self._check_contains_attributes(
             roots, 
-            interface_resistance,
-            roots_required_attr = [
-                'xsection', 'circumference', 'elastic_modulus',
-                'yield_strength', 'plastic_modulus',
-                'tensile_strength'
-                ],
-            weibull_shape = None
-            ):
-        # call initialiser of parent class
-        super(Pullout_embedded_elastoplastic_breakage, self).__init__(
+            ['xsection', 'circumference', 'elastic_modulus', 'plastic_modulus',
+             'tensile_strength']
+            )
+        self._check_contains_attributes(interface, ['shear_strength'])
+
+
+# EMBEDDED, ELASTOPLASTIC, BREAKAGE, SLIPPING
+class Pullout_embedded_elastoplastic_breakage_slipping(
+    Pullout_embedded_elastoplastic_slipping,
+    Pullout_embedded_elastoplastic_breakage,
+    ):
+
+    def _check_input(
+        self,
+        roots,
+        interface
+    ):
+        self._check_contains_attributes(
             roots, 
-            interface_resistance, 
-            roots_required_attr = roots_required_attr
+            ['xsection', 'circumference', 'elastic_modulus', 'plastic_modulus',
+             'tensile_strength', 'length']
             )
-        # set weibull shape parameter
-        self.weibull_shape = weibull_shape
-
-    def force(
-            self, 
-            displacement,
-            jac = False
-            ):
-        if jac is False:
-            force_unbroken, behaviour_type = self._force_unbroken(displacement)
-            survival = self._get_survival_weibull(force_unbroken, self.weibull_shape)
-            return(
-                force_unbroken * survival, 
-                survival, 
-                behaviour_type
-            )
-        else:
-            force_unbroken, behaviour_type, dforceunbroken_ddisplacement = self._force_unbroken(
-                displacement, jac = True
-                )
-            survival, dsurvival_dforceunbroken = self._get_survival_weibull(
-                force_unbroken, self.weibull_shape, jac = True
-                )
-            dforce_ddisplacement = (
-                dforceunbroken_ddisplacement * survival
-                + force_unbroken * dsurvival_dforceunbroken * dforceunbroken_ddisplacement
-            )
-            return(
-                force_unbroken * survival, 
-                survival, 
-                behaviour_type,
-                dforce_ddisplacement
-            )
-
-# embedded - elasto-plastic, breakage, slipping
-class Pullout_embedded_elastoplastic_breakage_slipping(Pullout_embedded_elastoplastic_slipping):
-
-    def __init__(
-            self, 
-            roots, 
-            interface_resistance,
-            roots_required_attr = [
-                'xsection', 'circumference', 'elastic_modulus',
-                'yield_strength', 'plastic_modulus',
-                'tensile_strength',
-                'length'
-                ],
-            weibull_shape = None
-            ):
-        # call initialiser of parent class
-        super(Pullout_embedded_elastoplastic_breakage_slipping, self).__init__(
-            roots, 
-            interface_resistance, 
-            roots_required_attr = roots_required_attr
-            )
-        # set weibull shape parameter
-        self.weibull_shape = weibull_shape
-
-    def force(
-            self, 
-            displacement,
-            jac = False
-            ):
-        if jac is False:
-            force_unbroken, behaviour_type = self._force_unbroken(displacement)
-            survival = self._get_survival_weibull(force_unbroken, self.weibull_shape)
-            return(
-                force_unbroken * survival, 
-                survival, 
-                behaviour_type
-            )
-        else:
-            force_unbroken, behaviour_type, dforceunbroken_ddisplacement = self._force_unbroken(
-                displacement, jac = True
-                )
-            survival, dsurvival_dforceunbroken = self._get_survival_weibull(
-                force_unbroken, self.weibull_shape, jac = True
-                )
-            dforce_ddisplacement = (
-                dforceunbroken_ddisplacement * survival
-                + force_unbroken * dsurvival_dforceunbroken * dforceunbroken_ddisplacement
-            )
-            return(
-                force_unbroken * survival, 
-                survival, 
-                behaviour_type,
-                dforce_ddisplacement
-            )
-
+        self._check_contains_attributes(interface, ['shear_strength'])
