@@ -12,7 +12,9 @@ ROOT_PARAMETERS = {
     "tensile_strength": {"type": (float | int), "unit": units("MPa")},
     "yield_strength": {"type": (float | int), "unit": units("MPa")},
     "plastic_modulus": {"type": (float | int), "unit": units("MPa")},
+    "unload_modulus": {"type": (float | int), "unit": units("MPa")},
     "length": {"type": (float | int), "unit": units("m")},
+    "length_surface": {"type": (float | int), "unit": units("m")},
     "azimuth_angle": {"type": (float | int), "unit": units("degrees")},
     "elevation_angle": {"type": (float | int), "unit": units("degrees")},
 }

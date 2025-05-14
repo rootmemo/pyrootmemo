@@ -64,6 +64,64 @@ class SoilProfile:
                     raise ValueError("Depth should be monotonically increasing")
             setattr(self, k, v.value * units(v.unit))
 
+    # get soil object at specified depth
+    def get_soil(
+            self,
+            depth            
+            ):
+        return(self.soils[(self.depth >= depth) & (self.depth < depth)])
+    
+    # calculate vertical stress at specific depth
+    def vertical_stress(
+            self,
+            depth
+            ):
+        # depth at top of each layer
+        depth_top = np.append(0.0, self.depth[:-1])
+        # thickness of (part of) each layer, above the requested depth
+        thickness = (
+            np.minimum(self.depth, depth)
+            - np.minimum(depth_top, depth)
+        )
+        # get thickness contribution of (part of) each layer, but above and below water table
+        if depth > self.ground_water_table:
+            tmp_above = np.minimum(depth, self.ground_water_table)
+            thickness_above = (
+                np.minimum(self.depth, tmp_above)
+                - np.minimum(depth_top, tmp_above)
+                )
+            thickness_below = thickness - thickness_above
+        else:
+            # all above water table
+            thickness_above = thickness
+            thickness_below = 0.0 * thickness
+        # calculate total stress 
+        unit_weight_above = np.array([s.unit_weight_bulk for s in self.soils])
+        unit_weight_below = np.array([s.unit_weight_saturated for s in self.soils])
+        return(np.sum(
+            unit_weight_above * thickness_above
+            + unit_weight_below * thickness_below
+            ))
+    
+    # calculate pore pressure at specific depth
+    def pore_pressure(
+            self,
+            depth,
+            unit_weight_water = 9.81 * units('kN/m^3'),
+            flow_direction = np.array([1.0, 0.0, 0.0])    # 3D orientation, z-axis = depth axis 
+            ):
+        if depth <= self.ground_water_table:
+            # depth above water table -> retun zero (no suction assumed)
+            return(0.0 * units('kPa'))
+        else:
+            # below water table -> calculate
+            pore_pressure = unit_weight_water * (self.ground_water_table - depth)
+            # adjust for flow direction, and return
+            return(pore_pressure * np.sin(flow_direction[-1])**2)
+
+        
+        
+
 
 #TODO: Groundwater table cannot be entered as a list. It should be a single value.
 #TODO: Groundwater table cannot be negative, but can be zero.

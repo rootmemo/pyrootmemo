@@ -1,237 +1,232 @@
 # import packages and functions
 import numpy as np
 from pyrootmemo.tools.helpers import units
-from pyrootmemo.pullout import Pullout_embedded_elastic
-from pyrootmemo.pullout import Pullout_embedded_elastic_slipping
-from pyrootmemo.pullout import Pullout_embedded_elastic_breakage
-from pyrootmemo.pullout import Pullout_embedded_elastic_breakage_slipping
-from pyrootmemo.pullout import Pullout_embedded_elastoplastic
-from pyrootmemo.pullout import Pullout_embedded_elastoplastic_slipping
-from pyrootmemo.pullout import Pullout_embedded_elastoplastic_breakage
-from pyrootmemo.pullout import Pullout_embedded_elastoplastic_breakage_slipping
+from pyrootmemo.pullout import PulloutEmbeddedElastic
+from pyrootmemo.pullout import PulloutEmbeddedElasticSlipping
+from pyrootmemo.pullout import PulloutEmbeddedElasticBreakage
+from pyrootmemo.pullout import PulloutEmbeddedElasticBreakageSlipping
+from pyrootmemo.pullout import PulloutEmbeddedElastoplastic
+from pyrootmemo.pullout import PulloutEmbeddedElastoplasticSlipping
+from pyrootmemo.pullout import PulloutEmbeddedElastoplasticBreakage
+from pyrootmemo.pullout import PulloutEmbeddedElastoplasticBreakageSlipping
+from pyrootmemo.utils_rotation import axisangle_rotate
 from pint import Quantity
+import warnings
 
 
-# Waldron class
-class Waldron():
+class DirectShear():
 
-    # initialise class
     def __init__(
-            self, 
-            shearzone,
-            roots,
-            soil,
-            interface,
-            slipping = True,
-            breakage = True,
-            plastic = False,
-            weibull_shape = None
-            ) -> None:
-        # set parameters
-        self.shearzone = shearzone
-        self.roots = roots
-        self.soil = soil
-        self.interface = interface
-        # set root orientation if not defined
-        if not hasattr(roots, 'azimuth_angle'):
-            roots.azimuth_angle = np.zeros_like(roots.diameter) * units('degrees')
-        if not hasattr(roots, 'elevation_angle'):
-            roots.elevation_angle = np.zeros_like(roots.diameter) * units('degrees')
-        # get initial orientation vector for all roots, relative to shearzone
-        roots.orientation = roots.initial_orientation_vector(
-            axis_angle = shearzone.orientation if hasattr(shearzone, 'orientation') else None
-        )
-        # generate pullout object
-        if plastic is True:
-            if slipping is True:
-                if breakage is True:
-                    self.pullout = Pullout_embedded_elastoplastic_breakage_slipping(
-                        roots, 
-                        self.interface.shear_strength,
-                        weibull_shape = weibull_shape
-                    )
-                else:
-                    self.pullout = Pullout_embedded_elastoplastic_slipping(
-                        roots, 
-                        self.interface.shear_strength
-                        )
-            else:
-                if breakage is True:
-                    self.pullout = Pullout_embedded_elastoplastic_breakage(
-                        roots, 
-                        self.interface.shear_strength,
-                        weibull_shape = weibull_shape
-                    )
-                else:
-                    self.pullout = Pullout_embedded_elastoplastic(
-                        roots, 
-                        self.interface.shear_strength
-                        )
-        else:
-            if slipping is True:
-                if breakage is True:
-                    self.pullout = Pullout_embedded_elastic_breakage_slipping(
-                        roots, 
-                        self.interface.shear_strength,
-                        weibull_shape = weibull_shape
-                    )
-                else:
-                    self.pullout = Pullout_embedded_elastic_slipping(
-                        roots, 
-                        self.interface.shear_strength
-                        )
-            else:
-                if breakage is True:
-                    self.pullout = Pullout_embedded_elastic_breakage(
-                        roots, 
-                        self.interface.shear_strength,
-                        weibull_shape = weibull_shape
-                    )
-                else:
-                    self.pullout = Pullout_embedded_elastic(
-                        roots, 
-                        self.interface.shear_strength
-                        )
-
-    # x,y,z components of root length within shearzone
-    def _root_length_in_shearzone(
             self,
-            shear_displacement = 0.0,
+            roots,
+            interface,
+            soil_profile,
+            failure_surface
+    ):
+        # assign input
+        self.roots = roots
+        self.interface = interface
+        self.soil_profile = soil_profile
+        self.failure_surface = failure_surface
+        # set root orientations (relative to failure surface)
+        self._set_root_orientations()
+        # set friction angle at failure surface
+        self.failure_surface.tanphi = np.tan(
+            soil_profile.get_soil(failure_surface.depth).friction_angle.to('rad')
+            )
+    
+    def _set_root_orientations(self):
+        # function set 3-D root orientations **relative to** failure surface so that:
+        # * local x = direction of shearing
+        # * local y = perpendicular to x on shear plane
+        # * local z = pointing downwards into the soil
+        # orientations are defined in terms of 3-dimensional unit vectors
+        #         
+        # global coordinate system
+        # * right-handed Cartesian coordinate system, with z-axis pointing down into the ground
+        # * azimuth angle = angle from x-axis to projection of root vector on the x-y plane
+        # * elevation angle = angle from z-axis to root vector
+        #
+        # failure surface
+        # * assume angle is defined as angle in x-z plane, defined (positive) from x to z
+        #
+
+        # shape of root vector ('number of roots')
+        roots_shape = self.roots.diameter.magnitude.shape()
+        # root orientations not defined - assume all perpendicular to failure surface
+        if (not hasattr(self.roots, 'azimuth_angle')) & (not hasattr(self.roots, 'elevation_angle')):
+            self.roots.orientation = np.stack((
+                np.zeros(*roots_shape),
+                np.zeros(*roots_shape),
+                np.ones(*roots_shape)                    
+                ), axis = -1)
+        # (partial) angles provided -> rotate to local coordinate system
+        else:
+            if not hasattr(self.roots, 'azimuth_angle'):
+                self.roots.azimuth_angle = np.zeros(*roots_shape) * units('deg')
+            if not hasattr(self.roots, 'elevation_angle'):
+                self.roots.elevation_angle = np.zeros(*roots_shape) * units('deg')
+            # get global root orientations
+            root_orientation_global = np.stack((
+                np.cos(self.roots.azimuth_angle.magnitude) * np.sin(self.roots.elevation_angle.magnitude),
+                np.sin(self.roots.azimuth_angle.magnitude) * np.sin(self.roots.elevation_angle.magnitude),
+                np.cos(self.roots.elevation_angle.magnitude)
+            ), axis = -1)
+            # rotate to local coordinate system and set unit vectors
+            if hasattr(self.failure_surface, 'orientation'):
+                axisangle = np.array([0.0, -self.failure_surface.orientation.to('rad'), 0.0])
+            else:
+                axisangle = np.array([0.0, 0.0, 0.0])
+            self.roots.orientation = axisangle_rotate(root_orientation_global, axisangle)
+
+    def _get_orientation_parameters(
+            self,
+            displacement,
+            shear_zone_thickness,
+            distribution = 0.5,
             jac = False
     ):
-        # initial length of vector components within shearzone
-        vx = (
-            self.shearzone.thickness
+        # vector components of initial root orientation in shear zone
+        v0x = (
+            shear_zone_thickness
             * self.roots.orientation[..., 0]
             / self.roots.orientation[..., 2]
             )
-        vy = (
-            self.shearzone.thickness
+        v0y = (
+            shear_zone_thickness
             * self.roots.orientation[..., 1]
             / self.roots.orientation[..., 2]
         )
-        vz = self.shearzone.thickness * np.ones_like(self.roots.orientation[..., 2])
-        # return
-        L = np.stack([vx + shear_displacement, vy, vz], axis = 1)
-        if jac is False:
-            return(L)
+        v0z = shear_zone_thickness * np.ones_like(v0z)
+        # length in shear zone
+        if shear_zone_thickness.magnitude >= 0.0:
+            L0 = shear_zone_thickness / self.roots.orientation[..., 2]
+            L = np.sqrt((v0x + displacement)**2 + v0y**2 + v0z**2)
         else:
-            dL_dvxyz = np.stack([
-                np.ones_like(vx),
-                np.zeros_like(vy),
-                np.zeros_like(vz)
-            ], axis = -1)
-            return(L, dL_dvxyz)
-
-
-    # calculate elongation in roots based on current shear displacement
-    def _pullout_displacement(
-            self, 
-            shear_displacement,
-            distribution = 0.5,
-            jac = False
-            ):
-        vxyz0 = self._root_length_in_shearzone(shear_displacement = 0.0)
-        length0 = np.linalg.norm(vxyz0, axis = -1)
+            L0 = 0.0 * shear_zone_thickness * self.roots.orientation[..., 2]
+            L = displacement * np.ones_like(v0z)
+        # pullout displacement
+        up = distribution * (L - L0)
+        # orientation factor
+        tanphi = np.tan(self._get_friction_angle())
+        k = ((v0x + displacement) + (v0z * tanphi)) / L
+        # derivatives
         if jac is False:
-            vxyz1 = self._root_length_in_shearzone(shear_displacement = shear_displacement)
+            dup_ddisplacement = None
+            dup_dshearzonethickness = None
+            dk_ddisplacement = None
+            dk_dshearzonethickness = None
         else:
-            vxyz1, dvxyz1_shear = self._root_length_in_shearzone(
-                shear_displacement = shear_displacement, jac = True
+            dv0x_dshearzonethickness = self.roots.orientation[..., 0] / self.roots.orientation[..., 2]
+            dv0y_dshearzonethickness = self.roots.orientation[..., 1] / self.roots.orientation[..., 2]
+            dv0z_dshearzonethickness = np.ones_like(v0z)
+            if shear_zone_thickness.magnitude >= 0.0:
+                dL0_dshearzonethickness = 1.0 / self.roots.orientation[..., 2]
+                dL_ddisplacement = (v0x + displacement) / L
+                dL_dv0x = (v0x + displacement) / L
+                dL_dv0y = v0y / L
+                dL_dv0z = v0z / L
+            else:
+                dL0_dshearzonethickness = 0.0 * self.roots.orientation[..., 2]
+                dL_ddisplacement = np.ones_like(v0z)
+                dL_dv0x = np.ones_like(v0z)
+                dL_dv0y = np.ones_like(v0z)
+                dL_dv0z = np.ones_like(v0z)
+            dup_ddisplacement = distribution * dL_ddisplacement
+            dL_dshearzonethickness = (
+                dL_dv0x * dv0x_dshearzonethickness
+                + dL_dv0y * dv0y_dshearzonethickness
+                + dL_dv0z * dv0z_dshearzonethickness
                 )
-        length1 = np.linalg.norm(vxyz1, axis = -1)
-        pullout_displacement = distribution * (length1 - length0)
-        if jac is False:
-            return(pullout_displacement)
-        else:
-            dlength1_dvxyz1 = vxyz1 / length1[..., np.newaxis]
-            dlength1_dshear = np.tensordot(dlength1_dvxyz1, dvxyz1_shear, axes = (-1, -1))
-            dpullout_dlength1 = distribution
-            dpullout_dshear = dpullout_dlength1 * dlength1_dshear
-            return(
-                pullout_displacement,
-                dpullout_dshear
-            )        
-
-    # calculate reinforcing force
-    def _shear_reinforcement(
-            self,
-            shear_displacement,
-            force,
-            jac = False
-    ):  
-        if jac is False:
-            vxyz = self._root_length_in_shearzone(shear_displacement = shear_displacement)
-        else:
-            vxyz, dvxyz_dshear = self._root_length_in_shearzone(
-                shear_displacement = shear_displacement, jac = True
-                )
-        length1 = np.linalg.norm(vxyz, axis = -1)
-        Fxyz = vxyz * (force / length1)[..., np.newaxis]
-        shearforce = (
-            Fxyz[..., 0]
-            + Fxyz[..., 2] * np.tan(self.soil.friction_angle)
+            dup_dshearzonethickness = distribution * (dL_dshearzonethickness - dL0_dshearzonethickness)
+            dk_ddisplacement = (
+                1.0 / L
+                - k / L * dL_ddisplacement
+            )
+            dk_dshearzonethickness = (
+                (dv0x_dshearzonethickness + dv0z_dshearzonethickness * tanphi) / L
+                - k / L * dL_dshearzonethickness
+            )
+        return(
+            up,
+            k,
+            dup_ddisplacement, 
+            dup_dshearzonethickness,
+            dk_ddisplacement,
+            dk_dshearzonethickness
         )
-        if jac is False:
-            return(shearforce / self.soil.area)
+
+
+# Waldron class
+class Waldron(DirectShear):
+
+    def __init__(
+            self,
+            roots,
+            interface,
+            soil_profile,
+            failure_surface,
+            slipping = True,
+            breakage = True,
+            elastoplastic = False,
+            weibull_shape = None
+    ): 
+        # call __init__ from parent class
+        super().__init__(roots, soil_profile, failure_surface)
+        # set analysis settings as part of class
+        self.slipping = slipping
+        self.breakage = breakage
+        self.elastoplastic = elastoplastic
+        # set correct pullout object, depending on cases (slipping, breakage etc)
+        if slipping is True:
+            if breakage is True:
+                if elastoplastic is True:
+                    self.pullout = PulloutEmbeddedElastoplasticBreakageSlipping(roots, interface, weibull_shape = weibull_shape)
+                else:
+                    self.pullout = PulloutEmbeddedElasticBreakageSlipping(roots, interface, weibull_shape = weibull_shape)
+            else:
+                if elastoplastic is True:
+                    self.pullout = PulloutEmbeddedElastoplasticSlipping(roots, interface)
+                else:
+                    self.pullout = PulloutEmbeddedElasticSlipping(roots, interface)
         else:
-            dlength1_dvxyz = vxyz / length1[..., np.newaxis]
-            dlength1_dshear = np.tensordot(dlength1_dvxyz, dvxyz_dshear, axes = (-1, -1))
-            dFxyz_dlength1 = -vxyz * (force / length1**2)[..., np.newaxis]
-            dFxyz_dforce = vxyz / length1[..., np.newaxis]
-            dshearforce_force = (
-                dFxyz_dforce[..., 0]
-                + dFxyz_dforce[..., 2] * np.tan(self.soil.friction_angle)
-            )
-            dshearforce_dlength1 = (
-                dFxyz_dlength1[..., 0]
-                + dFxyz_dlength1[..., 2] * np.tan(self.soil.friction_angle)
-            )
-            dshearforce_dshear = dshearforce_dlength1 * dlength1_dshear
-            return(
-                shearforce / self.soil.area,
-                dshearforce_dshear / self.soil.area,
-                dshearforce_force / self.soil.area,
-            )
+            if breakage is True:
+                if elastoplastic is True:
+                    self.pullout = PulloutEmbeddedElastoplasticBreakage(roots, interface, weibull_shape = weibull_shape)
+                else:
+                    self.pullout = PulloutEmbeddedElasticBreakage(roots, interface, weibull_shape = weibull_shape)
+            else:
+                if elastoplastic is True:
+                    self.pullout = PulloutEmbeddedElastoplastic(roots, interface)
+                else:
+                    self.pullout = PulloutEmbeddedElastic(roots, interface)
 
-
-    # reinforcement at current level of shear displacement
     def reinforcement(
             self,
-            shear_displacement, 
-            jac = False   
+            displacement,
+            jac = False,
             ):
-        if jac is False:
-            pullout_displacement = self._pullout_displacement(shear_displacement)
-            force, survival, behaviour_type = self.pullout.force(pullout_displacement)
-            reinforcement = self._shear_reinforcement(shear_displacement, force)
-            return(np.sum(reinforcement))
+        # pullout displacement (up) and orientation factors (k)
+        up, k, dup_dus, dup_dh, dk_dus, dk_dh = self._get_orientation_parameters(
+            displacement,
+            self.failure_surface.shear_zone_thickness,
+            distribution = 0.5
+        )
+        # pullout force (Tp), survival fraction (S) and behaviour type index (b)
+        Tp, dTp_dup, S, b = self.pullout.force(up, jac = jac)
+        # reinforcement
+        cr = np.sum(k * Tp) / self.failure_surface.cross_sectional_area
+        # return jacobian if requested
+        if jac is True:
+            dcr_dus = np.sum(dk_dus * Tp + k * dTp_dup * dup_dus) / self.failure_surface.cross_sectional_area
+            return(cr, dcr_dus)
         else:
-            pullout_displacement, dpullout_dshear = self._pullout_displacement(
-                shear_displacement, jac = True
-                )
-            force, survival, behaviour_type, dforce_dpullout = self.pullout.force(
-                pullout_displacement, jac = True
-                )
-            reinforcement, dreinforcement_dshear, dreinforcement_dforce = self._shear_reinforcement(
-                shear_displacement, force, jac = True
-                )
-            dreinforcement_dshear = (
-                dreinforcement_dshear + 
-                dreinforcement_dforce * dforce_dpullout * dpullout_dshear
-            )
-            return(
-                np.sum(reinforcement),
-                np.sum(dreinforcement_dshear)
-            )            
+            return(cr)
 
-    # peak reinforcement
-    def peak_reinforcement():
-        # if no breakage and slippage -> infinite
-        # else if weibullshape = None --> discrete breakages
-        # get displacement at each root breakage event
-        # -> get forces at these events
-        # -> find max (but does not have to be max because of orientation effect)
-        # -> find 'real' max
-
-        None
+    def peak_reinforcement(
+            self
+            ):
+        # no root breakage or slipping -> infinite reinforcement
+        if self.breakage is False and self.slipping is False:
+            warnings.warn('No breakage or slippage - peak reinforcement is infinite!')
+            return(np.inf * units('kPa'))
