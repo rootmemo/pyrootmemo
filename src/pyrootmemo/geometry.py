@@ -62,6 +62,12 @@ class SoilProfile:
                     raise ValueError("Depth should start with a positive value")
                 if any([v.value[i] <= v.value[i - 1] for i in range(1, len(v.value))]):
                     raise ValueError("Depth should be monotonically increasing")
+            if k == "groundwater_table":
+                if not isinstance(v.value, (float, int)):
+                    raise TypeError("Groundwater table should be a single value")
+                if v.value < 0:
+                    raise ValueError("Groundwater table cannot be negative")
+
             setattr(self, k, v.value * units(v.unit))
 
     # get soil object at specified depth
@@ -120,11 +126,7 @@ class SoilProfile:
             return(pore_pressure * np.sin(flow_direction[-1])**2)
 
         
-        
-
-
-#TODO: Groundwater table cannot be entered as a list. It should be a single value.
-#TODO: Groundwater table cannot be negative, but can be zero.
+      
 #TODO: Add a method to calculate the total depth of the profile.
 #TODO: Add a method to plot the profile.
 #TODO: FailureSurface(depth, orientation, shear_zone_thickness, cross_sectional_area) # AY

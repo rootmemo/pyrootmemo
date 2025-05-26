@@ -37,6 +37,53 @@ ROOT_SOIL_INTERFACE_PARAMETERS = {
 
 class Roots:
     def __init__(self, species: str, **kwargs):
+        """
+        Creates a root object with specified parameters.
+        The parameters are defined in the ROOT_PARAMETERS dictionary.
+
+        Parameters
+        ----------
+        species : str
+            Name of the species in the format 'genus_species', e.g. 'alnus_incana'.
+        **kwargs : dict
+            Keyword arguments for root parameters. Each key should be a valid parameter name
+            from ROOT_PARAMETERS, and the value should be a namedtuple of type Parameter(value, unit). Parameters include:
+            - elastic_modulus: Elastic modulus of the root (MPa)
+            - diameter: Diameter of the root (m)
+            - tensile_strength: Tensile strength of the root (MPa)
+            - yield_strength: Yield strength of the root (MPa)
+            - plastic_modulus: Plastic modulus of the root (MPa)
+            - unload_modulus: Unload modulus of the root (MPa)
+            - length: Length of the root (m)
+            - length_surface: Length of the root surface (m)
+            - azimuth_angle: Azimuth angle of the root (degrees)
+            - elevation_angle: Elevation angle of the root (degrees)
+
+        Raises
+        ------
+        TypeError
+            Species should be entered as a string, e.g. alnus_incana
+        ValueError
+            Species name should be separated with an underscore, e.g. alnus_incana
+        ValueError
+            It is suggested to follow botanical nomenclature with genus and species name, e.g. alnus_incana
+        ValueError
+            Undefined parameter. Choose one of the following: elastic_modulus, diameter, tensile_strength, yield_strength, plastic_modulus, unload_modulus, length, length_surface, azimuth_angle, elevation_angle
+        TypeError
+            Parameter should be of type Parameter(value, unit)
+        TypeError
+            Value should be of type float or int or a list
+        TypeError
+            Unit should be entered as a string
+        DimensionalityError
+            Unit dimensionality does not match the expected dimensionality for the parameter
+        TypeError
+            {parameter_name} should only be of type {expected_type} in a list
+        AttributeError
+            Diameter is needed to calculate cross-sectional area
+        AttributeError
+            Diameter is needed to calculate circumference
+        """
         if not isinstance(species, str):
             raise TypeError("Species should be entered as a string, e.g. alnus_incana")
         if "_" not in species:
@@ -89,9 +136,24 @@ class Roots:
             
     def initial_orientation_vector(
             self,
-            axis_angle = None
+            axis_angle: (float | int) = None
             ):
-        ## Generate 3-D unit vector
+        """
+        Returns the initial orientation vector of the root in 3D space.
+        The vector is calculated based on the azimuth and elevation angles of the root. 
+
+        Parameters
+        ----------
+        axis_angle : float  |  int, optional
+            Angle in radians to rotate the initial orientation vector around the z-axis, by default None.
+            If None, the initial orientation vector is returned without rotation.
+        Returns
+        -------
+        np.ndarray
+            A 3D vector representing the initial orientation of the root in space.
+            The vector is of shape (1, 3) and contains the x, y, and z components.
+        """
+
         if hasattr(self, 'elevation_angle'):
             if hasattr(self, 'azimuth_angle'):
                 v = np.stack([
@@ -111,9 +173,9 @@ class Roots:
                 np.zeros_like(self.diameter.magnitude),
                 np.zeros_like(self.diameter.magnitude)
             ], axis = 1)
-        ## rotate using axis-angle vector (Rodriguez equation)
+        # rotate using axis-angle vector (Rodriguez equation)
         if axis_angle is None:
-            return(v)
+            return v
         else:
             if np.isscalar(axis_angle):
                 # scalar input --> assume input equals angle between z-axis and rotated x-axis
@@ -133,7 +195,7 @@ class Roots:
             theta = np.linalg.norm(axis_angle)  
             # rotation axis - unit vector
             if np.isclose(theta, 0.0):
-                return(v)
+                return v
             else:
                 k = axis_angle / theta 
                 # apply Rodriguez equation
@@ -142,12 +204,23 @@ class Roots:
                     + np.cross(k, v) * np.sin(theta)
                     + np.outer(np.dot(v, k), k) * (1.0 - np.cos(theta))
                 )
-                # return
-                return(root_vector_rotated)
+                return root_vector_rotated
 
 
 class SingleRoot(Roots):
+    """
+    SingleRoot class inherits from Roots and is used to create a single root object with specified parameters. 
+    """
     def __init__(self, **kwargs):
+        """
+        Creates a single root object with specified parameters.
+        The parameters are defined in the ROOT_PARAMETERS dictionary.
+
+        Raises
+        ------
+        TypeError
+            SingleRoot class cannot have multiple values for parameters other than species. Use MultipleRoots class instead.
+        """
         for k, v in kwargs.items():
             if k != "species":
                 if isinstance(v.value, list):
