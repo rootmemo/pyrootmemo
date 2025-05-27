@@ -62,7 +62,8 @@ class PulloutEmbeddedElastic():
     ):
         self._check_contains_attributes(
             roots, 
-            ['xsection', 'circumference', 'elastic_modulus']
+            ['xsection', 'circumference', 
+             'elastic_modulus']
             )
         self._check_contains_attributes(interface, ['shear_strength'])
 
@@ -81,8 +82,11 @@ class PulloutEmbeddedElastic():
 
     def _get_coefficients_anchored_elastic(self):
         nroots = self._nroots()
-        c2 = 1.0 / (2.0 * self.roots.elastic_modulus * self.roots.xsection 
-                    * self.roots.circumference * self.interface.shear_strength)
+        c2 = (
+            1.0 
+            / (2.0 * self.roots.elastic_modulus * self.roots.xsection 
+               * self.roots.circumference * self.interface.shear_strength)
+            )
         c1 = np.zeros(nroots) * units['m/N']
         c0 = np.zeros(nroots) * units['m']
         return(c2, c1, c0)
@@ -193,10 +197,9 @@ class PulloutEmbeddedElastic():
             c
             ):
         # solve equations a*x^2 + b*x^2 + c = 0 in DRAM/Pullout
-        # function assumes that a > 0
         # function always returns the largest root
         discriminant = b**2 - 4.0 * a * c
-        x = (-b + np.sqrt(discriminant)) / (2.0 * a)
+        x = (-b + np.sign(a) * np.sqrt(discriminant)) / (2.0 * a)
         return(x)
     
 
@@ -210,7 +213,9 @@ class PulloutEmbeddedElasticSlipping(PulloutEmbeddedElastic):
     ):
         self._check_contains_attributes(
             roots, 
-            ['xsection', 'circumference', 'elastic_modulus', 'length']
+            ['xsection', 'circumference', 
+             'elastic_modulus', 
+             'length']
             )
         self._check_contains_attributes(interface, ['shear_strength'])
 
@@ -285,7 +290,9 @@ class PulloutEmbeddedElasticBreakage(PulloutEmbeddedElastic):
     ):
         self._check_contains_attributes(
             roots, 
-            ['xsection', 'circumference', 'elastic_modulus', 'tensile_strength']
+            ['xsection', 'circumference', 
+             'elastic_modulus', 
+             'tensile_strength']
             )
         self._check_contains_attributes(interface, ['shear_strength'])
 
@@ -332,7 +339,10 @@ class PulloutEmbeddedElasticBreakageSlipping(
     ):
         self._check_contains_attributes(
             roots, 
-            ['xsection', 'circumference', 'elastic_modulus', 'length', 'tensile_strength']
+            ['xsection', 'circumference', 
+             'elastic_modulus', 
+             'tensile_strength',
+             'length']
             )
         self._check_contains_attributes(interface, ['shear_strength'])
 
@@ -351,7 +361,9 @@ class PulloutEmbeddedElastoplastic(PulloutEmbeddedElastic):
     ):
         self._check_contains_attributes(
             roots, 
-            ['xsection', 'circumference', 'elastic_modulus', 'plastic_modulus']
+            ['xsection', 'circumference', 
+             'elastic_modulus', 'plastic_modulus',
+             'yield_strength']
             )
         self._check_contains_attributes(interface, ['shear_strength'])
 
@@ -451,7 +463,9 @@ class PulloutEmbeddedElastoplasticSlipping(
     ):
         self._check_contains_attributes(
             roots, 
-            ['xsection', 'circumference', 'elastic_modulus', 'plastic_modulus',
+            ['xsection', 'circumference', 
+             'elastic_modulus', 'plastic_modulus',
+             'yield_strength',
              'length']
             )
         self._check_contains_attributes(interface, ['shear_strength'])
@@ -548,8 +562,9 @@ class PulloutEmbeddedElastoplasticBreakage(
     ):
         self._check_contains_attributes(
             roots, 
-            ['xsection', 'circumference', 'elastic_modulus', 'plastic_modulus',
-             'tensile_strength']
+            ['xsection', 'circumference', 
+             'elastic_modulus', 'plastic_modulus',
+             'yield_strength', 'tensile_strength']
             )
         self._check_contains_attributes(interface, ['shear_strength'])
 
@@ -567,16 +582,26 @@ class PulloutEmbeddedElastoplasticBreakageSlipping(
     ):
         self._check_contains_attributes(
             roots, 
-            ['xsection', 'circumference', 'elastic_modulus', 'plastic_modulus',
-             'tensile_strength', 'length']
+            ['xsection', 'circumference', 
+             'elastic_modulus', 'plastic_modulus',
+             'yield_strength', 'tensile_strength', 
+             'length']
             )
         self._check_contains_attributes(interface, ['shear_strength'])
+
+
+
+
 
 
 
 #####################
 ### SURFACE ROOTS ###
 #####################
+
+
+
+
 
 # SURFACE - ELASTIC
 class PulloutSurfaceElastic(PulloutEmbeddedElastic):
@@ -588,7 +613,9 @@ class PulloutSurfaceElastic(PulloutEmbeddedElastic):
     ):
         self._check_contains_attributes(
             roots, 
-            ['xsection', 'circumference', 'elastic_modulus', 'length_surface']
+            ['xsection', 'circumference', 
+             'elastic_modulus', 
+             'length_surface']
             )
         self._check_contains_attributes(interface, ['shear_strength'])
 
@@ -689,8 +716,9 @@ class PulloutSurfaceElasticSlipping(PulloutSurfaceElastic):
     ):
         self._check_contains_attributes(
             roots, 
-            ['xsection', 'circumference', 'elastic_modulus', 'length',
-             'length_surface']
+            ['xsection', 'circumference', 
+             'elastic_modulus', 
+             'length', 'length_surface']
             )
         self._check_contains_attributes(interface, ['shear_strength'])
 
@@ -717,9 +745,9 @@ class PulloutSurfaceElasticSlipping(PulloutSurfaceElastic):
 
     def _get_limits_elastic_slipping(self):
         force = self._solve_quadratic(
-            -1.0 / (2.0 * self.roots.elastic_modulus * self.roots.xsection * self.roots.circumference * self.interface.shear_strength),
-            -1.0 / (self.roots.circumference * self.interface.shear_strength),
-            self.roots.length - self.roots.length_surface
+            1.0 / (2.0 * self.roots.elastic_modulus * self.roots.xsection * self.roots.circumference * self.interface.shear_strength),
+            1.0 / (self.roots.circumference * self.interface.shear_strength),
+            self.roots.length_surface - self.roots.length
             )            
         c3, c2, c1, c0 = self._get_coefficients_anchored_elastic()
         displacement = c3 * force**3 + c2 * force**2 + c1 * force + c0
@@ -793,7 +821,9 @@ class PulloutSurfaceElasticBreakage(PulloutSurfaceElastic):
     ):
         self._check_contains_attributes(
             roots, 
-            ['xsection', 'circumference', 'elastic_modulus', 'tensile_strength',
+            ['xsection', 'circumference', 
+             'elastic_modulus', 
+             'tensile_strength',
              'length_surface']
             )
         self._check_contains_attributes(interface, ['shear_strength'])
@@ -805,11 +835,9 @@ class PulloutSurfaceElasticBreakage(PulloutSurfaceElastic):
             jac = False
             ):
         # generate mask - for when force has been higher during any previous displacement (e.g. during slipping)
-        behaviour_names_reducing = [BEHAVIOUR_NAMES[i] for i in [2, 4, 5]]
-        behaviour_index_reducing = np.array([b in behaviour_names_reducing for b in self.behaviour_types])
-        mask = behaviour_index_reducing[behaviour_index]
-        # set force for reducing points to maximum experienced so far
-        force[mask] = np.max(self.limits[1][mask, :], axis = -1)
+        behaviour_index_reducing_elastic = np.array([False, False, True, True])
+        mask_elastic = behaviour_index_reducing_elastic[behaviour_index]
+        force[mask_elastic] = self.limits[1][mask_elastic, 1]
         # calculate survival
         stress = force / self.roots.xsection
         if hasattr(self, 'weibull_shape'):
@@ -827,7 +855,7 @@ class PulloutSurfaceElasticBreakage(PulloutSurfaceElastic):
                 )
                 dsurvival_dforce = dsurvival_dstress * dstress_dforce
                 # adjust for reducing points (survival function does not change once reducing force)
-                dsurvival_dforce[mask] = np.zeros(np.sum(mask)) * units('1/N')
+                dsurvival_dforce[mask_elastic] = np.zeros(np.sum(mask_elastic)) * units('1/N')
         else:
             survival = (stress <= self.roots.tensile_strength).astype('float')
             if jac is False:
@@ -836,6 +864,7 @@ class PulloutSurfaceElasticBreakage(PulloutSurfaceElastic):
                 dsurvival_dforce = np.zeros(self._nroots()) * units('1/N')
         return(survival, dsurvival_dforce)
     
+
 # SURFACE - ELASTIC, BREAKAGE SLIPPAGE
 class PulloutSurfaceElasticBreakageSlipping(
     PulloutSurfaceElasticBreakage,
@@ -849,8 +878,10 @@ class PulloutSurfaceElasticBreakageSlipping(
     ):
         self._check_contains_attributes(
             roots, 
-            ['xsection', 'circumference', 'elastic_modulus', 'length', 
-             'tensile_strength', 'length_surface']
+            ['xsection', 'circumference', 
+             'elastic_modulus', 
+             'tensile_strength',
+             'length', 'length_surface']
             )
         self._check_contains_attributes(interface, ['shear_strength'])
 
@@ -870,6 +901,7 @@ class PulloutSurfaceElastoplastic(PulloutSurfaceElastic):
             roots, 
             ['xsection', 'circumference', 
              'elastic_modulus', 'plastic_modulus',
+             'yield_strength',
              'length_surface']
             )
         self._check_contains_attributes(interface, ['shear_strength'])
@@ -1000,6 +1032,7 @@ class PulloutSurfaceElastoplasticSlipping(
             roots, 
             ['xsection', 'circumference', 
              'elastic_modulus', 'plastic_modulus', 'unload_modulus', 
+             'yield_strength',
              'length', 'length_surface']
             )
         self._check_contains_attributes(interface, ['shear_strength'])
@@ -1018,12 +1051,12 @@ class PulloutSurfaceElastoplasticSlipping(
             )
         c1 = (
             self.roots.length / (self.roots.unload_modulus * self.roots.xsection)
-            + 1.0 
+            - 1.0 
             / (self.roots.circumference * self.interface.shear_strength)
             * (
                 1.0
-                - self.roots.yield_strength / self.roots.elastic_modulus
-                + self.roots.yield_strength / self.roots.plastic_modulus
+                + self.roots.yield_strength / self.roots.elastic_modulus
+                - self.roots.yield_strength / self.roots.plastic_modulus
                 )
             )
         c0 = (
@@ -1088,17 +1121,28 @@ class PulloutSurfaceElastoplasticSlipping(
     def _get_limits_plastic_slipping_start(self):
         Try = self.roots.yield_strength * self.roots.xsection
         force = self._solve_quadratic(
-            1.0 / (self.roots.plastic_modulus * self.roots.xsection),
             (
-                1.0
-                + 2.0 * Try / (self.roots.elastic_modulus * self.roots.xsection)
-                - 2.0 * Try / (self.roots.plastic_modulus * self.roots.xsection)
+                1.0 
+                / (2.0 * self.roots.plastic_modulus * self.roots.xsection 
+                   * self.roots.circumference * self.interface.shear_strength)
             ),
             (
-                Try**2 / (self.roots.plastic_modulus * self.roots.xsection)
-                - Try**2 / (self.roots.elastic_modulus * self.roots.xsection)
-                - 2.0 * (self.roots.length - self.roots.length_surface)
-                * (self.roots.circumference * self.interface.shear_strength)
+                1.0
+                / (self.roots.circumference * self.interface.shear_strength)
+                * (
+                    1.0
+                    + Try / (self.roots.elastic_modulus * self.roots.xsection)
+                    - Try / (self.roots.plastic_modulus * self.roots.xsection)
+                )
+            ),
+            (
+                self.roots.length_surface
+                + (
+                    Try**2 
+                    / (2.0 * self.roots.xsection * self.roots.circumference * self.interface.shear_strength)
+                    * (1.0 / self.roots.plastic_modulus - 1.0 / self.roots.elastic_modulus)
+                )
+                - self.roots.length
             )
         )
         c3a, c2a, c1a, c0a = self._get_coefficients_anchored_plastic()
@@ -1218,3 +1262,85 @@ class PulloutSurfaceElastoplasticSlipping(
             dforceunbroken_ddisplacement,
             behaviour_index
         )       
+
+
+# SURFACE - ELASTOPLASTIC - BREAKAGE
+class PulloutSurfaceElastoplasticBreakage(
+    PulloutSurfaceElastoplastic,
+    PulloutSurfaceElasticBreakage,
+    ):
+
+    def _check_input(
+            self,
+            roots,
+            interface
+    ):
+        self._check_contains_attributes(
+            roots, 
+            ['xsection', 'circumference', 
+             'elastic_modulus', 'plastic_modulus', 'unload_modulus', 
+             'yield_strength', 'tensile_strength',
+             'length_surface']
+            )
+        self._check_contains_attributes(interface, ['shear_strength'])
+
+
+# SURFACE - ELASTOPLASTIC - BREAKAGE - SLIPPING
+class PulloutSurfaceElastoplasticBreakageSlipping(
+    PulloutSurfaceElastoplasticSlipping #,
+    #PulloutSurfaceElastoplasticBreakage,    
+    ):
+
+    def _check_input(
+            self,
+            roots,
+            interface
+    ):
+        self._check_contains_attributes(
+            roots, 
+            ['xsection', 'circumference', 
+             'elastic_modulus', 'plastic_modulus', 'unload_modulus', 
+             'yield_strength', 'tensile_strength',
+             'length', 'length_surface']
+            )
+        self._check_contains_attributes(interface, ['shear_strength'])
+
+    def _get_survival(
+            self, 
+            force, 
+            behaviour_index,
+            jac = False
+            ):
+        # generate mask - for when force has been higher during any previous displacement (e.g. during slipping)
+        behaviour_index_reducing_elastic = np.array([False, False, True, True, False, False, False, False])
+        mask_elastic = behaviour_index_reducing_elastic[behaviour_index]
+        force[mask_elastic] = self.limits[1][mask_elastic, 1]
+        behaviour_index_reducing_plastic = np.array([False, False, False, False, False, True, True, True])
+        mask_plastic = behaviour_index_reducing_plastic[behaviour_index]
+        force[mask_plastic] = self.limits[1][mask_plastic, 4]
+        # calculate survival
+        stress = force / self.roots.xsection
+        if hasattr(self, 'weibull_shape'):
+            weibull_shape = self.weibull_shape
+            weibull_scale = self.roots.tensile_strength / gamma(1.0 + 1.0 / weibull_shape)
+            survival = np.exp(-(stress / weibull_scale)**weibull_shape)
+            if jac is False:
+                dsurvival_dforce = None
+            else:
+                dstress_dforce = 1.0 / self.roots.xsection
+                dsurvival_dstress = (
+                    -weibull_shape / weibull_scale
+                    * (stress / weibull_scale) ** (weibull_shape - 1.0)
+                    * survival
+                )
+                dsurvival_dforce = dsurvival_dstress * dstress_dforce
+                # adjust for reducing points (survival function does not change once reducing force)
+                dsurvival_dforce[mask_elastic] = np.zeros(np.sum(mask_elastic)) * units('1/N')
+                dsurvival_dforce[mask_plastic] = np.zeros(np.sum(mask_plastic)) * units('1/N')
+        else:
+            survival = (stress <= self.roots.tensile_strength).astype('float')
+            if jac is False:
+                dsurvival_dforce = None
+            else:
+                dsurvival_dforce = np.zeros(self._nroots()) * units('1/N')
+        return(survival, dsurvival_dforce)

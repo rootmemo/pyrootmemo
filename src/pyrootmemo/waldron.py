@@ -1,6 +1,8 @@
 # import packages and functions
 import numpy as np
 from pyrootmemo.tools.helpers import units
+from pyrootmemo.materials import MultipleRoots, Interface
+from pyrootmemo.geometry import SoilProfile, FailureSurface
 from pyrootmemo.pullout import PulloutEmbeddedElastic
 from pyrootmemo.pullout import PulloutEmbeddedElasticSlipping
 from pyrootmemo.pullout import PulloutEmbeddedElasticBreakage
@@ -18,16 +20,28 @@ class DirectShear():
 
     def __init__(
             self,
-            roots,
-            interface,
-            soil_profile,
-            failure_surface
-    ):
+            roots: MultipleRoots,
+            interface: Interface,
+            soil_profile: SoilProfile,
+            failure_surface: FailureSurface,
+            distribution_factor: float | int = 0.5
+    ) -> None:
+        # check instances are of the correct class
+        if not isinstance(roots, MultipleRoots):
+            TypeError('roots must be instance of class MultipleRoots')
+        if not isinstance(interface, Interface):
+            TypeError('interface must be instance of class Interface')
+        if not isinstance(soil_profile, SoilProfile):
+            TypeError('soil_profile must be instance of class SoilProfile')
+        if not isinstance(failure_surface, FailureSurface):
+            TypeError('failure_surface must be instance of class FailureSurface')
         # assign input
         self.roots = roots
         self.interface = interface
         self.soil_profile = soil_profile
         self.failure_surface = failure_surface
+        # distribution parameter
+        self.distribution_factor = distribution_factor
         # set root orientations (relative to failure surface)
         self._set_root_orientations()
         # set friction angle at failure surface
@@ -35,7 +49,9 @@ class DirectShear():
             soil_profile.get_soil(failure_surface.depth).friction_angle.to('rad')
             )
     
-    def _set_root_orientations(self):
+    def _set_root_orientations(
+            self
+            ) -> None:
         # function set 3-D root orientations **relative to** failure surface so that:
         # * local x = direction of shearing
         # * local y = perpendicular to x on shear plane
@@ -50,7 +66,7 @@ class DirectShear():
         # failure surface
         # * assume angle is defined as angle in x-z plane, defined (positive) from x to z
         #
-
+        # 
         # shape of root vector ('number of roots')
         roots_shape = self.roots.diameter.magnitude.shape()
         # root orientations not defined - assume all perpendicular to failure surface
@@ -68,8 +84,10 @@ class DirectShear():
                 self.roots.elevation_angle = np.zeros(*roots_shape) * units('deg')
             # get global root orientations
             root_orientation_global = np.stack((
-                np.cos(self.roots.azimuth_angle.magnitude) * np.sin(self.roots.elevation_angle.magnitude),
-                np.sin(self.roots.azimuth_angle.magnitude) * np.sin(self.roots.elevation_angle.magnitude),
+                np.cos(self.roots.azimuth_angle.magnitude) 
+                * np.sin(self.roots.elevation_angle.magnitude),
+                np.sin(self.roots.azimuth_angle.magnitude) 
+                * np.sin(self.roots.elevation_angle.magnitude),
                 np.cos(self.roots.elevation_angle.magnitude)
             ), axis = -1)
             # rotate to local coordinate system and set unit vectors
@@ -81,10 +99,9 @@ class DirectShear():
 
     def _get_orientation_parameters(
             self,
-            displacement,
-            shear_zone_thickness,
-            distribution = 0.5,
-            jac = False
+            displacement: Quantity,
+            shear_zone_thickness: Quantity,
+            jac: bool = False
     ):
         # vector components of initial root orientation in shear zone
         v0x = (
@@ -106,7 +123,7 @@ class DirectShear():
             L0 = 0.0 * shear_zone_thickness * self.roots.orientation[..., 2]
             L = displacement * np.ones_like(v0z)
         # pullout displacement
-        up = distribution * (L - L0)
+        up = self.distribution_factor * (L - L0)
         # orientation factor
         tanphi = np.tan(self._get_friction_angle())
         k = ((v0x + displacement) + (v0z * tanphi)) / L
@@ -132,13 +149,13 @@ class DirectShear():
                 dL_dv0x = np.ones_like(v0z)
                 dL_dv0y = np.ones_like(v0z)
                 dL_dv0z = np.ones_like(v0z)
-            dup_ddisplacement = distribution * dL_ddisplacement
+            dup_ddisplacement = self.distribution_factor * dL_ddisplacement
             dL_dshearzonethickness = (
                 dL_dv0x * dv0x_dshearzonethickness
                 + dL_dv0y * dv0y_dshearzonethickness
                 + dL_dv0z * dv0z_dshearzonethickness
                 )
-            dup_dshearzonethickness = distribution * (dL_dshearzonethickness - dL0_dshearzonethickness)
+            dup_dshearzonethickness = self.distribution_factor * (dL_dshearzonethickness - dL0_dshearzonethickness)
             dk_ddisplacement = (
                 1.0 / L
                 - k / L * dL_ddisplacement
@@ -162,15 +179,15 @@ class Waldron(DirectShear):
 
     def __init__(
             self,
-            roots,
-            interface,
-            soil_profile,
-            failure_surface,
-            slipping = True,
-            breakage = True,
-            elastoplastic = False,
-            weibull_shape = None
-    ): 
+            roots: MultipleRoots,
+            interface: Interface,
+            soil_profile: SoilProfile,
+            failure_surface: FailureSurface,
+            slipping: bool = True,
+            breakage: bool = True,
+            elastoplastic: bool = False,
+            weibull_shape: float | int | None = None
+    ) -> None: 
         # call __init__ from parent class
         super().__init__(roots, soil_profile, failure_surface)
         # set analysis settings as part of class
@@ -181,31 +198,39 @@ class Waldron(DirectShear):
         if slipping is True:
             if breakage is True:
                 if elastoplastic is True:
-                    self.pullout = PulloutEmbeddedElastoplasticBreakageSlipping(roots, interface, weibull_shape = weibull_shape)
+                    self.pullout = PulloutEmbeddedElastoplasticBreakageSlipping(
+                        roots, interface, weibull_shape = weibull_shape)
                 else:
-                    self.pullout = PulloutEmbeddedElasticBreakageSlipping(roots, interface, weibull_shape = weibull_shape)
+                    self.pullout = PulloutEmbeddedElasticBreakageSlipping(
+                        roots, interface, weibull_shape = weibull_shape)
             else:
                 if elastoplastic is True:
-                    self.pullout = PulloutEmbeddedElastoplasticSlipping(roots, interface)
+                    self.pullout = PulloutEmbeddedElastoplasticSlipping(
+                        roots, interface)
                 else:
-                    self.pullout = PulloutEmbeddedElasticSlipping(roots, interface)
+                    self.pullout = PulloutEmbeddedElasticSlipping(
+                        roots, interface)
         else:
             if breakage is True:
                 if elastoplastic is True:
-                    self.pullout = PulloutEmbeddedElastoplasticBreakage(roots, interface, weibull_shape = weibull_shape)
+                    self.pullout = PulloutEmbeddedElastoplasticBreakage(
+                        roots, interface, weibull_shape = weibull_shape)
                 else:
-                    self.pullout = PulloutEmbeddedElasticBreakage(roots, interface, weibull_shape = weibull_shape)
+                    self.pullout = PulloutEmbeddedElasticBreakage(
+                        roots, interface, weibull_shape = weibull_shape)
             else:
                 if elastoplastic is True:
-                    self.pullout = PulloutEmbeddedElastoplastic(roots, interface)
+                    self.pullout = PulloutEmbeddedElastoplastic(
+                        roots, interface)
                 else:
-                    self.pullout = PulloutEmbeddedElastic(roots, interface)
+                    self.pullout = PulloutEmbeddedElastic(
+                        roots, interface)
 
     def reinforcement(
             self,
-            displacement,
-            jac = False,
-            ):
+            displacement: Quantity,
+            jac: bool = False,
+            ) -> Quantity:
         # pullout displacement (up) and orientation factors (k)
         up, k, dup_dus, dup_dh, dk_dus, dk_dh = self._get_orientation_parameters(
             displacement,
@@ -222,6 +247,37 @@ class Waldron(DirectShear):
             return(cr, dcr_dus)
         else:
             return(cr)
+
+
+    def _get_displacement_root_failure(
+            self
+            ):
+        # get force at failure in each root
+        capacity = self.roots.xsection * self.roots.tensile_strength
+        # get index of correct behaviour
+        if self.elastoplastic is True:
+            i = np.flatnonzero(self.pullout.behaviour_types == 'Anchored, plastic')[0]
+        else:
+            i = np.flatnonzero(self.pullout.behaviour_types == 'Anchored, elastic')[0]
+        # calculate pullout displacement at failure
+        pullout_displacement = (
+            self.pullout.coefficients[0][..., i] * capacity**2
+            + self.pullout.coefficients[1][..., i] * capacity
+            + self.pullout.coefficients[2][..., i]
+        )
+        # calculate shear displacement at failure
+        elongation = pullout_displacement / self.distribution_factor
+        vx = self.roots.orientation[..., 0]
+        vy = self.roots.orientation[..., 1]
+        vz = self.roots.orientation[..., 2]
+        h = self.failure_surface.shear_zone_thickness
+        shear_displacement = (
+            np.sqrt((elongation + h / vz)**2 - h**2 * (1.0 + vy**2 / vz**2))
+            - h * vx / vz
+        )
+        # return
+        return(shear_displacement)
+
 
     def peak_reinforcement(
             self
