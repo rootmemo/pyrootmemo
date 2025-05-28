@@ -39,7 +39,7 @@ def round_range(
 
     Returns
     -------
-    Dictionary with fields 'limit' contaning a list (length 2) with 'nice'
+    Dictionary with fields 'limits' contaning a list (length 2) with 'nice'
     lower and upper axis limits, and a field 'breaks' containing an array
     (np.ndarray) with 'nice' tick positions.
 

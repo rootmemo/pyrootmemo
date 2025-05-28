@@ -68,15 +68,15 @@ class Fbm():
 
         """
         # check if roots contains all required instances
-        instances_required = ['diameter', 'xsection', 'tensile_strength']
-        for i in instances_required:
+        attributes_required = ['diameter', 'xsection', 'tensile_strength']
+        for i in attributes_required:
             if not hasattr(roots, i):
-                AttributeError('roots does not contain ' + str(i) + ' attribute')
+                raise AttributeError('roots does not contain ' + str(i) + ' attribute')
         # check if loadsharing parameter is a finite, scalar value
         if (not np.isscalar(load_sharing)) | (load_sharing is None):
-            ValueError('load_sharing must be a scalar')
+            raise ValueError('load_sharing must be a scalar')
         if np.isinf(load_sharing):
-            ValueError('load_sharing must have finite value')
+            raise ValueError('load_sharing must have finite value')
         # set parameters
         self.roots = roots
         self.load_sharing = load_sharing
@@ -105,10 +105,12 @@ class Fbm():
         Generate matrix for force in each root (rows) at breakage of each 
         root (columns). Assumes roots are sorted in order of breakage
         """
+        # root capacity (force)
+        force = self._tensile_capacity()
         # get units
-        force_unit = self._tensile_capacity().unit
+        force_unit = force.units
         # sort data
-        y_sorted = (self._tensile_capacity().magnitude)[self.sort_order]
+        y_sorted = (force.magnitude)[self.sort_order]
         x_sorted = (self.roots.diameter.magnitude)[self.sort_order]
         # forces in each root (rows) as function of breaking root (columns)
         matrix = np.outer(
@@ -163,9 +165,9 @@ class Fbm():
         """
         # check cross-sectional area correctly defined
         if not isinstance(failure_surface, FailureSurface):
-            TypeError('failure_surface must be intance of FailureSurface class')
+            raise TypeError('failure_surface must be intance of FailureSurface class')
         if not hasattr(failure_surface, 'cross_sectional_area'):
-            AttributeError('Failure surface does not contain attribute "cross_sectional_area"')
+            raise AttributeError('Failure surface does not contain attribute cross_sectional_area')
         # return
         return(k * self.peak_force() / failure_surface.cross_sectional_area)
     
@@ -195,9 +197,9 @@ class Fbm():
             self,
             labels: bool = True, 
             margin: float = 0.05, 
-            xlabel: chr = 'Force in individual root', 
-            ylabel: chr = 'Total force in root bundle',
-            unit: str = 'N'
+            unit: str = 'N',
+            xlabel: str = 'Force in individual root', 
+            ylabel: str = 'Total force in root bundle'            
             ) -> tuple:
         """
         Generate a matplotlib plot showing how forces in each roots are 
@@ -226,12 +228,9 @@ class Fbm():
             Tuple containing a figure and an axis object.
 
         """
-        # units
-        #force_unit = self._tensile_capacity().to_reduced_units().u
-        #force_unit_str = format(force_unit, '~L')
         # number of roots
         n_root = len(self.roots.diameter)
-        # sorted caa
+        # sorted capacities
         capacity_sorted = (self._tensile_capacity().to(unit))[self.sort_order]
         diameter_sorted = self.roots.diameter[self.sort_order]
         # convert to unit of choice

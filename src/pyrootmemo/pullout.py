@@ -68,7 +68,7 @@ class PulloutEmbeddedElastic():
         self._check_contains_attributes(interface, ['shear_strength'])
 
     def _nroots(self):
-        return(len(self.roots.xsection.magnitude))
+        return(len(self.roots.xsection))
 
     def _set_behaviour_types(self):
         self.behaviour_types = [BEHAVIOUR_NAMES[i] for i in [0, 1]]
@@ -116,13 +116,13 @@ class PulloutEmbeddedElastic():
         
     def _get_behaviour_index(
             self, 
-            displacement
+            displacement  # displacement per root!
             ):
-        return((displacement > self.limits[0]).sum(axis = 1))
+        return((displacement[..., np.newaxis] > self.limits[0]).sum(axis = 1))
 
     def _get_force_unbroken(
             self, 
-            displacement, 
+            displacement,  # per root!
             jac = False
         ):
         # initialise force vector and find behaviour indices
@@ -131,7 +131,8 @@ class PulloutEmbeddedElastic():
         behaviour_index = self._get_behaviour_index(displacement)
         # elastic behaviour
         index1 = (behaviour_index == 1)
-        force_unbroken[index1] = np.sqrt(displacement / self.coefficients[0][index1, 1])
+        tmp1 = displacement / self.coefficients[0][..., 1]
+        force_unbroken[index1] = np.sqrt(tmp1[index1])
         # derivative of force with respect to pullout displacement
         if jac is False:
             dforceunbroken_ddisplacement = None
@@ -141,6 +142,9 @@ class PulloutEmbeddedElastic():
                 1.0 
                 / (2.0 * force_unbroken[index1] * self.coefficients[0][index1, 1])
                 )
+        print(force_unbroken)
+        print(dforceunbroken_ddisplacement)
+        print(behaviour_index)
         # return
         return(
             force_unbroken, 
@@ -259,7 +263,8 @@ class PulloutEmbeddedElasticSlipping(PulloutEmbeddedElastic):
         behaviour_index = self._get_behaviour_index(displacement)
         # elastic behaviour
         index1 = (behaviour_index == 1)
-        force_unbroken[index1] = np.sqrt(displacement / self.coefficients[0][index1, 1])
+        tmp1 = displacement / self.coefficients[0][..., 1]
+        force_unbroken[index1] = np.sqrt(tmp1[index1])
         # slipping behaviour
         index2 = (behaviour_index == 2)
         force_unbroken[index2] = self.limits[1][index2, 1]
@@ -303,7 +308,7 @@ class PulloutEmbeddedElasticBreakage(PulloutEmbeddedElastic):
             jac = False
             ):
         stress = force / self.roots.xsection
-        if hasattr(self, 'weibull_shape'):
+        if hasattr(self, 'weibull_shape') and self.weibull_shape is not None:
             weibull_shape = self.weibull_shape
             weibull_scale = self.roots.tensile_strength / gamma(1.0 + 1.0 / weibull_shape)
             survival = np.exp(-(stress / weibull_scale)**weibull_shape)
@@ -330,7 +335,7 @@ class PulloutEmbeddedElasticBreakage(PulloutEmbeddedElastic):
 class PulloutEmbeddedElasticBreakageSlipping(
     PulloutEmbeddedElasticSlipping,
     PulloutEmbeddedElasticBreakage
-):
+    ):
 
     def _check_input(
             self,
@@ -420,13 +425,15 @@ class PulloutEmbeddedElastoplastic(PulloutEmbeddedElastic):
         behaviour_index = self._get_behaviour_index(displacement)
         # elastic behaviour
         index1 = (behaviour_index == 1)
-        force_unbroken[index1] = np.sqrt(displacement / self.coefficients[0][index1, 1])
+        tmp1 = displacement / self.coefficients[0][..., 1]
+        force_unbroken[index1] = np.sqrt(tmp1[index1])
         # plastic behaviour
         index2 = (behaviour_index == 2)
+        tmp2 = self.coefficients[2][..., 2] - displacement
         force_unbroken[index2] = self._solve_quadratic(
             self.coefficients[0][index2, 2],
             self.coefficients[1][index2, 2],
-            self.coefficients[2][index2, 2] - displacement
+            tmp2[index2]
         )
         # derivative of force with respect to displacement
         if jac is False:
@@ -516,13 +523,15 @@ class PulloutEmbeddedElastoplasticSlipping(
         behaviour_index = self._get_behaviour_index(displacement)
         # elastic anchored behaviour
         index1 = (behaviour_index == 1)
-        force_unbroken[index1] = np.sqrt(displacement / self.coefficients[0][index1, 1])
+        tmp1 = displacement / self.coefficients[0][..., 1]
+        force_unbroken[index1] = np.sqrt(tmp1[index1])
         # plastic anchored behaviour
         index3 = (behaviour_index == 3)
+        tmp3 = self.coefficients[2][..., 3] - displacement
         force_unbroken[index3] = self._solve_quadratic(
             self.coefficients[0][index3, 3],
             self.coefficients[1][index3, 3],
-            self.coefficients[2][index3, 3] - displacement
+            tmp3[index3]
         )
         # slipping behaviour
         index24 = (behaviour_index == 2) | (behaviour_index == 4)
@@ -840,7 +849,7 @@ class PulloutSurfaceElasticBreakage(PulloutSurfaceElastic):
         force[mask_elastic] = self.limits[1][mask_elastic, 1]
         # calculate survival
         stress = force / self.roots.xsection
-        if hasattr(self, 'weibull_shape'):
+        if hasattr(self, 'weibull_shape') and self.weibull_shape is not None:
             weibull_shape = self.weibull_shape
             weibull_scale = self.roots.tensile_strength / gamma(1.0 + 1.0 / weibull_shape)
             survival = np.exp(-(stress / weibull_scale)**weibull_shape)
@@ -1320,7 +1329,7 @@ class PulloutSurfaceElastoplasticBreakageSlipping(
         force[mask_plastic] = self.limits[1][mask_plastic, 4]
         # calculate survival
         stress = force / self.roots.xsection
-        if hasattr(self, 'weibull_shape'):
+        if hasattr(self, 'weibull_shape') and self.weibull_shape is not None:
             weibull_shape = self.weibull_shape
             weibull_scale = self.roots.tensile_strength / gamma(1.0 + 1.0 / weibull_shape)
             survival = np.exp(-(stress / weibull_scale)**weibull_shape)

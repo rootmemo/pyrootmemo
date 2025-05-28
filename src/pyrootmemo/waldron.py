@@ -24,7 +24,8 @@ class DirectShear():
             interface: Interface,
             soil_profile: SoilProfile,
             failure_surface: FailureSurface,
-            distribution_factor: float | int = 0.5
+            distribution_factor: float | int = 0.5,
+            **kwargs
     ) -> None:
         # check instances are of the correct class
         if not isinstance(roots, MultipleRoots):
@@ -48,6 +49,10 @@ class DirectShear():
         self.failure_surface.tanphi = np.tan(
             soil_profile.get_soil(failure_surface.depth).friction_angle.to('rad')
             )
+        # kwargs
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
     
     def _set_root_orientations(
             self
@@ -68,7 +73,7 @@ class DirectShear():
         #
         # 
         # shape of root vector ('number of roots')
-        roots_shape = self.roots.diameter.magnitude.shape()
+        roots_shape = self.roots.diameter.magnitude.shape
         # root orientations not defined - assume all perpendicular to failure surface
         if (not hasattr(self.roots, 'azimuth_angle')) & (not hasattr(self.roots, 'elevation_angle')):
             self.roots.orientation = np.stack((
@@ -114,19 +119,18 @@ class DirectShear():
             * self.roots.orientation[..., 1]
             / self.roots.orientation[..., 2]
         )
-        v0z = shear_zone_thickness * np.ones_like(v0z)
+        v0z = shear_zone_thickness * np.ones_like(v0x)
         # length in shear zone
         if shear_zone_thickness.magnitude >= 0.0:
             L0 = shear_zone_thickness / self.roots.orientation[..., 2]
             L = np.sqrt((v0x + displacement)**2 + v0y**2 + v0z**2)
         else:
             L0 = 0.0 * shear_zone_thickness * self.roots.orientation[..., 2]
-            L = displacement * np.ones_like(v0z)
+            L = displacement * np.ones_like(v0x)
         # pullout displacement
         up = self.distribution_factor * (L - L0)
         # orientation factor
-        tanphi = np.tan(self._get_friction_angle())
-        k = ((v0x + displacement) + (v0z * tanphi)) / L
+        k = ((v0x + displacement) + (v0z * self.failure_surface.tanphi)) / L
         # derivatives
         if jac is False:
             dup_ddisplacement = None
@@ -161,7 +165,7 @@ class DirectShear():
                 - k / L * dL_ddisplacement
             )
             dk_dshearzonethickness = (
-                (dv0x_dshearzonethickness + dv0z_dshearzonethickness * tanphi) / L
+                (dv0x_dshearzonethickness + dv0z_dshearzonethickness * self.failure_surface.tanphi) / L
                 - k / L * dL_dshearzonethickness
             )
         return(
@@ -186,10 +190,11 @@ class Waldron(DirectShear):
             slipping: bool = True,
             breakage: bool = True,
             elastoplastic: bool = False,
-            weibull_shape: float | int | None = None
+            weibull_shape: float | int | None = None,
+            **kwargs
     ) -> None: 
         # call __init__ from parent class
-        super().__init__(roots, soil_profile, failure_surface)
+        super().__init__(roots, interface, soil_profile, failure_surface, **kwargs)
         # set analysis settings as part of class
         self.slipping = slipping
         self.breakage = breakage
@@ -229,13 +234,16 @@ class Waldron(DirectShear):
     def reinforcement(
             self,
             displacement: Quantity,
+            displacement_unit: str = 'm',
             jac: bool = False,
             ) -> Quantity:
+        # if displacement has no unit, add one
+        if not isinstance(displacement, Quantity):
+            displacement = displacement * units(displacement_unit)
         # pullout displacement (up) and orientation factors (k)
         up, k, dup_dus, dup_dh, dk_dus, dk_dh = self._get_orientation_parameters(
             displacement,
-            self.failure_surface.shear_zone_thickness,
-            distribution = 0.5
+            self.failure_surface.shear_zone_thickness
         )
         # pullout force (Tp), survival fraction (S) and behaviour type index (b)
         Tp, dTp_dup, S, b = self.pullout.force(up, jac = jac)

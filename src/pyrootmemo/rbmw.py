@@ -5,6 +5,7 @@ import numpy as np
 from pyrootmemo.materials import MultipleRoots
 from pyrootmemo.geometry import FailureSurface
 from pyrootmemo.utils_plot import round_range
+from pyrootmemo.tools.helpers import units
 from pint import Quantity
 import matplotlib.pyplot as plt
 
@@ -36,7 +37,7 @@ class Rbmw():
         Parameters
         ----------
         roots : instance of MultipleRoots class. 
-            Must contain fields 'diameter', 'xsection', 'tensile_strength', 
+            Must contain fields 'xsection', 'tensile_strength', 
             'length', 'elastic_modulus'
         weibull_shape : float
             Weibull shape parameter (dimensionless)
@@ -51,14 +52,23 @@ class Rbmw():
         None.
 
         """
+        # check if roots of correct class
+        if not isinstance(roots, MultipleRoots):
+            TypeError('roots must be instance of class MultipleRoots')
         # check if roots contains all required instances
-        instances_required = ['diameter', 'xsection', 'tensile_strength',
-                              'length', 'elastic_modulus']
-        for i in instances_required:
+        attributes_required = ['xsection', 'tensile_strength', 'length', 'elastic_modulus']
+        for i in attributes_required:
             if not hasattr(roots, i):
-                AttributeError('roots does not contain ' + str(i) + ' attribute')
-        # set parameters
+                AttributeError('roots must contain ' + i + ' values')
+        # set roots
         self.roots = roots
+        # check and set weibull shape parameter
+        if not np.isscalar(weibull_shape) or weibull_shape is None:
+            ValueError('weibull_shape must be a scalar value')
+        if weibull_shape <= 0.0:
+            ValueError('weibull_shape must exceed zero ')
+        if np.isinf(weibull_shape):
+            ValueError('weibull_shape must have a finite value')
         self.weibull_shape = weibull_shape
         # calculate weibull scale parameter
         if weibull_scale is None: 
@@ -68,7 +78,8 @@ class Rbmw():
     # forces in roots at current level of axial displacement
     def force(
             self,
-            displacement: Quantity,
+            displacement: Quantity | int | float | np.ndarray,
+            displacement_unit = 'm',
             total: bool = True,
             deriv: int = 0,
             sign: int | float = 1.0
@@ -98,6 +109,9 @@ class Rbmw():
         -------
         Quantity object with (derivative of) forces.
         """
+        # if displacement is not defined with a unit, make into a Quantity
+        if not isinstance(displacement, Quantity):
+            displacement = displacement * units(displacement_unit)
         # if displacement is a scalar -> make a numpy array
         if np.isscalar(displacement.magnitude):
             displacement_scalar_input = True
@@ -256,7 +270,7 @@ class Rbmw():
     def peak_reinforcement(
             self, 
             failure_surface: FailureSurface,
-            k: float = 1.2
+            k: float = 1.0
             ) -> Quantity:
         """
         Calculate peak reinforcement (largest soil reinforcement at any point)
@@ -269,7 +283,7 @@ class Rbmw():
             "cross_sectional_area" that contains the cross-sectinonal area of the
             failure surface
         k : float, optional
-            Wu/Waldron reinforcement orientation factor. The default is 1.2.
+            Wu/Waldron reinforcement orientation factor. The default is 1.0.
 
         Returns
         -------
@@ -281,7 +295,7 @@ class Rbmw():
         if not isinstance(failure_surface, FailureSurface):
             TypeError('failure_surface must be intance of FailureSurface class')
         if not hasattr(failure_surface, 'cross_sectional_area'):
-            AttributeError('Failure surface does not contain attribute "cross_sectional_area"')
+            AttributeError('failure_surface must contain attribute "cross_sectional_area"')
         # return
         return(k * self.peak_force() / failure_surface.cross_sectional_area)
     

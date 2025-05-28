@@ -75,7 +75,8 @@ class SoilProfile:
             self,
             depth            
             ):
-        return(self.soils[(self.depth >= depth) & (self.depth < depth)])
+        soils_deeper = [s for s, d in zip(self.soils, self.depth) if d >= depth]
+        return(soils_deeper[0])
     
     # calculate vertical stress at specific depth
     def vertical_stress(
@@ -130,3 +131,19 @@ class SoilProfile:
 #TODO: Add a method to calculate the total depth of the profile.
 #TODO: Add a method to plot the profile.
 #TODO: FailureSurface(depth, orientation, shear_zone_thickness, cross_sectional_area) # AY
+
+# GJM: quick placeholder for FailureSurface class, so I can test it with models
+class FailureSurface:
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            if k not in FAILURE_SURFACE_PARAMETERS.keys():
+                raise ValueError(
+                    f"Undefined parameter. Choose one of the following: {FAILURE_SURFACE_PARAMETERS.keys()}"
+                )
+            if not is_namedtuple(v):
+                raise TypeError("Parameter should be of type Parameter(value, unit)")
+            if not isinstance(v.value, (FAILURE_SURFACE_PARAMETERS[k]["type"] | list)):
+                raise TypeError(
+                    f"Value should be of type {FAILURE_SURFACE_PARAMETERS[k]["type"]} or a list"
+                )
+            setattr(self, k, v.value * units(v.unit))

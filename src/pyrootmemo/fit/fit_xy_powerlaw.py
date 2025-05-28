@@ -1,11 +1,13 @@
 # import packages
 import numpy as np
+import matplotlib.pyplot as plt
 from scipy.optimize import root, root_scalar, bracket
 from scipy.special import gamma, digamma, polygamma, loggamma, erf, erfinv, gammaincinv, gammainc
 from scipy.spatial import ConvexHull
 from pyrootmemo.fit.fit import FitBase
 from pyrootmemo.fit.fit_x import WeibullFit, GumbelFit
 from pyrootmemo.fit.fit_xy_linear import LinearFit
+from pyrootmemo.utils_plot import round_range
 from pint import Quantity
 
 
@@ -225,6 +227,92 @@ class PowerlawFitBase(FitBase):
         # return
         return(check, multiplier, exponent)
     
+    def plot(
+            self,
+            x_unit = 'mm',
+            y_unit = 'MPa',
+            x_label = 'Diameter',
+            y_label = 'Tensile strength',
+            data = True,
+            fit = True,
+            n = 101,
+            confidence = True,
+            confidence_level = 0.95,
+            prediction = False,
+            prediction_level = 0.95,
+            legend = True,
+            axis_expand = 0.05          
+            ):
+        # initiate plot
+        fig, ax = plt.subplots(1, 1)
+        # add measured data
+        if isinstance(self.x, Quantity):
+            x_data = self.x.to(x_unit).magnitude
+        else:
+            x_data = self.x
+        if isinstance(self.y, Quantity):
+            y_data = self.y.to(y_unit).magnitude
+        else:
+            y_data = self.y
+        if data is True:
+            ax.plot(x_data, y_data, 'x', label = 'Data')
+        # add fit
+        if fit is True:
+            x_fit = np.linspace(np.min(self.x), np.max(self.x), n)
+            y_fit = self.predict(x_fit)
+            if isinstance(x_fit, Quantity):
+                x_fit = x_fit.to(x_unit).magnitude
+            if isinstance(y_fit, Quantity):
+                y_fit = y_fit.to(y_unit).magnitude
+            ax.plot(x_fit, y_fit, '-', label = 'Fit')
+        # add prediction interval
+        if prediction is True and hasattr(self, 'prediction_interval'):
+            xp, yp = self.prediction_interval(
+                level = prediction_level,
+                n = n
+                )
+            if isinstance(xp, Quantity):
+                xp = xp.to(x_unit).magnitude
+            if isinstance(yp, Quantity):
+                yp = yp.to(y_unit).magnitude
+            labelp = str(round(prediction_level * 100)) + '% Prediction interval' 
+            ax.fill_between(
+                xp, yp[:, 0], yp[:, 1], 
+                label = labelp, alpha = 0.25
+                )
+        # add confidence interval
+        if confidence is True and hasattr(self, 'confidence_interval'):
+            xc, yc = self.confidence_interval(
+                level = confidence_level,
+                n = n
+                )
+            if isinstance(xc, Quantity):
+                xc = xc.to(x_unit).magnitude
+            if isinstance(yc, Quantity):
+                yc = yc.to(y_unit).magnitude
+            labelc = str(round(confidence_level * 100)) + '% Confidence interval' 
+            ax.fill_between(
+                xc, yc[:, 0], yc[:, 1], 
+                label = labelc, alpha = 0.25
+                )
+        # set axis limits (based on measured data)
+        ax.set_xlim(round_range(
+            x_data * (1.0 + axis_expand), 
+            limits = [0.0, None]
+            )['limits'])
+        ax.set_ylim(round_range(
+            y_data * (1.0 + axis_expand), 
+            limits = [0.0, None]
+            )['limits'])
+        # set axes labels
+        ax.set_xlabel(x_label + ' [' + x_unit + ']')
+        ax.set_ylabel(y_label + ' [' + y_unit + ']')
+        # add legend
+        if legend is True:
+            ax.legend(loc = 'upper right')
+        # return figure and axis objects
+        return(fig, ax)
+
 
 #################
 #### WEIBULL ####
@@ -2503,11 +2591,12 @@ class PowerlawFitNormalScaled(PowerlawFitNormalBase):
             method = self.root_method
             )
         exponent = ft.root
+        sd_exponent = exponent
         # coefficients 
         c1 = np.sum(weights)
-        c3 = np.sum(weights * xn**(2. * exponent - 2. * self.sd_exponent))
-        c6 = np.sum(weights * xn**(exponent - 2. * self.sd_exponent) * yn)
-        c9 = np.sum(weights * xn**(-2. * self.sd_exponent) * yn**2)
+        c3 = np.sum(weights * xn**(2.0 * exponent - 2.0 * sd_exponent))
+        c6 = np.sum(weights * xn**(exponent - 2.0 * sd_exponent) * yn)
+        c9 = np.sum(weights * xn**(-2.0 * sd_exponent) * yn**2)
         # calculate power law multipliers
         multiplier_nondimensional = c6 / c3
         sd_multiplier_nondimensional = np.sqrt(c9 / c1 - c6**2 / (c1 * c3))
