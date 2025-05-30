@@ -6,6 +6,7 @@ from pint import Quantity
 from pyrootmemo.utils_plot import round_range
 from pyrootmemo.materials import MultipleRoots
 from pyrootmemo.geometry import FailureSurface
+from pyrootmemo.tools.helpers import units
 
 
 ###########
@@ -67,14 +68,16 @@ class Fbm():
         None.
 
         """
-        # check if roots contains all required instances
+        # check roots input
+        if not isinstance(roots, MultipleRoots):
+            TypeError('roots must be object of class MultipleRoots')
         attributes_required = ['diameter', 'xsection', 'tensile_strength']
         for i in attributes_required:
             if not hasattr(roots, i):
-                raise AttributeError('roots does not contain ' + str(i) + ' attribute')
+                raise AttributeError('roots must contain ' + str(i) + ' attribute')
         # check if loadsharing parameter is a finite, scalar value
-        if (not np.isscalar(load_sharing)) | (load_sharing is None):
-            raise ValueError('load_sharing must be a scalar')
+        if not (isinstance(load_sharing, int) | isinstance(load_sharing, float)):
+            raise ValueError('load_sharing must be a scalar integer or float')
         if np.isinf(load_sharing):
             raise ValueError('load_sharing must have finite value')
         # set parameters
@@ -142,7 +145,7 @@ class Fbm():
     def peak_reinforcement(
             self, 
             failure_surface: FailureSurface,
-            k: float = 1.2
+            k: int | float = 1.0
             ) -> Quantity:
         """
         Calculate peak reinforcement (largest soil reinforcement at any point)
@@ -155,7 +158,7 @@ class Fbm():
             "cross_sectional_area" that contains the cross-sectinonal area of the
             failure surface
         k : float, optional
-            Wu/Waldron reinforcement orientation factor. The default is 1.2.
+            Wu/Waldron reinforcement orientation factor. The default is 1.0.
 
         Returns
         -------
@@ -168,18 +171,19 @@ class Fbm():
             raise TypeError('failure_surface must be intance of FailureSurface class')
         if not hasattr(failure_surface, 'cross_sectional_area'):
             raise AttributeError('Failure surface does not contain attribute cross_sectional_area')
+        # check k-factor
+        if not (isinstance(k, int) | isinstance(k, float)):
+            TypeError('k must be an scalar integer or float')
         # return
         return(k * self.peak_force() / failure_surface.cross_sectional_area)
     
     
     # reduction factor
-    def reduction_factor(
-            self
-            ) -> float:
+    def reduction_factor(self) -> float:
         """
         Calculate the ratio between bundle peak force and the sum of 
         individual fibre strengths. Function will thus return a value between
-        0 and 1. '1' indicates all roots break simultaneously.
+        0.0 and 1.0. '1.0' indicates all roots break simultaneously.
 
         Returns
         -------
@@ -189,21 +193,22 @@ class Fbm():
         """
         force_fbm = self.peak_force()
         force_sum = np.sum(self.roots.xsection * self.roots.tensile_strength)
-        return(force_fbm / force_sum)
+        return((force_fbm / force_sum).magnitude)
     
-  
-    # plot
     def plot(
             self,
-            labels: bool = True, 
-            margin: float = 0.05, 
             unit: str = 'N',
-            xlabel: str = 'Force in individual root', 
-            ylabel: str = 'Total force in root bundle'            
-            ) -> tuple:
+            reference_diameter = 1.0 * units('mm'),
+            stack: bool = False,
+            peak: bool = True,
+            labels: list | bool = False, 
+            margin: float = 0.05, 
+            xlabel: str = 'Force in reference root', 
+            ylabel: str = 'Total force in root bundle'      
+            ):
         """
         Generate a matplotlib plot showing how forces in each roots are 
-        mobilised.
+        mobilised, as function of the force in the reference root
 
         Parameters
         ----------
@@ -228,61 +233,87 @@ class Fbm():
             Tuple containing a figure and an axis object.
 
         """
-        # number of roots
-        n_root = len(self.roots.diameter)
-        # sorted capacities
-        capacity_sorted = (self._tensile_capacity().to(unit))[self.sort_order]
-        diameter_sorted = self.roots.diameter[self.sort_order]
-        # convert to unit of choice
-        # x-values at breakage of each root (forces in reference root = first root defined in list)
-        xb = capacity_sorted * (self.roots.diameter[0] / diameter_sorted) ** self.load_sharing
-        xb = xb.magnitude
-        # array with all x-values (start + before and after breakage)
-        dx = 1.e-6
-        x = np.append(0., np.repeat(xb, 2) * np.tile(np.array([1., 1. + dx]), n_root))
-        # forces in each root (start + before and after breakage)
-        y = np.hstack((np.zeros((n_root, 1)), np.repeat(self.matrix.to(unit).magnitude, 2, axis = 1)))
-        y[np.arange(n_root), 2 * np.arange(n_root) + 2] = 0.
-        # reverse y-values (forces), so plot lines are stacked in order from last breaking to first breaking
-        y = np.flip(y, axis = 0)
-        # colour order - use default matplotlib colors, but order in which roots are defined
-        prop_cycle = mpl.rcParams['axes.prop_cycle']
-        colors = prop_cycle.by_key()['color']
-        n_color = len(colors)
-        colors_new = np.array(colors * int(np.ceil(n_root / n_color)))[np.flip(self.sort_order)]
-        # create new figure 
+        # force matrix - force in each root (row) at breakage of each root (columns) - sorted
+        M = self.matrix.to(unit).magnitude
+        # diameters and reference diameter
+        d = self.roots.diameter.to('mm').magnitude[self.sort_order]
+        d0 = reference_diameter.to('mm').magnitude
+        # force in reference root at moments of breakage, and just after
+        x_before = np.diag(M) * (d0 / d)**self.load_sharing
+        x_after = x_before + 1.0e-12 * np.max(x_before)
+        x_all = np.append(0.0, np.stack((x_before, x_after)).ravel(order = 'F'))
+        # total reinforcement
+        y_before = np.sum(M, axis = 0)
+        y_after = y_before - np.diag(M)
+        y_all = np.append(0.0, np.stack((y_before, y_after)).ravel(order = 'F'))
+        # plot
         fig, ax = plt.subplots()
-        # plot figure
-        ax.stackplot(x, y, colors=colors_new)
+        if stack is True:
+            # forces in individual roots
+            y_before_i = M
+            y_after_i = M - np.diag(np.diag(M))
+            y_all_i = np.concatenate((
+                np.zeros((M.shape[0], 1)),
+                np.stack((y_before_i, y_after_i), axis = -1).reshape(M.shape[0], 2 * M.shape[1]),
+                ), axis = -1)
+            # reverse y-values (forces), so plot lines are stacked in order from last breaking to first breaking
+            y_all_i = np.flip(y_all_i, axis = 0)
+            # colour order - use default matplotlib colors, but order in which roots are defined
+            prop_cycle = mpl.rcParams['axes.prop_cycle']
+            colors = prop_cycle.by_key()['color']
+            n_color = len(colors)
+            colors_new = np.array(colors * int(np.ceil(M.shape[0] / n_color)))[np.flip(self.sort_order)]
+            # plot stacked traces
+            ax.stackplot(x_all, y_all_i, colors = colors_new)
+            # plot total trace
+            ax.plot(x_all, y_all, c = 'black')
+            # label text
+            if labels is True:
+                labels = list(self.sort_order + 1)
+                plot_labels = True
+            elif isinstance(labels, list):
+                if len(labels) == M.shape[0]:
+                    labels = np.array(labels)[self.sort_order]
+                    plot_labels = True
+                else:
+                    plot_labels = False
+            else:
+                plot_labels = False
+            # add labels to plot
+            if plot_labels is True:
+                labels_x = x_before - margin * np.max(x_before)
+                labels_y = (y_before - 0.5 * np.diag(M)) * labels_x / x_before
+                for xi, yi, li in zip(labels_x, labels_y, labels):
+                    ax.annotate(
+                        li, xy = (xi, yi), 
+                        ha = 'center', 
+                        va = 'center', 
+                        bbox = dict(boxstyle = 'round', fc = 'white', alpha = 0.5),
+                        fontsize = 'small'
+                        )
+        else:
+            # bundle force at moments of breakage, and just after
+            y_before = np.sum(M, axis = 0)
+            y_after = y_before - np.diag(M)
+            # bundle force array for plotting
+            y_all = np.append(0.0, np.stack((y_before, y_after)).ravel(order = 'F'))
+            # plot
+            ax.plot(x_all, y_all)
+        # add peak reinforcement
+        if peak is True:
+            Msum0 = np.sum(M, axis = 0)
+            i_peak = np.argmax(Msum0)
+            x_peak = x_before[i_peak]
+            y_peak = Msum0[i_peak]
+            plt.scatter(x_peak, y_peak, c = 'black')
+        # axes
         ax.set_xlabel(xlabel + " [" + unit + "]")
         ax.set_ylabel(ylabel + " [" + unit + "]")
-        ax.set_xlim(round_range(x, limits = [0, None])['limits'])
-        ax.set_ylim(round_range(self.peak_force().to(unit).magnitude, limits = [0., None])['limits'])
-        # label text
-        if labels is True:
-            labels = self.sort_order + 1
-            plot_labels = True
-        elif isinstance(labels, list):
-            labels = np.array(labels)[self.sort_order]
-            plot_labels = True
-        else:
-            plot_labels = False
-        # add labels to plot
-        if plot_labels is True:
-            # labels positions
-            labels_x = xb - margin*np.max(xb)
-            labels_y = ((np.sum(self.matrix.to(unit).magnitude, axis = 0) 
-                        - 0.5 * np.diag(self.matrix.to(unit).magnitude))
-                        * (labels_x/xb))
-            # add to plot
-            for xi, yi, li in zip(labels_x, labels_y, labels):
-                ax.annotate(
-                    li, xy = (xi, yi), 
-                    ha = 'center', 
-                    va = 'center', 
-                    bbox = dict(boxstyle = 'round', fc = 'white', alpha = 0.5),
-                    fontsize = 'small'
-                    )
-        # return figure
+        ax.set_xlim(round_range(x_all, limits = [0.0, None])['limits'])
+        ax.set_ylim(round_range(
+            self.peak_force().to(unit).magnitude, 
+            limits = [0.0, None]
+            )['limits'])
+        # return plotted object
         return(fig, ax)
-        
+

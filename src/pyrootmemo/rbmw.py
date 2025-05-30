@@ -327,7 +327,7 @@ class Rbmw():
             ylabel: chr = 'Total force in root bundle',
             xunit: chr = 'mm',
             yunit: chr = 'N',
-            plot_peak: bool = True
+            peak: bool = True
             ): 
         """
         Show force-displacement plot for the RBMw model
@@ -343,7 +343,7 @@ class Rbmw():
         xunit, yunit : str, optional
             displacement and force units to use on the axes. Results are 
             automatically converted before plotting
-        plot_peak : bool, optional
+        peak : bool, optional
             plot the location of peak reinforcement using a scatter plot 
             marker
 
@@ -376,8 +376,8 @@ class Rbmw():
         # plot line
         ax.plot(displacement_magnitude, force_magnitude, '-')
         # plot peak reinforcement
-        if plot_peak is True:
-            plt.scatter(peak_displacement_magnitude, peak_force_magnitude)
+        if peak is True:
+            plt.scatter(peak_displacement_magnitude, peak_force_magnitude, c = 'black')
         # axis limits
         ax.set_xlim(round_range(displacement_max.to(xunit).magnitude, limits = [0, None])['limits'])
         ax.set_ylim(round_range(peak['force'].to(yunit).magnitude, limits = [0., None])['limits'])

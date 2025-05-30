@@ -36,12 +36,15 @@ class Wwm():
         None.
 
         """
+        # check if MultipleRoots type
+        if not isinstance(roots, MultipleRoots):
+            TypeError('roots must be object of class MultipleRoots')
         # check if roots contains all required instances
-        instances_required = ['diameter', 'xsection', 'tensile_strength']
-        for i in instances_required:
+        attributes_required = ['diameter', 'xsection', 'tensile_strength']
+        for i in attributes_required:
             if not hasattr(roots, i):
-                AttributeError('roots does not contain ' + str(i) + ' attribute')
-        # set parameters
+                AttributeError('roots must contain ' + str(i) + ' attribute')
+        # set roots as class parameters
         self.roots = roots
 
 
@@ -64,7 +67,7 @@ class Wwm():
     def peak_reinforcement(
             self, 
             failure_surface: FailureSurface,
-            k: float = 1.2
+            k: int | float = 1.2
             ) -> Quantity:
         """
         Calculate peak reinforcement (largest soil reinforcement at any point)
@@ -89,6 +92,9 @@ class Wwm():
         if not isinstance(failure_surface, FailureSurface):
             TypeError('failure_surface must be intance of FailureSurface class')
         if not hasattr(failure_surface, 'cross_sectional_area'):
-            AttributeError('Failure surface does not contain attribute "cross_sectional_area"')
+            AttributeError('failure_surface must contain attribute "cross_sectional_area"')
+        # check k-factor
+        if not (isinstance(k, int) | isinstance(k, float)):
+            TypeError('k must be an scalar integer or float')
         # return
         return(k * self.peak_force() / failure_surface.cross_sectional_area)
