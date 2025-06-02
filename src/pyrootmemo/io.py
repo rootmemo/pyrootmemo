@@ -6,7 +6,8 @@ from collections import namedtuple
 # set parameter named tuple
 Parameter = namedtuple("parameter", "value unit")
 
-# read csv with units
+
+# read csv with units to dictionary  - CRUDE FUNCTION, mostly written for SBEE2025 Workshop purposes (GJM)
 def csv2dict(
         path
         ):
@@ -17,9 +18,6 @@ def csv2dict(
     # * 
     with open(path, newline = '') as csvfile:
         # read all csv data
-        # dialect = csv.Sniffer().sniff(csvfile.read(1024))
-        # csvfile.seek(0)
-        # reader = csv.reader(csvfile, dialect)
         reader = csv.reader(csvfile, delimiter = ',', quotechar = '|')
         items = []
         for row in reader:
@@ -37,12 +35,13 @@ def csv2dict(
         # return  dictionary with parameters, values and units
         return({p: {'values': d, 'units': u} for p, d, u in zip(parameters, data, units)})
 
+
 # Read root data from a csv file and generate MultipleRoots object
 def read_csv_roots(
         path,
         species = 'test_species'
         ):
-    # it is assumed that all data is convertable to numeric type
+    # it is assumed that **all** data is convertable to numeric type
     # get dictionary with data
     dic_raw = csv2dict(path)
     # convert to parameter type
