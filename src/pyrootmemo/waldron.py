@@ -249,30 +249,53 @@ class Waldron(DirectShear):
         Tp, dTp_dup, S, b = self.pullout.force(up, jac = jac)
         # reinforcement
         cr = np.sum(k * Tp) / self.failure_surface.cross_sectional_area
+        # fraction of root cross-sectional area for each behaviour types
+        xsection_rel = self.roots.xsection.magnitude / np.sum(self.roots.xsection.magnitude)
+        xsection_fractions = np.bincount(
+            b, 
+            weights = S * xsection_rel,
+            minlength = len(self.pullout.behaviour_types)
+            )
         # return jacobian if requested
         if jac is True:
-            dcr_dus = np.sum(dk_dus * Tp + k * dTp_dup * dup_dus) / self.failure_surface.cross_sectional_area
-            return(cr, dcr_dus)
+            dcr_dus = (
+                np.sum(dk_dus * Tp + k * dTp_dup * dup_dus) 
+                / self.failure_surface.cross_sectional_area
+                )
         else:
-            return(cr)
+            dcr_dus = None
+        # return
+        return(cr, dcr_dus, xsection_fractions)
 
 
-    def _get_displacement_root_failure(
-            self
-            ):
+    def _get_displacement_root_peak(self):
         # get force at failure in each root
-        capacity = self.roots.xsection * self.roots.tensile_strength
-        # get index of correct behaviour
-        if self.elastoplastic is True:
-            i = np.flatnonzero(self.pullout.behaviour_types == 'Anchored, plastic')[0]
+        if self.breakage is True:
+            force_breakage = self.roots.xsection * self.roots.tensile_strength
+        if self.slipping is True:
+            force_slipping = self.roots.length * self.roots.circumference * self.interface.shear_strength
+        # select limiting case
+        if self.breakage is True:
+            if self.slipping is True:
+                force = np.minimum(force_breakage, force_slipping)
+            else:
+                force = force_breakage
         else:
+            if self.slipping is True:
+                force = force_slipping
+            else:
+                return(None)
+        # get index of correct behaviour
+        if self.elastoplastic is False:
             i = np.flatnonzero(self.pullout.behaviour_types == 'Anchored, elastic')[0]
-        # calculate pullout displacement at failure
-        pullout_displacement = (
-            self.pullout.coefficients[0][..., i] * capacity**2
-            + self.pullout.coefficients[1][..., i] * capacity
-            + self.pullout.coefficients[2][..., i]
-        )
+            pullout_displacement = (
+                self.pullout.coefficients[0][..., i] * force**2
+                + self.pullout.coefficients[1][..., i] * force
+                + self.pullout.coefficients[2][..., i]
+                )
+        else:
+            i = np.flatnonzero(self.pullout.behaviour_types == 'Anchored, plastic')[0]
+            print('Not yet implemented')
         # calculate shear displacement at failure
         elongation = pullout_displacement / self.distribution_factor
         vx = self.roots.orientation[..., 0]
@@ -292,5 +315,5 @@ class Waldron(DirectShear):
             ):
         # no root breakage or slipping -> infinite reinforcement
         if self.breakage is False and self.slipping is False:
-            warnings.warn('No breakage or slippage - peak reinforcement is infinite!')
+            warnings.warn('No breakage or slipping - peak reinforcement is infinite!')
             return(np.inf * units('kPa'))

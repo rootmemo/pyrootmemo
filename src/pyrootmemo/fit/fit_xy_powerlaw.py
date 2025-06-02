@@ -8,7 +8,52 @@ from pyrootmemo.fit.fit import FitBase
 from pyrootmemo.fit.fit_x import WeibullFit, GumbelFit
 from pyrootmemo.fit.fit_xy_linear import LinearFit
 from pyrootmemo.utils_plot import round_range
+from pyrootmemo.tools.helpers import units
 from pint import Quantity
+import warnings
+
+
+#############################################
+### WRAPPER FUNCTION FOR POWERLAW FITTING ###
+#############################################
+
+def PowerlawFit(
+        x: list | np.ndarray | Quantity,
+        y: list | np.ndarray | Quantity, 
+        weights: list | np.ndarray | None = None,
+        model: str = 'normal',
+        x0: float | int | Quantity = 1.0
+        ):
+    # check model type
+    if not isinstance(model, str):
+        raise TypeError('model must be defined as a string')
+    # convert model name to lowercase, to catch cases where model defined with uppercase letters
+    model = model.lower()
+    # return fit
+    if model == 'gamma':
+        return(PowerlawFitGamma(x, y, weights = weights, x0 = x0))
+    elif model == 'gumbel':
+        return(PowerlawFitGumbel(x, y, weights = weights, x0 = x0))
+    elif model == 'logistic':
+        return(PowerlawFitLogistic(x, y, weights = weights, x0 = x0))
+    elif (model == 'lognormal') | (model == 'lognormal_corrected'):
+        return(PowerlawFitLognormal(x, y, weights = weights, x0 = x0))
+    elif model == 'lognormal_uncorrected':
+        return(PowerlawFitLognormalUncorrected(x, y, weights = weights, x0 = x0))
+    elif (model == 'normal') | (model == 'normal_strength'):
+        return(PowerlawFitNormal(x, y, weights = weights, x0 = x0))
+    elif model == 'normal_force':
+        return(PowerlawFitNormalForce(x, y, weights = weights, x0 = x0))
+    elif model == 'normal_freesd':
+        return(PowerlawFitNormalFreesd(x, y, weights = weights, x0 = x0))
+    elif model == 'normal_scaled':
+        return(PowerlawFitNormalScaled(x, y, weights = weights, x0 = x0))
+    elif model == 'uniform':
+        return(PowerlawFitUniform(x, y, weights = weights, x0 = x0))
+    elif model == 'weibull':
+        return(PowerlawFitWeibull(x, y, weights = weights, x0 = x0))
+    else:
+        raise ValueError('model not recognised')
 
 
 #################################
@@ -229,10 +274,10 @@ class PowerlawFitBase(FitBase):
     
     def plot(
             self,
-            x_unit = 'mm',
-            y_unit = 'MPa',
-            x_label = 'Diameter',
-            y_label = 'Tensile strength',
+            xunit = 'mm',
+            yunit = 'MPa',
+            xlabel = 'Diameter',
+            ylabel = 'Tensile strength',
             data = True,
             fit = True,
             n = 101,
@@ -241,17 +286,36 @@ class PowerlawFitBase(FitBase):
             prediction = False,
             prediction_level = 0.95,
             legend = True,
+            legend_location = 'best',
             axis_expand = 0.05          
             ):
         # initiate plot
         fig, ax = plt.subplots(1, 1)
         # add measured data
         if isinstance(self.x, Quantity):
-            x_data = self.x.to(x_unit).magnitude
+            if self.x.dimensionality != units(xunit).dimensionality:
+                warnings.warn(
+                    'xunit (' 
+                    + xunit 
+                    + ') incompatible with data (' 
+                    + str(self.x.units)
+                    + '. Set to data units'
+                )
+                xunit = self.x.units
+            x_data = self.x.to(xunit).magnitude
         else:
             x_data = self.x
         if isinstance(self.y, Quantity):
-            y_data = self.y.to(y_unit).magnitude
+            if self.y.dimensionality != units(yunit).dimensionality:
+                warnings.warn(
+                    'yunit (' 
+                    + yunit 
+                    + ') incompatible with data (' 
+                    + str(self.y.units)
+                    + '. Set to data units'
+                )
+                yunit = self.y.units
+            y_data = self.y.to(yunit).magnitude
         else:
             y_data = self.y
         if data is True:
@@ -261,9 +325,9 @@ class PowerlawFitBase(FitBase):
             x_fit = np.linspace(np.min(self.x), np.max(self.x), n)
             y_fit = self.predict(x_fit)
             if isinstance(x_fit, Quantity):
-                x_fit = x_fit.to(x_unit).magnitude
+                x_fit = x_fit.to(xunit).magnitude
             if isinstance(y_fit, Quantity):
-                y_fit = y_fit.to(y_unit).magnitude
+                y_fit = y_fit.to(yunit).magnitude
             ax.plot(x_fit, y_fit, '-', label = 'Fit')
         # add prediction interval
         if prediction is True and hasattr(self, 'prediction_interval'):
@@ -272,9 +336,9 @@ class PowerlawFitBase(FitBase):
                 n = n
                 )
             if isinstance(xp, Quantity):
-                xp = xp.to(x_unit).magnitude
+                xp = xp.to(xunit).magnitude
             if isinstance(yp, Quantity):
-                yp = yp.to(y_unit).magnitude
+                yp = yp.to(yunit).magnitude
             labelp = str(round(prediction_level * 100)) + '% Prediction interval' 
             ax.fill_between(
                 xp, yp[:, 0], yp[:, 1], 
@@ -287,9 +351,9 @@ class PowerlawFitBase(FitBase):
                 n = n
                 )
             if isinstance(xc, Quantity):
-                xc = xc.to(x_unit).magnitude
+                xc = xc.to(xunit).magnitude
             if isinstance(yc, Quantity):
-                yc = yc.to(y_unit).magnitude
+                yc = yc.to(yunit).magnitude
             labelc = str(round(confidence_level * 100)) + '% Confidence interval' 
             ax.fill_between(
                 xc, yc[:, 0], yc[:, 1], 
@@ -305,11 +369,11 @@ class PowerlawFitBase(FitBase):
             limits = [0.0, None]
             )['limits'])
         # set axes labels
-        ax.set_xlabel(x_label + ' [' + x_unit + ']')
-        ax.set_ylabel(y_label + ' [' + y_unit + ']')
+        ax.set_xlabel(xlabel + ' [' + xunit + ']')
+        ax.set_ylabel(ylabel + ' [' + yunit + ']')
         # add legend
         if legend is True:
-            ax.legend(loc = 'upper right')
+            ax.legend(loc = legend_location)
         # return figure and axis objects
         return(fig, ax)
 

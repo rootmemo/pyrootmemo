@@ -17,9 +17,10 @@ def csv2dict(
     # * 
     with open(path, newline = '') as csvfile:
         # read all csv data
-        dialect = csv.Sniffer().sniff(csvfile.read(1024))
-        csvfile.seek(0)
-        reader = csv.reader(csvfile, dialect)
+        # dialect = csv.Sniffer().sniff(csvfile.read(1024))
+        # csvfile.seek(0)
+        # reader = csv.reader(csvfile, dialect)
+        reader = csv.reader(csvfile, delimiter = ',', quotechar = '|')
         items = []
         for row in reader:
             items.append(row)
@@ -27,8 +28,12 @@ def csv2dict(
         headers = items[0]
         parameters = [i[: i.rindex('_')] for i in headers]
         units = [i.split('_')[-1] for i in headers]
-        # list of data (list of list of strings)
-        data = list(map(list, zip(*items[1: ])))
+        if not isinstance(headers, list):
+            headers = [headers]
+            units = [units]
+            data = [[i] for i in items[1:, ]]
+        else:
+            data = list(map(list, zip(*items[1: ])))  # (list of list of strings)
         # return  dictionary with parameters, values and units
         return({p: {'values': d, 'units': u} for p, d, u in zip(parameters, data, units)})
 

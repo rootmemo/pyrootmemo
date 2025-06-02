@@ -198,11 +198,12 @@ class Fbm():
     def plot(
             self,
             unit: str = 'N',
-            reference_diameter = 1.0 * units('mm'),
+            reference_diameter = 1.0,
+            reference_diameter_unit: str = 'mm',
             stack: bool = False,
             peak: bool = True,
             labels: list | bool = False, 
-            margin: float = 0.05, 
+            label_margin: float = 0.05, 
             xlabel: str = 'Force in reference root', 
             ylabel: str = 'Total force in root bundle'      
             ):
@@ -218,7 +219,7 @@ class Fbm():
             roots are defined in the input. Can be defined as a list of 
             character strings to specify individual labels for each root.
             The default is True.
-        margin : float, optional
+        label_margin : float, optional
             controls the location for plotting labels. Defined as the fraction
             of the x-axis size. Labels are plotted on the right-hand size of
             the force triangles, and centred vertically. The default is 0.05.
@@ -235,11 +236,10 @@ class Fbm():
         """
         # force matrix - force in each root (row) at breakage of each root (columns) - sorted
         M = self.matrix.to(unit).magnitude
-        # diameters and reference diameter
-        d = self.roots.diameter.to('mm').magnitude[self.sort_order]
-        d0 = reference_diameter.to('mm').magnitude
+        # diameters, normalised and sorted in order of breakage
+        diameter = self.roots.diameter.to(reference_diameter_unit).magnitude[self.sort_order]
         # force in reference root at moments of breakage, and just after
-        x_before = np.diag(M) * (d0 / d)**self.load_sharing
+        x_before = np.diag(M) * (reference_diameter / diameter)**self.load_sharing
         x_after = x_before + 1.0e-12 * np.max(x_before)
         x_all = np.append(0.0, np.stack((x_before, x_after)).ravel(order = 'F'))
         # total reinforcement
@@ -281,7 +281,7 @@ class Fbm():
                 plot_labels = False
             # add labels to plot
             if plot_labels is True:
-                labels_x = x_before - margin * np.max(x_before)
+                labels_x = x_before - label_margin * np.max(x_before)
                 labels_y = (y_before - 0.5 * np.diag(M)) * labels_x / x_before
                 for xi, yi, li in zip(labels_x, labels_y, labels):
                     ax.annotate(

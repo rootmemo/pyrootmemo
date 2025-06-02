@@ -322,12 +322,14 @@ class Rbmw():
     def plot(
             self,
             n: int = 251,
+            stack: bool = False,
+            peak: bool = True,
             fraction: int | float = 0.9,  # minimum fraction of roots broken in each diameter,
+            labels: list | bool = False, 
             xlabel: chr = 'Displacement', 
             ylabel: chr = 'Total force in root bundle',
             xunit: chr = 'mm',
-            yunit: chr = 'N',
-            peak: bool = True
+            yunit: chr = 'N'
             ): 
         """
         Show force-displacement plot for the RBMw model
@@ -354,7 +356,7 @@ class Rbmw():
 
         """
         # calculate peak force and displacement
-        peak = self.peak_force(full_output = True)
+        peak_results = self.peak_force(full_output = True)
         # displacement to average root failure
         displacement_average = self.roots.tensile_strength / self.roots.elastic_modulus * self.roots.length
         displacement_max = (
@@ -364,23 +366,64 @@ class Rbmw():
         )
         # displacement range
         displacement = np.linspace(0, displacement_max, n)
-        # calculate forces
+        # calculate total forces
         force = self.force(displacement, total = True)
         # generate plot object
         fig, ax = plt.subplots()
         # convert values to magnitudes, for plotting
-        peak_displacement_magnitude = peak['displacement'].to(xunit).magnitude
-        peak_force_magnitude = peak['force'].to(yunit).magnitude
+        peak_displacement_magnitude = peak_results['displacement'].to(xunit).magnitude
+        peak_force_magnitude = peak_results['force'].to(yunit).magnitude
         displacement_magnitude = displacement.to(xunit).magnitude
         force_magnitude = force.to(yunit).magnitude
+        # stack plot
+        if stack is True:
+            force_each = self.force(displacement, total = False)
+            force_each_magnitude = force_each.to(yunit).magnitude
+            ax.stackplot(displacement_magnitude, force_each_magnitude.transpose())
         # plot line
-        ax.plot(displacement_magnitude, force_magnitude, '-')
+        ax.plot(displacement_magnitude, force_magnitude, '-', c = 'black')
         # plot peak reinforcement
         if peak is True:
             plt.scatter(peak_displacement_magnitude, peak_force_magnitude, c = 'black')
+        # label text
+        nroots = len(self.roots.diameter)
+        if labels is True:
+            labels = list(range(1, nroots + 1))
+            plot_labels = True
+        elif isinstance(labels, list):
+            if len(labels) == nroots:
+                plot_labels = True
+            else:
+                plot_labels = False
+        else:
+            plot_labels = False
+        # add labels to plot
+        if plot_labels is True:
+            # label x-positions - at peaks of each individual root
+            x_factor = self.weibull_scale * (1.0 / self.weibull_shape)**(1.0 / self.weibull_shape)
+            labels_x_dimensional = (
+                x_factor
+                    * self.roots.tensile_strength
+                    / self.roots.elastic_modulus
+                    * self.roots.length
+                )
+            labels_x = labels_x_dimensional.to(xunit).magnitude
+            # labels y-positions - halfway up each stacking instance
+            labels_y_dimensional_all = self.force(labels_x_dimensional, total = False)
+            labels_y_all = np.tril(labels_y_dimensional_all.to(yunit).magnitude)
+            labels_y = np.sum(labels_y_all, axis = 1) -  0.5 * np.diag(labels_y_all)
+            # add labels to plot
+            for xi, yi, li in zip(labels_x, labels_y, labels):
+                ax.annotate(
+                    li, xy = (xi, yi), 
+                    ha = 'center', 
+                    va = 'center', 
+                    bbox = dict(boxstyle = 'round', fc = 'white', alpha = 0.5),
+                    fontsize = 'small'
+                    )
         # axis limits
         ax.set_xlim(round_range(displacement_max.to(xunit).magnitude, limits = [0, None])['limits'])
-        ax.set_ylim(round_range(peak['force'].to(yunit).magnitude, limits = [0., None])['limits'])
+        ax.set_ylim(round_range(peak_results['force'].to(yunit).magnitude, limits = [0., None])['limits'])
         # axis labels
         ax.set_xlabel(xlabel + ' [' + xunit + ']')
         ax.set_ylabel(ylabel + ' [' + yunit + ']')

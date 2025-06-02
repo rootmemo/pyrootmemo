@@ -7,7 +7,7 @@ from pint import Quantity
 
 
 # DATA
-BEHAVIOUR_NAMES = [
+BEHAVIOUR_NAMES = np.array([
     'Not in tension',
     'Anchored, elastic',
     'Slipping, elastic',
@@ -16,7 +16,7 @@ BEHAVIOUR_NAMES = [
     'Slipping, plastic', # (above yield above)
     'Slipping, plastic', # (below yield force)
     'Full pullout' # (plastic)
-]
+])
 
 
 ########################
@@ -71,7 +71,7 @@ class PulloutEmbeddedElastic():
         return(len(self.roots.xsection))
 
     def _set_behaviour_types(self):
-        self.behaviour_types = [BEHAVIOUR_NAMES[i] for i in [0, 1]]
+        self.behaviour_types = BEHAVIOUR_NAMES[[0, 1]]
 
     def _get_coefficients_notintension(self):
         nroots = self._nroots()
@@ -224,7 +224,7 @@ class PulloutEmbeddedElasticSlipping(PulloutEmbeddedElastic):
         self._check_contains_attributes(interface, ['shear_strength'])
 
     def _set_behaviour_types(self):
-        self.behaviour_types = [BEHAVIOUR_NAMES[i] for i in [0, 1, 2]]
+        self.behaviour_types = BEHAVIOUR_NAMES[[0, 1, 2]]
 
     def _get_coefficients_slipping(self):
         nroots = self._nroots()
@@ -373,7 +373,7 @@ class PulloutEmbeddedElastoplastic(PulloutEmbeddedElastic):
         self._check_contains_attributes(interface, ['shear_strength'])
 
     def _set_behaviour_types(self):
-        self.behaviour_types = [BEHAVIOUR_NAMES[i] for i in [0, 1, 3]]
+        self.behaviour_types = BEHAVIOUR_NAMES[[0, 1, 3]]
 
     def _get_coefficients_anchored_plastic(self):
         c2 = (
@@ -478,7 +478,7 @@ class PulloutEmbeddedElastoplasticSlipping(
         self._check_contains_attributes(interface, ['shear_strength'])
 
     def _set_behaviour_types(self):
-        self.behaviour_types = [BEHAVIOUR_NAMES[i] for i in [0, 1, 2, 4, 5]]
+        self.behaviour_types = BEHAVIOUR_NAMES[[0, 1, 2, 4, 5]]
 
     def _set_coefficients(self):
         self.coefficients = self._combine_coefficients([
@@ -629,7 +629,7 @@ class PulloutSurfaceElastic(PulloutEmbeddedElastic):
         self._check_contains_attributes(interface, ['shear_strength'])
 
     def _set_behaviour_types(self):
-        self.behaviour_types = [BEHAVIOUR_NAMES[i] for i in [0, 1]]
+        self.behaviour_types = BEHAVIOUR_NAMES[[0, 1]]
 
     def _get_coefficients_notintension(self):
         nroots = self._nroots()
@@ -732,7 +732,7 @@ class PulloutSurfaceElasticSlipping(PulloutSurfaceElastic):
         self._check_contains_attributes(interface, ['shear_strength'])
 
     def _set_behaviour_types(self):
-        self.behaviour_types = [BEHAVIOUR_NAMES[i] for i in [0, 1, 2, 3]]
+        self.behaviour_types = BEHAVIOUR_NAMES[[0, 1, 2, 3]]
 
     def _get_coefficients_slipping_elastic(self):
         nroots = self._nroots()
@@ -916,7 +916,7 @@ class PulloutSurfaceElastoplastic(PulloutSurfaceElastic):
         self._check_contains_attributes(interface, ['shear_strength'])
 
     def _set_behaviour_types(self):
-        self.behaviour_types = [BEHAVIOUR_NAMES[i] for i in [0, 1, 4]]
+        self.behaviour_types = BEHAVIOUR_NAMES[[0, 1, 4]]
 
     def _get_coefficients_anchored_plastic(self):
         c3 = (
@@ -1047,7 +1047,7 @@ class PulloutSurfaceElastoplasticSlipping(
         self._check_contains_attributes(interface, ['shear_strength'])
 
     def _set_behaviour_types(self):
-        self.behaviour_types = [BEHAVIOUR_NAMES[i] for i in [0, 1, 2, 3, 4, 5, 6, 7]]
+        self.behaviour_types = BEHAVIOUR_NAMES[[0, 1, 2, 3, 4, 5, 6, 7]]
 
     def _get_coefficients_slipping_plastic_aboveyield(self):
         _, Tps = self._get_limits_plastic_slipping_start()
