@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import root_scalar
-from utils_rotation import axisangle_rotate, vector_normalise
+from pyrootmemo.tools.utils_rotation import axisangle_rotate, vector_normalise
 from utils_pullout import pulloutforce_surface
 from utils_plot import round_range
 
