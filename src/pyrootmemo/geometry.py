@@ -1,9 +1,10 @@
 import numpy as np
 from pyrootmemo.tools.checks import is_namedtuple
 from pyrootmemo.materials import Soil
-from pint import DimensionalityError
 from collections import namedtuple
 from pyrootmemo.tools.helpers import units
+from pint import DimensionalityError
+
 
 Parameter = namedtuple("parameter", "value unit")
 
@@ -84,15 +85,15 @@ class SoilProfile:
             depth
             ):
         # depth at top of each layer
-        depth_top = np.append(0.0, self.depth[:-1])
+        depth_top = np.append(0.0 * units('m'), self.depth[:-1])
         # thickness of (part of) each layer, above the requested depth
         thickness = (
             np.minimum(self.depth, depth)
             - np.minimum(depth_top, depth)
         )
         # get thickness contribution of (part of) each layer, but above and below water table
-        if depth > self.ground_water_table:
-            tmp_above = np.minimum(depth, self.ground_water_table)
+        if depth > self.groundwater_table:
+            tmp_above = np.minimum(depth, self.groundwater_table)
             thickness_above = (
                 np.minimum(self.depth, tmp_above)
                 - np.minimum(depth_top, tmp_above)
@@ -103,8 +104,9 @@ class SoilProfile:
             thickness_above = thickness
             thickness_below = 0.0 * thickness
         # calculate total stress 
-        unit_weight_above = np.array([s.unit_weight_bulk for s in self.soils])
-        unit_weight_below = np.array([s.unit_weight_saturated for s in self.soils])
+        unit = 'kN/m^3'
+        unit_weight_above = np.array([s.unit_weight_bulk.to(unit).magnitude for s in self.soils]) * units(unit)
+        unit_weight_below = np.array([s.unit_weight_saturated.to(unit).magnitude for s in self.soils]) * units(unit)
         return(np.sum(
             unit_weight_above * thickness_above
             + unit_weight_below * thickness_below
@@ -115,16 +117,16 @@ class SoilProfile:
             self,
             depth,
             unit_weight_water = 9.81 * units('kN/m^3'),
-            flow_direction = np.array([1.0, 0.0, 0.0])    # 3D orientation, z-axis = depth axis 
+            direction = 0.0 * units('deg')    # flow direction, relative to the horizontal
             ):
-        if depth <= self.ground_water_table:
+        if depth <= self.groundwater_table:
             # depth above water table -> retun zero (no suction assumed)
             return(0.0 * units('kPa'))
         else:
             # below water table -> calculate
-            pore_pressure = unit_weight_water * (self.ground_water_table - depth)
+            pore_pressure = unit_weight_water * (depth - self.groundwater_table)
             # adjust for flow direction, and return
-            return(pore_pressure * np.sin(flow_direction[-1])**2)
+            return(pore_pressure * np.cos(direction)**2)
 
         
       

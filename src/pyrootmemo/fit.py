@@ -210,9 +210,11 @@ class _FitBaseLoglikelihood(_FitBase):
     # Kolmogorov-Smirnov distance of fit
     def ks_distance(self):
         # sort data
-        xs = np.sort(self.x)
+        order = np.argsort(self.x)
+        xs = self.x[order]
+        weights = self.weights[order]
         # cumulative density of data
-        y0 = np.cumsum(self.weights) / np.sum(self.weights)
+        y0 = np.cumsum(weights) / np.sum(weights)
         # cumulative density of fit
         y1 = self.density(xs, cumulative = True)
         # differences between cumulatives curves: top and bottom of data
@@ -1318,19 +1320,19 @@ class _PowerlawFitBase(_FitBase):
     # kolmogorov-smirnov distance
     def ks_distance(self):
         if self.colinear is True:
-            # colinear case
-            return(0.0)
+            return(0.0)  # colinear case - perfect fit
         else:
+            # cumulative density of fit
+            cumul_dens = self.density(cumulative = True)
             # sort data in increasing order of occurance
-            yp = self.predict()
-            order = np.argsort(self.weights / yp)
-            x = self.x[order]
-            y = self.y[order]
+            order = np.argsort(cumul_dens)
             weights = self.weights[order]
+            xd = self.x[order]
+            yd = self.y[order]
             # cumulative density of data
             cumul_data = np.cumsum(weights) / np.sum(weights)
             # cumulative density of fit
-            cumul_fit = self.density(x = x, y = y, cumulative = True)
+            cumul_fit = self.density(x = xd, y = yd, cumulative = True)
             # differences between cumulatives curves: top and bottom of data
             diff_top = np.max(np.abs(cumul_fit - cumul_data))
             diff_bot = np.max(np.abs(cumul_fit - np.append(0.0, cumul_data[:-1])))

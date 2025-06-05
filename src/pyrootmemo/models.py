@@ -1094,6 +1094,7 @@ class Waldron(DirectShear):
             self,
             displacement: Quantity,
             displacement_unit: str = 'm',
+            total: bool = True,
             jac: bool = False,
             sign: int | float = 1.0
             ) -> Quantity:
@@ -1109,7 +1110,9 @@ class Waldron(DirectShear):
         # pullout force (Tp), survival fraction (S) and behaviour type index (b)
         Tp, dTp_dup, S, b = self.pullout.force(up, jac = jac)
         # reinforcement
-        cr = sign * np.sum(k * Tp) / self.failure_surface.cross_sectional_area
+        cr = sign * k * Tp / self.failure_surface.cross_sectional_area
+        if total is True:
+            cr = np.sum(cr)
         # fraction of root cross-sectional area for each behaviour types
         xsection_rel = self.roots.xsection.magnitude / np.sum(self.roots.xsection.magnitude)
         xsection_fractions = np.bincount(
@@ -1120,9 +1123,11 @@ class Waldron(DirectShear):
         # return jacobian if requested
         if jac is True:
             dcr_dus = sign * (
-                np.sum(dk_dus * Tp + k * dTp_dup * dup_dus) 
+                (dk_dus * Tp + k * dTp_dup * dup_dus) 
                 / self.failure_surface.cross_sectional_area
                 )
+            if total is True:
+                dcr_dus = np.sum(dcr_dus)
         else:
             dcr_dus = None
         # return
@@ -1213,7 +1218,9 @@ class Waldron(DirectShear):
             n = 251,
             xunit = 'mm',
             yunit = 'kPa',
+            stack = False,
             peak = True,
+            labels = True,
             xlabel = 'Shear displacement',
             ylabel = 'Reinforcement',
             margin = 0.05          
@@ -1224,15 +1231,52 @@ class Waldron(DirectShear):
         else:
             us_peak = np.max(self._get_displacement_root_peak())
         us = np.linspace(0.0 * us_peak, us_peak * (1.0 + margin), n)
-        # total reinforcement, for each displacement step
-        cr = Quantity.from_list([self.reinforcement(i)[0] for i in us])
+        # total reinforcement, per root, for each displacement step
+        cr_i = [self.reinforcement(i, total = False)[0] for i in us]
+        cr_magnitude = np.stack([i.to(yunit).magnitude for i in cr_i], axis = -1)
+        cr = np.sum(cr_magnitude, axis = 0)
         # plot trace
         fig, ax  = plt.subplots()
         ax.plot(
             us.to(xunit).magnitude,
-            cr.to(yunit).magnitude,
+            cr,
             c = 'black'
             )
+        # stack plot
+        if stack is True:
+            ax.stackplot(
+                us.to(xunit).magnitude,
+                cr_magnitude
+            )
+        # label text
+        nroots = len(self.roots.diameter)
+        if labels is True:
+            labels = list(range(1, nroots + 1))
+            plot_labels = True
+        elif isinstance(labels, list):
+            if len(labels) == nroots:
+                plot_labels = True
+            else:
+                plot_labels = False
+        else:
+            plot_labels = False
+        # add labels to plot
+        if plot_labels is True:
+            # label x-positions - at peaks of each individual root
+            labels_x = us[int(0.5 * n)]
+            # labels y-positions - halfway up each stacking instance
+            labels_y_tmp = self.reinforcement(labels_x, total = False)[0].to(yunit).magnitude
+            labels_y = np.cumsum(labels_y_tmp) - 0.5 * labels_y_tmp
+            # add labels to plot
+            for yi, li in zip(labels_y, labels):
+                ax.annotate(
+                    li, 
+                    xy = (labels_x.to(xunit).magnitude, yi), 
+                    ha = 'center', 
+                    va = 'center', 
+                    bbox = dict(boxstyle = 'round', fc = 'white', alpha = 0.5),
+                    fontsize = 'small'
+                    )
         # plot peak
         if peak is True:
             us_peak, cr_peak = self.peak_reinforcement()
