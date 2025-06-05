@@ -9,8 +9,9 @@ Parameter = namedtuple("parameter", "value unit")
 
 # read csv with units to dictionary  - CRUDE FUNCTION, mostly written for SBEE2025 Workshop purposes (GJM)
 def csv2dict(
-        path
-        ):
+        path: str,
+        delimiter: str = ','
+        ) -> dict:
     # read csv 
     # * file is assumed to have a single row containing headers
     # * each column header string is assumed to consist of 'Parameter name' + underscore + unit
@@ -18,7 +19,7 @@ def csv2dict(
     # * 
     with open(path, newline = '') as csvfile:
         # read all csv data
-        reader = csv.reader(csvfile, delimiter = ',', quotechar = '|')
+        reader = csv.reader(csvfile, delimiter = delimiter, quotechar = '|')
         items = []
         for row in reader:
             items.append(row)
@@ -38,12 +39,34 @@ def csv2dict(
 
 # Read root data from a csv file and generate MultipleRoots object
 def read_csv_roots(
-        path,
-        species = 'test_species'
-        ):
+        path: str,
+        delimiter: str = ',',
+        species: str = 'test_species'
+        ) -> MultipleRoots:
+    """Load MultipleRoots data from a .csv file
+
+    The file is assumed to only contain numerical data that can be converted
+    to floats. The column headers (top row of the csv file) must be specified
+    as <parameter name>_<unit>, e.g. "diameter_mm" or "tensile_strength_MPa".
+
+    Parameters
+    ----------
+    path : str
+        path to .csv file to load
+    delimiter : str, optional
+        csv delimiter, by default ','
+    species : str, optional
+        name of the plant species, by default 'test_species'
+
+    Returns
+    -------
+    MultipleRoots
+        Root properties
+    """
+
     # it is assumed that **all** data is convertable to numeric type
     # get dictionary with data
-    dic_raw = csv2dict(path)
+    dic_raw = csv2dict(path, delimiter = delimiter)
     # convert to parameter type
     dic = {k: Parameter([float(i) for i in v['values']], v['units']) for k, v in dic_raw.items()}
     # add species name

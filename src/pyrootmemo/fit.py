@@ -60,10 +60,10 @@ class _FitBase:
             label: str = 'x'
     ):  
         # x-values
-        if isintance(x, list):
+        if isinstance(x, list):
             x = np.array(x)
         else:
-            if not (isinstance(x, np.ndarray) | isintance(x, Quantity)):
+            if not (isinstance(x, np.ndarray) | isinstance(x, Quantity)):
                 raise TypeError('{label} must be list, np.ndarray or Quantity')
         # finite values
         if finite is True:
@@ -87,7 +87,7 @@ class _FitBase:
                     raise ValueError(f'all {label} values must be smaller than {max}')
 
     # get reference value for an array of data
-    def get_reference(
+    def _get_reference(
             self,
             x: np.ndarray | Quantity,
             x0: int | float | Quantity | None = None
@@ -195,7 +195,7 @@ class _FitBaseLoglikelihood(_FitBase):
             label = 'weights'
             )
         # set reference values
-        self.x0 = self.get_reference(x, x0)
+        self.x0 = self._get_reference(x, x0)
         # starting guess for fit
         self.start = start
         # solver routing
@@ -1165,8 +1165,8 @@ class Linear(_FitBase):
             else:
                 ValueError('length of x and weight arrays not compatible')
         # set reference values
-        self.x0 = self.get_reference(x)
-        self.y0 = self.get_reference(y)
+        self.x0 = self._get_reference(x)
+        self.y0 = self._get_reference(y)
         # generate fit
         self.intercept, self.gradient = self._generate_fit()
 
@@ -1225,12 +1225,72 @@ class Linear(_FitBase):
 #############################################
 
 def Powerlaw(
-        x: list | np.ndarray | Quantity,
-        y: list | np.ndarray | Quantity, 
-        weights: list | np.ndarray | None = None,
+        x: np.ndarray | Quantity,
+        y: np.ndarray | Quantity, 
+        weights: np.ndarray | None = None,
         model: str = 'normal',
         x0: float | int | Quantity = 1.0
         ):
+    """
+    Generate a power law fit
+    
+    Fit a power law between two sets of x and y data, based on maximising the
+    (weighted) loglikelihood. Different fitting models are implemented, as
+    described by Meijer (2024), see https://doi.org/10.1007/s11104-024-07007-9.
+    These differ in their assumption assumed distribution of fit residuals.
+
+    For each method a seperate class is defined. This function acts as a 
+    convenient wrapper.
+    
+    Parameters
+    ----------
+    x : np.ndarray | Quantity
+        array with containing the indepdendent variable
+    y : np.ndarray | Quantity
+        array with containing the depdendent variable. Must have same length
+        as x
+    weights : np.ndarray | None, optional
+        array with optional weighting coefficient for each x,y observation, 
+        by default None. If None, all observations are weighted with a 
+        assumed weight = 1.0        
+    model : str, optional
+        fitting model based on the assumed intra-diameter variation, by default 
+        'normal'. Can be one of:
+        * `gamma`: gamma distribution. Variation scales with fitted power law.
+        * `gumbel`: gumbel distribution. Variation scales with fitted power 
+                    law.
+        * `logistic`: logistic distribution. Variation scales with fitted power 
+                      law.
+        * `lognormal`: lognormal distribution. Variation scales with fitted power 
+                       law.
+        * `lognormal_uncorrected`: as per `lognormal`. Power law is equal to 
+                                   the geometric rather than the arithmetic
+                                   mean at each value of x.
+        * `normal`: normal distribution. Variation equal at each x
+        * `normal_force`: Normal distribution. Variation scales with x**2
+        * `normal_freesd`: Normal distribution. Seperate power law for 
+                           relationship between variation and x
+        * `normal_scaled`: normal distribution. Variation scales with fitted 
+                           power law
+        * `uniform`: uniform distribution. Variation scales with fitted power 
+                     law
+        * `weibull`: weibull distribution. Variation scales with fitted power 
+                     law
+    x0 : float | int | Quantity, optional
+        reference value for x, by default 1.0. If the unit is not explicityly
+        defined, its is assumed to have the same unit as x.
+
+    Returns
+    ------
+    Power law fit object (different class, depending on chosen fitting method)
+
+    Raises
+    ------
+    TypeError
+        model must be defined as a string
+    ValueError
+        model not recognised
+    """
     # check model type
     if not isinstance(model, str):
         raise TypeError('model must be defined as a string')
@@ -1272,15 +1332,17 @@ class _PowerlawFitBase(_FitBase):
     # initialise - default
     def __init__(
             self, 
-            x,
-            y,
-            weights = None,
-            x0 = 1.0
+            x: np.ndarray | Quantity,
+            y: np.ndarray | Quantity,
+            weights: np.ndarray | None = None,
+            x0: int | float | Quantity = 1.0
             ):
         # x and y data
-        self._check_input(x, finite = True, min = 0.0, min_include = False, label = 'x')
+        self._check_input(x, finite = True, min = 0.0, min_include = False, 
+                          label = 'x')
         self.x = x
-        self._check_input(y, finite = True, min = 0.0, min_include = False, label = 'y')
+        self._check_input(y, finite = True, min = 0.0, min_include = False, 
+                          label = 'y')
         self.y = y
         if len(x) != len(y):
             ValueError('length of x and y arrays not compatible')
@@ -1294,25 +1356,52 @@ class _PowerlawFitBase(_FitBase):
                 self.weights = weights
             else:
                 ValueError('length of x and weight arrays not compatible')
-        self._check_input(self.weights, finite = True, min = 0.0, min_include = True, label = 'weights')
+        self._check_input(self.weights, finite = True, min = 0.0, 
+                          min_include = True, label = 'weights')
         # set reference x and y-value
-        self.x0 = self.get_reference(x, x0)
-        self.y0 = self.get_reference(y)
+        self.x0 = self._get_reference(x, x0)
+        self.y0 = self._get_reference(y)
         # check for zero variance case (perfect fit - all points lie on power law curve)
         self.colinear, self.multiplier, self.exponent = self.check_colinearity()
     
     # predict
     def predict(
             self, 
-            x = None
-            ):
+            x: np.ndarray | Quantity | None = None
+            ) -> np.ndarray | Quantity:
+        """
+        Predict fit values at given x
+
+        Parameters
+        ----------
+        x : np.ndarray | Quantity | None, optional
+            x-values at which to calulate the the value of the fit, by default 
+            None. If None, fit values are calculated at the x-values used
+            to determine the fit
+
+        Returns
+        -------
+        np.ndarray | Quantity
+            Fitted y-values at given x-values.
+        """
         if x is None:
             x = self.x
         xn = self.nondimensionalise(x, self.x0)
         return(self.multiplier * xn**self.exponent)
 
     # kolmogorov-smirnov distance
-    def ks_distance(self):
+    def ks_distance(self) -> float:
+        """
+        Calculate the Kolmogorov-Smirnov distance for the fit.
+
+        This is defined as the largest difference between the fitted cumulative
+        density distribution curve and the cumulative curve for the input data.
+
+        Returns
+        -------
+        float
+            Kolmogorov-Smirnov distance
+        """
         if self.colinear is True:
             return(0.0)  # colinear case - perfect fit
         else:
@@ -1337,11 +1426,34 @@ class _PowerlawFitBase(_FitBase):
     # returns in non-dimensionalised units
     def covariance(
             self, 
-            method = 'fisher', 
-            n = 100
-            ):
+            method: str = 'fisher', 
+            n: int = 100
+            ) -> np.ndarray:
+        """
+        Calculate the covariance matrix
+
+        Return the covariance matrix for the fitting parameter. If the 
+        method is set to 'fisher', determines the matrix based on the 
+        Fisher information (negative second order partial differential of
+        the loglikelihood with respect to the fitting parameters). If method
+        is 'bootstrap', use a bootstrap method instead
+
+        Parameters
+        ----------
+        method : str, optional
+            Method used to estimate the covariance matrix, by default 'fisher'.
+            Can be set to 'fisher' or 'bootstrap'.
+        n : int, optional
+            Number of bootstrap samples for method = 'bootstrap', by default 
+            100
+
+        Returns
+        -------
+        np.ndarray
+            the covariance matrix, a 2-dimensional, square matrix
+        """
         if self.colinear is True:
-            # colinear case
+            # colinear case - all values are perfectly on the fitting line
             return None
         else:
             # calculate second partial derivative of loglikelihood
@@ -1371,18 +1483,33 @@ class _PowerlawFitBase(_FitBase):
                     ])
                 # return covariance matrix, in non-dimensional units
                 return(np.cov(fits.transpose()))
-            else:
+            elif method == 'fisher':
                 fisher = -J
                 if np.isscalar(fisher):
                     return(1. / fisher)
                 else:
                     return(np.linalg.inv(fisher))
+            else:
+                raise ValueError("method not recognised. Must either be 'fisher' or 'bootstrap'")
               
     # default range for prediction and confidence intervals
     def xrange(
             self, 
             n = 101
-            ):
+            ) -> np.ndarray:
+        """
+        Generate an equally-spaced range of x-values
+
+        Parameters
+        ----------
+        n : int, optional
+            Number of points on the range, by default 101
+
+        Returns
+        -------
+        np.ndarray
+            Range of x-values
+        """
         xmin = np.min(self.x)
         xmax = np.max(self.x)
         if xmax > xmin:
@@ -1393,10 +1520,31 @@ class _PowerlawFitBase(_FitBase):
     # confidence_interval
     def confidence_interval(
             self, 
-            x = None, 
-            level = 0.95, 
-            n = 101
-            ):
+            x: np.ndarray | Quantity | None = None, 
+            level: float = 0.95, 
+            n: int = 101
+            ) -> tuple:
+        """
+        Predict the confidence interval for the fit
+
+        Parameters
+        ----------
+        x : np.ndarray | Quantity | None, optional
+            x-values to predict the confidence interval at, by default None.
+            If None, a range using 'n' point is selected based on the data
+            used to generate the fit
+        level : float, optional
+            confidence level, by default 0.95
+        n : int, optional
+            number of x-points on the x-interval, by default 101
+
+        Returns
+        -------
+        tuple
+            tuple of two np.ndarrays. The first contains the x-values at which
+            the confidence interval is estimated (size n). The second 
+            contains the lower and upper y-values of the interval (size n*2)
+        """
         # get range of x values
         if x is None:
             x = self.xrange(n = n)
@@ -1434,9 +1582,18 @@ class _PowerlawFitBase(_FitBase):
             return(x, np.column_stack((y_lower, y_upper)))
                         
     # check for colinearity - zero variance in residuals
-    def check_colinearity(
-            self,
-            ):
+    def check_colinearity(self) -> tuple:
+        """
+        Check if all data will result in a 'perfect' fit, with zero residuals.
+
+        Returns
+        -------
+        tuple
+            tuple consisting of three elements: a boolean indicating if data 
+            has a perfect fit, the power law multiplier, and the power law
+            exponent of the perfect fit
+
+        """
         # non-dimensionalise data - remove units
         xn = self.nondimensionalise(self.x, self.x0)
         yn = self.nondimensionalise(self.y, self.y0)
@@ -1481,21 +1638,67 @@ class _PowerlawFitBase(_FitBase):
     
     def plot(
             self,
-            xunit = 'mm',
-            yunit = 'MPa',
-            xlabel = 'Diameter',
-            ylabel = 'Tensile strength',
-            data = True,
-            fit = True,
-            n = 101,
-            confidence = True,
-            confidence_level = 0.95,
-            prediction = False,
-            prediction_level = 0.95,
-            legend = True,
-            legend_location = 'best',
-            axis_expand = 0.05          
-            ):
+            xunit: str = 'mm',
+            yunit: str = 'MPa',
+            xlabel: str = 'Diameter',
+            ylabel: str = 'Tensile strength',
+            data: bool = True,
+            fit: bool = True,
+            n: int = 101,
+            confidence: bool = True,
+            confidence_level: float = 0.95,
+            prediction: bool = False,
+            prediction_level: float = 0.95,
+            legend: bool = True,
+            legend_location: str = 'best',
+            axis_expand: float = 0.05          
+            ) -> tuple:
+        """
+        Plot the results of a power law fit
+
+        Parameters
+        ----------
+        xunit : str, optional
+            Unit of x-axis data, by default 'mm'
+        yunit : str, optional
+            Unit of y-axis data, by default 'MPa'
+        xlabel : str, optional
+            x-axis label, by default 'Diameter'. The unit is automatically
+            added to the label, between square brackets.
+        ylabel : str, optional
+            y-axis label, by default 'Tensile strength'. The unit is 
+            automatically added to the label, between square brackets.
+        data : bool, optional
+            Flag for plotting all data points, by default True
+        fit : bool, optional
+            Flag for plotting the power law fit, by default True
+        n : int, optional
+            Number of x-points to use to generate fit, confidence intervals 
+            and prediction intervals, by default 101
+        confidence : bool, optional
+            Flag for plotting the confidence interval of the fit, by default
+            True
+        confidence_level : float, optional
+            Confidence level used to calculate the confidence interval, by 
+            default 0.95
+        prediction : bool, optional
+            Flag for plotting the prediction interval, by default False
+        prediction_level : float, optional
+            Confidence level used to calculate the prediction interval, by 
+            default 0.95
+        legend : bool, optional
+            Flag for adding a legend, by default True
+        legend_location : str, optional
+            Location of the legend, by default 'best'
+        axis_expand : float, optional
+            Add extra space to x and y-axis, by default 0.05. This is defined
+            as the fraction of the data range.
+
+        Returns
+        -------
+        tuple
+            a tuple containing the matplotlib figure and axis objects
+        """
         # initiate plot
         fig, ax = plt.subplots(1, 1)
         # add measured data
