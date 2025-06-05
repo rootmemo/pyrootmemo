@@ -1,0 +1,11 @@
+name: rrmm
+channels:
+  - conda-forge
+dependencies:
+  - python>3.11
+  - scipy
+  - matplotlib
+  - numpy
+  - ipykernel
+  - pint
+  - pandas
