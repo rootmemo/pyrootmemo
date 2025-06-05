@@ -12,18 +12,39 @@ from scipy.optimize import minimize, differential_evolution
 from pyrootmemo.tools.helpers import units
 from pyrootmemo.geometry import SoilProfile, FailureSurface
 from pyrootmemo.materials import MultipleRoots, Interface
-from pyrootmemo.pullout import PulloutEmbeddedElastic
-from pyrootmemo.pullout import PulloutEmbeddedElasticSlipping
-from pyrootmemo.pullout import PulloutEmbeddedElasticBreakage
-from pyrootmemo.pullout import PulloutEmbeddedElasticBreakageSlipping
-from pyrootmemo.pullout import PulloutEmbeddedElastoplastic
-from pyrootmemo.pullout import PulloutEmbeddedElastoplasticSlipping
-from pyrootmemo.pullout import PulloutEmbeddedElastoplasticBreakage
-from pyrootmemo.pullout import PulloutEmbeddedElastoplasticBreakageSlipping
+from pyrootmemo.pullout import PulloutEmbeddedElastic, PulloutEmbeddedElasticSlipping, PulloutEmbeddedElasticBreakage, PulloutEmbeddedElasticBreakageSlipping, PulloutEmbeddedElastoplastic, PulloutEmbeddedElastoplasticSlipping, PulloutEmbeddedElastoplasticBreakage, PulloutEmbeddedElastoplasticBreakageSlipping
 from pyrootmemo.tools.utils_rotation import axisangle_rotate
 from pyrootmemo.tools.utils_plot import round_range
-from pint import Quantity
+from pint import Quantity, DimensionalityError
 import warnings
+
+
+# FUNCTION #
+import numpy as np
+def make_quantity(
+        values: int | float | list | np.ndarray | Quantity,
+        unit: str
+        ):
+    if isinstance(values, Quantity):
+        if values.dimensionality != units(unit).dimensionality:
+            raise DimensionalityError('dimensionality of values does not match defined unit')
+        else:
+            return(values)
+    elif isinstance(values, int) | isinstance(values, float):
+        return(values * units(unit))
+    elif isinstance(values, list):
+        if all(isinstance(x, int) | isinstance(x, float) for x in values):
+            return(np.array(values) * units(unit))
+        else:
+            return ValueError('all items in values must be int or float')
+    elif isinstance(values, np.ndarray):
+        if np.isnumeric(values):
+            return(values * units(unit))
+        else:
+            return ValueError('all items in values must be numeric')
+    else:
+        TypeError('values must be int, float, list, ndarray or Quantity')
+
 
 
 ########################
@@ -47,18 +68,16 @@ class Wwm():
     def __init__(
             self, 
             roots: MultipleRoots,
-            ) -> None:
+            ) -> Wwm:
         """
-        Initiate RBMw bundle model class
+        Creates a Wu/Waldron model object.
 
         Parameters
         ----------
-        roots : instance of MultipleRoots class. 
-            Must contain attributes 'diameter', 'xsection', 'tensile_strength'
-
-        Returns
-        -------
-        None.
+        roots : MultipleRoots
+            Contains information about all reinforcing roots, defined using the 
+            MultipleRoots class.
+            Class must contain attributes 'diameter', 'xsection', 'tensile_strength'
 
         """
         # check if MultipleRoots type
@@ -77,14 +96,12 @@ class Wwm():
             self
             ) -> Quantity:
         """
-        Calculate WWM peak force
+        Calculates WWM peak force.
 
-        Sum of maximum tensile forces in all roots
+        This is defined as the sum of the maximum tensile forces that can be mobilised in all roots
         """
-        # force
-        force = np.sum(self.roots.xsection * self.roots.tensile_strength)
-        # return
-        return(force)
+        return(np.sum(self.roots.xsection * self.roots.tensile_strength))
+
 
     # reinforcement
     def peak_reinforcement(
@@ -292,7 +309,6 @@ class Fbm():
         # return
         return(k * self.peak_force() / failure_surface.cross_sectional_area)
     
-    
     # reduction factor
     def reduction_factor(self) -> float:
         """
@@ -310,10 +326,11 @@ class Fbm():
         force_sum = np.sum(self.roots.xsection * self.roots.tensile_strength)
         return((force_fbm / force_sum).magnitude)
     
+    # plot how roots mobilise, according to FBM
     def plot(
             self,
             unit: str = 'N',
-            reference_diameter = 1.0,
+            reference_diameter: int | float | Quantity = 1.0,
             reference_diameter_unit: str = 'mm',
             stack: bool = False,
             peak: bool = True,
@@ -352,6 +369,14 @@ class Fbm():
         # force matrix - force in each root (row) at breakage of each root (columns) - sorted
         M = self.matrix.to(unit).magnitude
         # diameters, normalised and sorted in order of breakage
+        if isinstance(reference_diameter, Quantity):
+            if reference_diameter.dimensionality != units('mm').dimensionality:
+                raise DimensionalityError('dimensionality of reference_diameter must be length')
+            if not np.isscalar(reference_diameter.magnitude):
+                raise ValueError('reference diameter must be a scalar')
+        elif isinstance(reference_diameter, int) | isinstance(reference_diameter, float):
+            if 
+            reference_diameter = reference_diameter * units(reference_diameter_unit) 
         diameter = self.roots.diameter.to(reference_diameter_unit).magnitude[self.sort_order]
         # force in reference root at moments of breakage, and just after
         x_before = np.diag(M) * (reference_diameter / diameter)**self.load_sharing
@@ -492,17 +517,23 @@ class Rbmw():
         # set roots
         self.roots = roots
         # check and set weibull shape parameter
-        if not np.isscalar(weibull_shape) or weibull_shape is None:
+        if not (isinstance(weibull_shape, float) | isinstance(weibull_shape, int)):
             ValueError('weibull_shape must be a scalar value')
         if weibull_shape <= 0.0:
             ValueError('weibull_shape must exceed zero ')
         if np.isinf(weibull_shape):
             ValueError('weibull_shape must have a finite value')
         self.weibull_shape = weibull_shape
-        # calculate weibull scale parameter
+        # calculate weibull scale parameter (if not already explicitly defined)
         if weibull_scale is None: 
             self.weibull_scale = 1. / gamma(1. + 1. / weibull_shape)
-
+        else:
+            if not (isinstance(weibull_scale, float) | isinstance(weibull_scale, int)):
+                ValueError('weibull_scale must be a scalar value')
+            if weibull_scale <= 0.0:
+                ValueError('weibull_shape must exceed zero ')
+            if np.isinf(weibull_scale):
+                ValueError('weibull_shape must have a finite value')
 
     # forces in roots at current level of axial displacement
     def force(
@@ -539,8 +570,14 @@ class Rbmw():
         Quantity object with (derivative of) forces.
         """
         # if displacement is not defined with a unit, make into a Quantity
-        if not isinstance(displacement, Quantity):
+        if isinstance(displacement, Quantity):
+            if displacement.dimensionality != units('m').dimensionality:
+                raise DimensionalityError('dimensionality of displacement must be length') 
+        elif isinstance(displacement, int) | isinstance(displacement, float) | isinstance(displacement, np.ndarray):
+            warnings.warn('Unit of displacement not defined. Assumed as ' + displacement_unit)
             displacement = displacement * units(displacement_unit)
+        else:
+            raise TypeError('displacement must be of type Quantity, float, int or np.ndarray')
         # if displacement is a scalar -> make a numpy array
         if np.isscalar(displacement.magnitude):
             displacement_scalar_input = True
@@ -725,6 +762,9 @@ class Rbmw():
             TypeError('failure_surface must be intance of FailureSurface class')
         if not hasattr(failure_surface, 'cross_sectional_area'):
             AttributeError('failure_surface must contain attribute "cross_sectional_area"')
+        # check k-value
+        if not(isinstance(k, int) | isinstance(k, float)):
+            raise TypeError('k must be scalar integer or float')
         # return
         return(k * self.peak_force() / failure_surface.cross_sectional_area)
     
@@ -892,6 +932,8 @@ class DirectShear():
         self.soil_profile = soil_profile
         self.failure_surface = failure_surface
         # distribution parameter
+        if not(isinstance(distribution_factor, int) | isinstance(distribution_factor, float)):
+            raise TypeError('distribution factor must be int or float')
         self.distribution_factor = distribution_factor
         # set root orientations (relative to failure surface)
         self._set_root_orientations()
@@ -1053,10 +1095,19 @@ class Waldron(DirectShear):
     ): 
         # call __init__ from parent class
         super().__init__(roots, interface, soil_profile, failure_surface, **kwargs)
-        # set flags for analysis type
+        # set flags for analysis type (allowing for slippage, breakage and/or elastoplasticity)
         self.slipping = slipping
         self.breakage = breakage
         self.elastoplastic = elastoplastic
+        # check weibull shape
+        if isinstance(weibull_shape, int) | isinstance(weibull_shape, float):
+            if weibull_shape <= 0.0:
+                raise ValueError('weibull_shape must exceed zero')
+            elif np.isinf(weibull_shape):
+                raise ValueError('weibull_shape must have finite value. Set to None for sudden breakages')
+        else:
+            if weibull_shape is not None:
+                raise TypeError('weibull_shape must be an int, float or None')
         # set correct pullout object, depending on cases (slipping, breakage etc)
         if slipping is True:
             if breakage is True:
@@ -1092,50 +1143,70 @@ class Waldron(DirectShear):
     # calculate root reinforcement at given displacement step
     def reinforcement(
             self,
-            displacement: Quantity,
+            displacement: float | int | Quantity,
             displacement_unit: str = 'm',
             total: bool = True,
             jac: bool = False,
             sign: int | float = 1.0
             ) -> Quantity:
-        # if displacement has no unit, add one
-        if not isinstance(displacement, Quantity):
+        # set displacement value with units - and make array (if not already so)
+        if isinstance(displacement, Quantity):
+            if displacement.dimensionality != units('m').dimensionality:
+                raise DimensionalityError('dimensionality of displacement must be length')
+            if not np.isscalar(displacement.magnitude):
+               displacement = Quantity.from_list([displacement])
+        elif isinstance(displacement, int) | isinstance(displacement, float):
+            warnings.warn('Unit of displacement not defined. Assumed as ' + displacement_unit)
+            displacement = np.array([displacement]) * units(displacement_unit)
+        elif isintance(displacement, list):
+            warnings.warn('Unit of displacement not defined. Assumed as ' + displacement_unit)
+            displacement = np.array(displacement) * units(displacement_unit)
+        elif isinstance(displacement, np.ndarray):
+            warnings.warn('Unit of displacement not defined. Assumed as ' + displacement_unit)
             displacement = displacement * units(displacement_unit)
-        # pullout displacement (up) and orientation factors (k)
-        up, k, dup_dus, _, dk_dus, _ = self._get_orientation_parameters(
-            displacement,
-            self.failure_surface.shear_zone_thickness,
-            jac = jac
-        )
-        # pullout force (Tp), survival fraction (S) and behaviour type index (b)
-        Tp, dTp_dup, S, b = self.pullout.force(up, jac = jac)
-        # reinforcement
-        cr = sign * k * Tp / self.failure_surface.cross_sectional_area
-        if total is True:
-            cr = np.sum(cr)
-        # fraction of root cross-sectional area for each behaviour types
-        xsection_rel = self.roots.xsection.magnitude / np.sum(self.roots.xsection.magnitude)
-        xsection_fractions = np.bincount(
-            b, 
-            weights = S * xsection_rel,
-            minlength = len(self.pullout.behaviour_types)
-            )
-        # return jacobian if requested
-        if jac is True:
-            dcr_dus = sign * (
-                (dk_dus * Tp + k * dTp_dup * dup_dus) 
-                / self.failure_surface.cross_sectional_area
-                )
-            if total is True:
-                dcr_dus = np.sum(dcr_dus)
         else:
-            dcr_dus = None
-        # return
-        return(
-            cr, 
-            dcr_dus,
-            xsection_fractions
+            raise TypeError('input type for displacement not recognised')
+        # relative cross-sectional area of each root
+        xsection_rel = self.roots.xsection.magnitude / np.sum(self.roots.xsection.magnitude)
+        # loop through all displacement steps
+        cr_all = []
+        dcr_dus_all = []
+        xsection_fractions_all = []
+        for disp in displacement:
+            # pullout displacement (up) and orientation factors (k)
+            up, k, dup_dus, _, dk_dus, _ = self._get_orientation_parameters(
+                disp,
+                self.failure_surface.shear_zone_thickness,
+                jac = jac
             )
+            # pullout force (Tp), survival fraction (S) and behaviour type index (b)
+            Tp, dTp_dup, S, b = self.pullout.force(up, jac = jac)
+            # reinforcement
+            cr = sign * np.sum(k * Tp) / self.failure_surface.cross_sectional_area
+            # fraction of root cross-sectional area for each behaviour types
+            xsection_fractions = np.bincount(
+                b, 
+                weights = S * xsection_rel,
+                minlength = len(self.pullout.behaviour_types)
+                )
+            # return jacobian if requested
+            if jac is True:
+                dcr_dus = sign * (
+                    np.sum(dk_dus * Tp + k * dTp_dup * dup_dus) 
+                    / self.failure_surface.cross_sectional_area
+                    )
+            else:
+                dcr_dus = None
+            # append
+            cr_all.append(cr)
+            dcr_dus_all.append(dcr_dus)
+            xsection_fractions_all.append(xsection_fractions)
+        # create output arrays
+        cr_out = Quantity.from_list(cr_all).squeeze()
+        dcr_dus_out = Quantity.from_list(dcr_dus_all).squeeze() if dcr_dus_all[0] is not None else None
+        xsection_fractions_out = np.array(xsection_fractions_all).squeeze()
+        # return
+        return(cr_out, dcr_dus_out, xsection_fractions_out)
 
     # find soil shear displacement at peak force of each root
     def _get_displacement_root_peak(self):
@@ -1215,15 +1286,15 @@ class Waldron(DirectShear):
     # plot shear displacement versus reinforcement 
     def plot(
             self,
-            n = 251,
-            xunit = 'mm',
-            yunit = 'kPa',
+            n: int = 251,
+            xunit: str = 'mm',
+            yunit: str = 'kPa',
             stack = False,
-            peak = True,
+            peak: bool = True,
             labels = True,
-            xlabel = 'Shear displacement',
-            ylabel = 'Reinforcement',
-            margin = 0.05          
+            xlabel: str = 'Shear displacement',
+            ylabel: str = 'Reinforcement',
+            margin: int | float = 0.05          
             ):
         # no root breakage or slipping -> infinite reinforcement
         if self.breakage is False and self.slipping is False:

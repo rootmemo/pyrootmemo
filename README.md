@@ -4,22 +4,38 @@ A Python package to modelling and measuring the effects of roots on slope stabil
 
 ## Installation
 
-We strongly recommend to work in a virtual environment, and we suggest to use a [Conda](https://docs.conda.io/en/latest/) environment.
+We strongly recommend to work in a virtual environment, and we suggest to use a [Conda](https://docs.conda.io/en/latest/) environment. Follow the instructions below to install `pyrootmemo` in a Conda environment.
 
 1. Clone the repository hosted on Github [https://github.com/rootmemo/pyrootmemo](https://github.com/rootmemo/pyrootmemo)
 2. If you have not already installed, download your preferred installation of Conda. You can try [Miniforge](https://conda-forge.org/download/)
 3. Create a virtual environment with Python
+
     ```bash
-    $ conda create -n rrmm python
+    conda create -n rrmm python
     ```
+
 4. Once the installation is complete, activate the environment
+
     ```bash
-    $ conda activate rrmm
+    conda activate rrmm
     ```
-6. Navigate to the cloned repository and install `pyrootmemo` using the following command:
+
+### Alternative 1
+
+5. Navigate to the cloned repository and install `pyrootmemo` using the following command:
+
     ```bash
-    $ pip install -e .
+    pip install -e .
     ```
+
+### Alternative 2
+
+5. Navigate to the cloned repository and install `pyrootmemo` using the following command:
+
+    ```bash
+    poetry install
+    ```
+
 ## Usage
 
 Check out Jupyter Notebooks in `tests/*.ipynb` for a comprehensive tutorials on how to use `pyrootmemo`!

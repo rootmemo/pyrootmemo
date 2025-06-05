@@ -22,6 +22,17 @@ FAILURE_SURFACE_PARAMETERS = {
 
 class SoilProfile:
     def __init__(self, soils, **kwargs):
+        """
+        Initialize a SoilProfile object with a list of Soil objects and optional parameters.
+        This class represents a profile of soils, allowing for the calculation of vertical stress
+
+        Parameters
+        ----------
+        soils : pyrootmemo.materials.Soil
+            A list of Soil objects representing the different soil layers in the profile.
+        **kwargs : dict
+            Optional parameters for the soil profile, such as depth and groundwater table.
+        """
         if not isinstance(soils, list):
             raise TypeError("Soils should be a list of Soil objects")
         if not all([isinstance(s, Soil) for s in soils]):
@@ -76,6 +87,18 @@ class SoilProfile:
             self,
             depth            
             ):
+        """
+        Get the soil object at a specified depth.
+
+        Parameters
+        ----------
+        depth : float or int
+            The depth at which to retrieve the soil object.
+        Returns
+        ------- 
+        Soil
+            The Soil object corresponding to the specified depth.
+        """
         soils_deeper = [s for s, d in zip(self.soils, self.depth) if d >= depth]
         return(soils_deeper[0])
     
@@ -84,6 +107,18 @@ class SoilProfile:
             self,
             depth
             ):
+        """
+        Calculate the vertical stress at a specific depth in the soil profile.
+
+        Parameters
+        ----------
+        depth : float or int
+            The depth at which to calculate the vertical stress.
+        Returns
+        -------
+        float
+            The vertical stress at the specified depth, in kPa.
+        """
         # depth at top of each layer
         depth_top = np.append(0.0 * units('m'), self.depth[:-1])
         # thickness of (part of) each layer, above the requested depth

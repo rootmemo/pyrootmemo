@@ -8,10 +8,10 @@
 # - x versus y fitting
 #   * Linear regression (class "Linear")
 #   * Power law regression (function "Powerlaw()")
-#     this function is a wrapper for different power law fit types, 
+#     This function is a wrapper for different power law fit types, 
 #     depending on different intra-diameter variation assumptions:
-#     - gamma distribution (class "PowerlawGamma")
-#     - gumbel distribution (class "PowerlawGumbel")
+#     - gamma (class "PowerlawGamma")
+#     - gumbel (class "PowerlawGumbel")
 #     - logistic (class "PowerlawLogistic")
 #     - lognormal (class "PowerlawLognormal")
 #     - lognormal_corrected (class "PowerlawLognormalCorrected")
@@ -21,7 +21,7 @@
 #     - normal_scaled(class "PowerlawNormalScaled")
 #     - uniform (class "PowerlawUniform")
 #     - weibull (class "PowerlawWeibull")
-#    see Meijer (2024) for more details 
+#    see Meijer (2024) for more details on models
 #    (https://www.doi.org/10.1007/s11104-024-07007-9)
 
 
@@ -51,7 +51,7 @@ class _FitBase:
     # check input values
     def _check_input(
             self,
-            x: np.ndarray | Quantity,
+            x: list | np.ndarray | Quantity,
             finite: bool = True,
             min: float | int | Quantity | None = None,
             max: float | int | Quantity | None = None,
@@ -59,10 +59,16 @@ class _FitBase:
             max_include: bool = True,
             label: str = 'x'
     ):  
+        # x-values
+        if isintance(x, list):
+            x = np.array(x)
+        else:
+            if not (isinstance(x, np.ndarray) | isintance(x, Quantity)):
+                raise TypeError('{label} must be list, np.ndarray or Quantity')
         # finite values
         if finite is True:
             if np.isinf(x).any() is True:
-                raise ValueError('all values must be finite')
+                raise ValueError('all {label} values must be finite')
         # minimum value
         if np.isscalar(min):
             if min_include is True:
@@ -80,50 +86,38 @@ class _FitBase:
                 if (x >= min).any():
                     raise ValueError(f'all {label} values must be smaller than {max}')
 
-    # check dimensionality - check whether input x matches referece x0
-    def check_dimensionality(
-            self,
-            x,
-            x0
-    ):
-        if isinstance(x0, Quantity):
-            if isinstance(x, Quantity):
-                if x0.dimensionality != x.dimensionality:
-                    raise DimensionalityError('units of x not compatible with fit result')
-            else:
-                raise DimensionalityError(f'x must be defined in units of {x0.units}')
-        else:
-            if isinstance(x, Quantity):
-                raise DimensionalityError('units of x not compatible with fit result')
-
     # get reference value for an array of data
     def get_reference(
             self,
-            x,
-            x0 = None
+            x: np.ndarray | Quantity,
+            x0: int | float | Quantity | None = None
             ):
         if isinstance(x, Quantity):
             # x defined with units
             if x0 is None:
                 return(1.0 * x.units)
             elif isinstance(x0, Quantity):
-                if x0.dimensionality == x.dimensionality:
+                if x.dimensionality == x0.dimensionality:
                     return(x0)
                 else:
                     raise DimensionalityError('units of x and x0 are not compatible')
             elif np.isscalar(x0):
-                UserWarning(f'units of reference value not given - value assumed in {x.units}')
+                warnings.warn(f'unit of x0 not defined - assumed {x.units}')
                 return(x0 * x.units)
+            else:
+                raise TypeError('x0 must be int, float, Quantity or None')
         else:
             # x defined without units
             if x0 is None:
                 return(1.0)
-            elif isinstance(x0, Quantity):
+            elif isinstance(x0, Quantity) & (x0.dimensionless is False):
                 raise DimensionalityError('units of x and x0 are not compatible')
-            elif np.isscalar(x0):
+            elif isinstance(x0, int) | isinstance(x0, float):
                 return(x0)
+            else:
+                raise TypeError('x0 must be int, float, Quantity or None')
                     
-    # generate non-dimensional data (+apply scaling)
+    # generate non-dimensional data (+ apply scaling through magnitude of x0)
     def nondimensionalise(
             self,
             x,
@@ -149,7 +143,7 @@ class _FitBase:
         else:
             return(x / x0)
 
-    # add units (+ scaling) to nondimensionalised values
+    # add units (+ scaling through magnitude of x0) to nondimensionalised values
     def redimensionalise(
             self,
             x,
@@ -166,13 +160,13 @@ class _FitBaseLoglikelihood(_FitBase):
 
     def __init__(
         self,
-        x,
-        weights = None,
-        start = None,
-        root_method = 'newton',
-        x0 = 1.0,
-        xmin = None,
-        xmin_include = True
+        x: np.ndarray | Quantity,
+        weights: np.ndarray = None,
+        start: int | float | tuple | None = None,
+        root_method: str = 'newton',
+        x0: float | int | Quantity = 1.0,
+        xmin: float | int | Quantity | None = None,
+        xmin_include: bool = True
     ):
         # check and set x and y parameters
         self._check_input(
