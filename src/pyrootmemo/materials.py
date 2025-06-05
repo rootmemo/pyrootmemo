@@ -245,6 +245,19 @@ class Soil:
         usda_classification: str = None,
         **kwargs,
     ):
+        """
+        Creates a soil object with specified parameters.
+        The parameters are defined in the SOIL_PARAMETERS dictionary: cohesion, friction_angle, unit_weight_bulk, unit_weight_dry, unit_weight_saturated, water_content.
+
+        Parameters
+        ----------
+        name : str
+            Name of the soil, e.g. 'silty_sand'.
+        uscs_classification : str, optional
+            uscs classification of the soil, by default None
+        usda_classification : str, optional
+            usda classification of the soil, by default None
+        """
         if not isinstance(name, str):
             raise TypeError("Soil name should be entered as a string")
         self.name = name.lower().replace(" ", "_")
@@ -280,6 +293,11 @@ class Interface:
         self,
         **kwargs,
     ):
+        """
+        Creates an interface object with specified parameters.
+        The parameters are defined in the ROOT_SOIL_INTERFACE_PARAMETERS dictionary: shear_strength, adhesion, friction_angle, effective_stress
+
+        """
         for k, v in kwargs.items():
             if k not in ROOT_SOIL_INTERFACE_PARAMETERS.keys():
                 raise ValueError(
