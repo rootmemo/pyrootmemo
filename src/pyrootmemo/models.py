@@ -16,35 +16,7 @@ from pyrootmemo.pullout import PulloutEmbeddedElastic, PulloutEmbeddedElasticSli
 from pyrootmemo.tools.utils_rotation import axisangle_rotate
 from pyrootmemo.tools.utils_plot import round_range
 from pint import Quantity, DimensionalityError
-from collections import namedtuple
 import warnings
-
-# FUNCTION #
-import numpy as np
-def make_quantity(
-        values: int | float | list | np.ndarray | Quantity,
-        unit: str
-        ):
-    if isinstance(values, Quantity):
-        if values.dimensionality != units(unit).dimensionality:
-            raise DimensionalityError('dimensionality of values does not match defined unit')
-        else:
-            return(values)
-    elif isinstance(values, int) | isinstance(values, float):
-        return(values * units(unit))
-    elif isinstance(values, list):
-        if all(isinstance(x, int) | isinstance(x, float) for x in values):
-            return(np.array(values) * units(unit))
-        else:
-            raise  ValueError('all items in values must be int or float')
-    elif isinstance(values, np.ndarray):
-        if np.isnumeric(values):
-            return(values * units(unit))
-        else:
-            raise ValueError('all items in values must be numeric')
-    else:
-        raise TypeError('values must be int, float, list, ndarray or Quantity')
-
 
 
 ########################
@@ -54,21 +26,42 @@ def make_quantity(
 
 # WWM class
 class Wwm():
-    """Class for Wu/Waldron Model.
-           
-    The class constains some additional methods:
-    * 'peak_force()': calculate peak force in root bundle (sum of strenghts)
-    * 'peak_reinforcement()': calculate peak root reinforcement, given a known
-      failure surface and Wu/Waldron orientation factor 'k'
-    
-    """
+    """Class for Wu/Waldron root reinforcement
 
+    Attributes
+    ----------
+    roots
+        MultipleRoots object containing properties of all roots in bundle
+
+    Methods
+    -------
+    __init__(self, roots)
+        Constructor
+    peak_force()
+        Return peak force mobilised by all roots
+    peak_reinforcement(failure_surface, k)
+        Return peak reinforcement 
+
+    Raises
+    ------
+    TypeError
+        _description_
+    AttributeError
+        _description_
+    TypeError
+        _description_
+    AttributeError
+        _description_
+    TypeError
+        _description_
+    """
+    
     # initialise class
     def __init__(
             self, 
             roots: MultipleRoots,
             ):
-        """Creates a Wu/Waldron model object.
+        """Initiates a Wu/Waldron model object.
 
         Parameters
         ----------
@@ -76,7 +69,6 @@ class Wwm():
             Contains information about all reinforcing roots, defined using the 
             MultipleRoots class.
             Class must contain attributes 'diameter', 'xsection', 'tensile_strength'
-
         """
         # check if MultipleRoots type
         if not isinstance(roots, MultipleRoots):
@@ -168,15 +160,32 @@ class Fbm():
     3. Peak forces can now easily be termined by finding the column in the 
        matrix that has the largest sum of forces
        
-       
-    The class constains some additional methods:
+    Attributes
+    ----------
+    roots
+        MultipleRoots object containing properties of all roots in bundle
+    load_sharing
+        Load sharing value used
+    sort_order
+        order to sort roots in order of breakage
+    breakage_order
+        order of root breakage defined for each root
+    matrix
+        2-D matrix with forces in each root (rows, axis 0) at breakage of each 
+        root (columns, axis 1)
     
-    * 'peak_force()': calculate peak force in root bundle
-    * 'peak_reinforcement()': calculate peak root reinforcement, given a known
-      failure surface area and a Wu/Waldron orientation factor 'k'
-    * 'plot()': (stack)plot showing how forces in each root are gradually 
-      mobilised    
-    
+    Methods
+    -------
+    __init__(roots, load_sharing)
+        Constructor
+    peak_force()
+        Calculate peak force in bundle
+    peak_reinforcement(failure_surface, k)
+        Calculate peak reinforcement by bundle
+    reduction_factor()
+        FBMw reinforcement relative to WWM reinforcement
+    plot(**kwargs)
+        Generate plot showing how reinforcements mobilises
     """
     
     # initialise class
@@ -206,7 +215,7 @@ class Fbm():
         """
         # check roots input
         if not isinstance(roots, MultipleRoots):
-            TypeError('roots must be object of class MultipleRoots')
+            raise TypeError('roots must be object of class MultipleRoots')
         attributes_required = ['diameter', 'xsection', 'tensile_strength']
         for i in attributes_required:
             if not hasattr(roots, i):
@@ -231,16 +240,15 @@ class Fbm():
         
     # tensile capacity - force at which roots break
     def _tensile_capacity(self) -> Quantity:
-        """Calculate force at which each roots breaks
-        """
+        """Calculate force at which each roots breaks"""
         return(self.roots.tensile_strength * self.roots.xsection)
     
     # matrix  - matrix 
     def _get_matrix(self) -> Quantity:
-        """Force matrix
+        """Create force matrix
 
         Generate matrix for force in each root (rows) at breakage of each 
-        root (columns). Assumes roots are sorted in order of breakage
+        root (columns). Assumes roots are sorted in order of breakage.
         """
         # root capacity (force)
         force = self._tensile_capacity()
@@ -295,7 +303,6 @@ class Fbm():
         -------
         Quantity
             Peak root reinforcement.
-
         """
         # check cross-sectional area correctly defined
         if not isinstance(failure_surface, FailureSurface):
@@ -481,14 +488,30 @@ class Fbm():
 class Rbmw():
     """
     Class for Root Bundle Model Weibull (RBMw).
-           
-    The class constains some additional methods:
-    * 'force()': calculate the force in the root bundle at the current level of displacement
-    * 'peak_force()': calculate peak force in root bundle
-    * 'peak_reinforcement()': calculate peak root reinforcement, given a known
-      soil area and Wu/Waldron orientation factor 'k'
-    * 'plot()': plot showing how force changes as function of displacement
     
+    Attributes
+    ----------
+    roots
+        MultipleRoots object containing properties of all roots in bundle
+    weibull_shape
+        Weibull shape parameter used in survival function
+    weibull_scale
+        Weibull scale parameter used in survival function
+    
+    Methods
+    -------
+    __init__(roots, load_sharing)
+        Constructor
+    force(displacement)
+        Calculate force in bundle at given displacement
+    peak_force()
+        Calculate peak force in bundle
+    peak_reinforcement(failure_surface, k)
+        Calculate peak reinforcement by bundle
+    reduction_factor()
+        RBMw reinforcement relative to WWM reinforcement
+    plot(**kwargs)
+        Generate plot showing how reinforcements mobilises with displacement
     """
 
     # initialise class
@@ -498,20 +521,24 @@ class Rbmw():
             weibull_shape: float | int, 
             weibull_scale: float | int | None = None
             ):
-        """Initiate RBMw bundle model class
+        """Construct a RBMw bundle model class object
 
         Parameters
         ----------
-        roots : instance of MultipleRoots class. 
+        roots : MultipleRoots
+            MultipleRoots object containing root properties.
             Must contain fields 'xsection', 'tensile_strength', 
-            'length', 'elastic_modulus'
-        weibull_shape : float
-            Weibull shape parameter (dimensionless)
-        weibull_scale : float, optional
+            'length', 'elastic_modulus'.
+        weibull_shape : float | int
+            Weibull shape parameter (dimensionless). Must be finite and 
+            larger than zero.
+        weibull_scale : float | int | None, optional
             Weibull scale parameter describing the (dimensionless) ratio 
-            tensile stress/average strength (or tensile force/average force at 
-            failure). Default is None, in which case it is calculated from the 
-            Weibull shape parameter assuming an average ratio of 1.
+            tensile stress/average strength (or tensile force/average force, 
+            or displacement/average displacement at failure). 
+            Default is None, in which case it is calculated from the 
+            Weibull shape parameter assuming an average ratio of 1, i.e.
+            scale = 1 / gamma(1 + 1 / shape)
         """
         # check if roots of correct class
         if not isinstance(roots, MultipleRoots):
@@ -538,7 +565,7 @@ class Rbmw():
             if not (isinstance(weibull_scale, float) | isinstance(weibull_scale, int)):
                 ValueError('weibull_scale must be a scalar value')
             if weibull_scale <= 0.0:
-                ValueError('weibull_shape must exceed zero ')
+                ValueError('weibull_shape must exceed zero')
             if np.isinf(weibull_scale):
                 ValueError('weibull_shape must have a finite value')
 
@@ -553,16 +580,19 @@ class Rbmw():
             ) -> Quantity:
         """Calculate RBMw force at given level of displacement
 
-                Calculate RBMw force at given displacement
-
         Parameters
         ----------
-        displacement : Quantity
+        displacement : Quantity | int | float | np.ndarray
             Quantity object with displacements. Should have unit with dimension 
-            length.
+            length. Can also be defined at integer, float or numpy array, in
+            which case the 'displacement_unit' argument is used as unit.
+        displacement_unit : str, optional
+            The unit of displacement, in case displacement not inputted as a 
+            Quantity
         total : bool, optional
             If True, return the total force of all roots. Otherwise, return
-            results per displacement step (rows) for each root (columns)
+            results per root (axis 0, rows) at each displacement step 
+            (axis 1, columns)
         deriv : int, optional
             Differentiation order for displacement. If deriv == 1, the first
             derivatives of force with respect to displacement are returned. 
@@ -572,29 +602,6 @@ class Rbmw():
             This is used to be able to use minimisation algorithms in order
             to find the global maximum force, see function self.peak_force(). 
             Default = 1.0
-
-        Returns
-        -------
-        Quantity object with (derivative of) forces.
-        
-        Parameters
-        ----------
-        displacement : Quantity | int | float | np.ndarray
-            displacement. If not defined as Quantity, 'displacement_unit' is 
-            used to add the correct dimensionality. 
-        displacement_unit : str, optional
-            Assumed unit of displacement if displacement not defined as 
-            Quantity, by default 'm'
-        total : bool, optional
-            Calculate total reinforcement, by default True. If False, returns
-            the force in each root instead (rather than the sum of forces)
-        deriv : int, optional
-            derivative order, by default 0. If 1, the first derivative of 
-            force(s) with respect to displacement is returned instead
-        sign : int | float, optional
-            Multiplication factor for returned forces, by default 1.0. Can be
-            used for turning into a minimisation problem (sign = -1.0) is 
-            required
 
         Returns
         -------
@@ -632,13 +639,13 @@ class Rbmw():
         # using 2D arrays: First axis = displacement, second axis = roots
         a = (self.roots.elastic_modulus 
              * self.roots.xsection
-             / self.roots.length)[np.newaxis, :]
+             / self.roots.length)[:, np.newaxis]
         b = (self.roots.length
              * self.roots.tensile_strength
              / self.roots.elastic_modulus 
              * self.weibull_scale
-            )[np.newaxis, :]
-        x = displacement[:, np.newaxis]
+            )[:, np.newaxis]
+        x = displacement[np.newaxis, :]
         k = self.weibull_shape
         # force
         if deriv == 0:
@@ -649,7 +656,7 @@ class Rbmw():
                 if displacement_scalar_input is True:
                     return(sign * np.sum(y))
                 else:
-                    return(sign * np.sum(y, axis = 1))
+                    return(sign * np.sum(y, axis = 0))
             else:
                 return(sign * y.squeeze())
         # derivative of force with respect to displacement
@@ -665,7 +672,7 @@ class Rbmw():
                 if displacement_scalar_input is True:
                     return(sign * np.sum(dy_dx))
                 else:
-                    return(sign * np.sum(dy_dx, axis = 1))
+                    return(sign * np.sum(dy_dx, axis = 0))
             else:
                 return(sign * dy_dx.squeeze())
         # second derivative of force with respect to displacement
@@ -683,7 +690,7 @@ class Rbmw():
                 if displacement_scalar_input is True:
                     return(sign * np.sum(dy2_dx2))
                 else:
-                    return(sign * np.sum(dy2_dx2, axis = 1))
+                    return(sign * np.sum(dy2_dx2, axis = 0))
             else:
                 return(sign * dy2_dx2.squeeze())
         # higher order derivatives
@@ -716,12 +723,15 @@ class Rbmw():
         method : str, optional
             Method to use in the scipy.optimize.minimize algorithm.
             Default is 'Newton-CG'. Analytical jacobian and hessian are 
-            analytically known (see function self.force()).
+            analytically known (see function self.force(), which allows for
+            returning derivatives).
 
         Returns
         -------
         dict
-            Dictionary with 'displacement' and 'force' at peak
+            Dictionary with keys 'displacement' and 'force', 
+            containing the Quantity of the displacement and force at 
+            peak.   
         """
         # displacements until peak reinforcement of each root
         displacements = (
@@ -787,8 +797,9 @@ class Rbmw():
         Returns
         -------
         dict
-            Dictionary with 'displacement' and 'reinforcement' at peak
-
+            Dictionary with keys 'displacement' and 'reinforcement', 
+            containing the Quantity of the displacement and reinforcement at 
+            peak.            
         """
         # check cross-sectional area correctly defined
         if not isinstance(failure_surface, FailureSurface):
@@ -819,7 +830,6 @@ class Rbmw():
         -------
         float
             reduction factor.
-
         """
         force_rbmw = self.peak_force()['force']
         force_root = np.sum(self.roots.xsection * self.roots.tensile_strength)
@@ -838,39 +848,55 @@ class Rbmw():
             xunit: chr = 'mm',
             yunit: chr = 'N'
             ): 
-        """
-        Show force-displacement plot for the RBMw model
+        """Plot how forces in the RBMw mobilise with displacements
 
         Parameters
         ----------
         n : int, optional
-            Number of equally-spaced points to use to plot. 
-        fraction : float, optional
-            Plot until for every root, <fraction> of roots has broken
-        xlabel, ylabel : str, optional
-            x- and y-axis labels. Units will be added to this automatically
-        xunit, yunit : str, optional
-            displacement and force units to use on the axes. Results are 
-            automatically converted before plotting
+            number of displacement positions to plot, by default 251
+        stack : bool, optional
+            shows contributions of all individual roots by means of a 
+            stackplot. By default False
         peak : bool, optional
-            plot the location of peak reinforcement using a scatter plot 
-            marker
+            show the location of the peak using a scatter point. By default 
+            True
+        fraction : int | float, optional
+            Used to determine the maximum displacement level, by default 0.75.
+            The maximum displacement is defined as the point at which all 
+            'fraction' fraction of roots have broken, for all roots defined
+        labels : bool | list, optional
+            labels to plot on contribution of each root, by default False.
+            If False, no labels are plotted. If True, labels are plotted using
+            the index of the root in the MultipleRoots object. Custom labels 
+            can be inputted using a list, which must have the same length as 
+            the number of roots in the bundle.
+        xlabel : chr, optional
+            x-axis label, by default 'Pull-out displacement'
+        ylabel : chr, optional
+            y-axis label, by default 'Total force in root bundle'
+        xunit : chr, optional
+            x-axis unit, by default 'mm'
+        yunit : chr, optional
+            y-axis unit, by default 'N'
 
         Returns
         -------
         tuple
             tuple containing Matplotlib figure and axis objects
-
         """
         # calculate peak force and displacement
         peak_results = self.peak_force()
         # displacement to average root failure
-        displacement_average = self.roots.tensile_strength / self.roots.elastic_modulus * self.roots.length
+        displacement_average = (
+            self.roots.tensile_strength 
+            / self.roots.elastic_modulus 
+            * self.roots.length
+            )
         displacement_max = (
             np.max(displacement_average) 
             * self.weibull_scale
             * (-np.log(1. - fraction)) ** (1. / self.weibull_shape)
-        )
+            )
         # displacement range
         displacement = np.linspace(0, displacement_max, n)
         # calculate total forces
@@ -886,7 +912,7 @@ class Rbmw():
         if stack is True:
             force_each = self.force(displacement, total = False)
             force_each_magnitude = force_each.to(yunit).magnitude
-            ax.stackplot(displacement_magnitude, force_each_magnitude.transpose())
+            ax.stackplot(displacement_magnitude, force_each_magnitude)
         # plot line
         ax.plot(displacement_magnitude, force_magnitude, '-', c = 'black')
         # plot peak reinforcement
@@ -907,18 +933,17 @@ class Rbmw():
         # add labels to plot
         if plot_labels is True:
             # label x-positions - at peaks of each individual root
-            x_factor = self.weibull_scale * (1.0 / self.weibull_shape)**(1.0 / self.weibull_shape)
             labels_x_dimensional = (
-                x_factor
-                    * self.roots.tensile_strength
-                    / self.roots.elastic_modulus
-                    * self.roots.length
+                self.weibull_scale * (1.0 / self.weibull_shape)**(1.0 / self.weibull_shape)
+                * self.roots.tensile_strength
+                / self.roots.elastic_modulus
+                * self.roots.length
                 )
             labels_x = labels_x_dimensional.to(xunit).magnitude
             # labels y-positions - halfway up each stacking instance
             labels_y_dimensional_all = self.force(labels_x_dimensional, total = False)
-            labels_y_all = np.tril(labels_y_dimensional_all.to(yunit).magnitude)
-            labels_y = np.sum(labels_y_all, axis = 1) -  0.5 * np.diag(labels_y_all)
+            labels_y_all = np.triu(labels_y_dimensional_all.to(yunit).magnitude)
+            labels_y = np.sum(labels_y_all, axis = 0) -  0.5 * np.diag(labels_y_all)
             # add labels to plot
             for xi, yi, li in zip(labels_x, labels_y, labels):
                 ax.annotate(
@@ -943,17 +968,78 @@ class Rbmw():
 ### BASE CLASS FOR DIRECT SHEAR MODELS ###
 ##########################################
 
-class DirectShear():
+class _DirectShear():
+    """Base class for direct shear models (Waldron, DRAM)
+    
+    Serves as a base clas for models in which reinforcement is mobilised
+    as function of direct shear displacement.
 
+    An addition to the following attributes, also sets some useful attributes
+    to the input arguments:
+
+    roots.orientation
+        unit vector describing the initial orientation of each roots in 
+        'roots'. numpy array with size (number of roots, 3)
+    failure_surface.tanphi
+        the value of tan(friction angle) for the soil that is present at the
+        failure surface
+
+    Attributes
+    ----------
+    roots
+        MultipleRoots object
+    interface
+        Interface object 
+    soil_profile
+        SoilProfile object
+    failure_surface
+        FailureSurface object
+    distribution_factor
+        Distribution factor for assigning root elongation to pullout 
+        displacement
+
+    Methods
+    -------
+    __init__(roots, interface, soil_profile, failure_surface, distribution_factor, **kwargs)
+        Constructor
+    get_initial_root_orientations()
+        Defined initial orientations of all roots relative to the shear zone
+    get_orientation_parameters(displacement, shear_zone_thickness, jac)
+        Calculate root elongations in shear zone and k-factors 
+    """
+
+    # initisaliser
     def __init__(
             self,
             roots: MultipleRoots,
             interface: Interface,
             soil_profile: SoilProfile,
             failure_surface: FailureSurface,
-            distribution_factor: float | int = 0.5,
-            **kwargs
+            distribution_factor: float | int = 0.5
     ):
+        """Initialiser for direct shear models.
+
+        Parameters
+        ----------
+        roots : MultipleRoots
+            MultipleRoots object, containing root properties
+        interface : Interface
+            Interface object, containing properties of root--soil interface
+        soil_profile : SoilProfile
+            SoilProfile object
+        failure_surface : FailureSurface
+            FailureSurface object
+        distribution_factor : float | int, optional
+            distribution factor determining how much of the root elongation in
+            the shear zone to assign to each side, by default 0.5. 0.5 
+            corresponds with symmetry, i.e. root segments on either side of
+            the shear zone behave identically in terms of mobilising forces
+
+        Raises
+        ------
+        TypeError
+            _description_
+        """
         # check instances are of the correct class
         if not isinstance(roots, MultipleRoots):
             TypeError('roots must be instance of class MultipleRoots')
@@ -973,7 +1059,7 @@ class DirectShear():
             raise TypeError('distribution factor must be int or float')
         self.distribution_factor = distribution_factor
         # set root orientations (relative to failure surface)
-        self._set_root_orientations()
+        self.roots.orientation = self.get_initial_root_orientations()
         # set friction angle at failure surface
         self.failure_surface.tanphi = np.tan(
             soil_profile
@@ -981,37 +1067,48 @@ class DirectShear():
             .friction_angle
             .to('rad')
             )
-        # kwargs
-        for k, v in kwargs.items():
-            setattr(self, k, v)
     
-    def _set_root_orientations(
+    # set root orientations as unit vectors, relative to direction of shearing
+    def get_initial_root_orientations(
             self
-            ) -> None:
-        # function set 3-D root orientations **relative to** failure surface so that:
-        # * local x = direction of shearing
-        # * local y = perpendicular to x on shear plane
-        # * local z = pointing downwards into the soil
-        # orientations are defined in terms of 3-dimensional unit vectors
-        #         
-        # global coordinate system
-        # * right-handed Cartesian coordinate system, with z-axis pointing down into the ground
-        # * azimuth angle = angle from x-axis to projection of root vector on the x-y plane
-        # * elevation angle = angle from z-axis to root vector
-        #
-        # failure surface
-        # * assume angle is defined as angle in x-z plane, defined (positive) from x to z
-        #
-        # 
+            ) -> np.ndarray:
+        """Set initial root orientations relative to shear direction
+
+        returns a numpy array with 
+        size (number of roots, 3).
+        
+        function set 3-D root orientations **relative to** failure surface so that:
+        * local x = direction of shearing
+        * local y = perpendicular to x on shear plane
+        * local z = pointing downwards into the soil
+        orientations are defined in terms of 3-dimensional unit vectors
+                
+        Roots are assumed to be defined in a **global** coordinate system
+        * right-handed Cartesian coordinate system, with z-axis pointing down into the ground
+        * azimuth angle = angle from x-axis to projection of root vector on the x-y plane
+        * elevation angle = angle from z-axis to root vector
+        
+        If the initial root orientations are not defined, assume they are all 
+        **perpedicular** to the shear zone.
+
+        direction of failure failure surface (taken from FailureSurface object)
+        * assume angle is defined as angle in x-z plane, defined (positive) from x to z
+
+        Returns
+        -------
+        np.ndarray
+            Numpy array with size (nroots, 3) with the relative 3-D root 
+            orientations defined as unit vectors
+        """
         # shape of root vector ('number of roots')
         roots_shape = self.roots.diameter.magnitude.shape
         # root orientations not defined - assume all perpendicular to failure surface
         if (not hasattr(self.roots, 'azimuth_angle')) & (not hasattr(self.roots, 'elevation_angle')):
-            self.roots.orientation = np.stack((
+            return(np.stack((
                 np.zeros(*roots_shape),
                 np.zeros(*roots_shape),
                 np.ones(*roots_shape)                    
-                ), axis = -1)
+                ), axis = -1))
         # (partial) angles provided -> rotate to local coordinate system
         else:
             if not hasattr(self.roots, 'azimuth_angle'):
@@ -1031,14 +1128,16 @@ class DirectShear():
                 axisangle = np.array([0.0, -self.failure_surface.orientation.to('rad'), 0.0])
             else:
                 axisangle = np.array([0.0, 0.0, 0.0])
-            self.roots.orientation = axisangle_rotate(root_orientation_global, axisangle)
+            # rotate and return
+            return(axisangle_rotate(root_orientation_global, axisangle))
 
-    def _get_orientation_parameters(
+    # function to get 
+    def get_orientation_parameters(
             self,
-            displacement: Quantity,
+            shear_displacement: Quantity,
             shear_zone_thickness: Quantity,
             jac: bool = False
-    ):
+            ) -> dict:
         # vector components of initial root orientation in shear zone
         v0x = (
             shear_zone_thickness
@@ -1054,60 +1153,63 @@ class DirectShear():
         # length in shear zone
         if shear_zone_thickness.magnitude >= 0.0:
             L0 = shear_zone_thickness / self.roots.orientation[..., 2]
-            L = np.sqrt((v0x + displacement)**2 + v0y**2 + v0z**2)
+            L = np.sqrt((v0x + shear_displacement)**2 + v0y**2 + v0z**2)
         else:
             L0 = 0.0 * shear_zone_thickness * self.roots.orientation[..., 2]
-            L = displacement * np.ones_like(v0x)
+            L = shear_displacement * np.ones_like(v0x)
         # pullout displacement
         up = self.distribution_factor * (L - L0)
         # orientation factor
-        k = ((v0x + displacement) + (v0z * self.failure_surface.tanphi)) / L
-        # derivatives
+        k = ((v0x + shear_displacement) + (v0z * self.failure_surface.tanphi)) / L
+        # return
         if jac is False:
-            dup_ddisplacement = None
-            dup_dshearzonethickness = None
-            dk_ddisplacement = None
-            dk_dshearzonethickness = None
+            return({
+                'pullout_displacement': up,
+                'k': k
+                })
         else:
-            dv0x_dshearzonethickness = self.roots.orientation[..., 0] / self.roots.orientation[..., 2]
-            dv0y_dshearzonethickness = self.roots.orientation[..., 1] / self.roots.orientation[..., 2]
-            dv0z_dshearzonethickness = np.ones_like(v0z)
+            # calculate derivatives with respect to:
+            # * shear displacement: us
+            # * shear zone thickness: h
+            dv0x_dh = self.roots.orientation[..., 0] / self.roots.orientation[..., 2]
+            dv0y_dh = self.roots.orientation[..., 1] / self.roots.orientation[..., 2]
+            dv0z_dh = np.ones_like(v0z)
             if shear_zone_thickness.magnitude >= 0.0:
-                dL0_dshearzonethickness = 1.0 / self.roots.orientation[..., 2]
-                dL_ddisplacement = (v0x + displacement) / L
-                dL_dv0x = (v0x + displacement) / L
+                dL0_dh = 1.0 / self.roots.orientation[..., 2]
+                dL_dus = (v0x + shear_displacement) / L
+                dL_dv0x = (v0x + shear_displacement) / L
                 dL_dv0y = v0y / L
                 dL_dv0z = v0z / L
             else:
-                dL0_dshearzonethickness = 0.0 * self.roots.orientation[..., 2]
-                dL_ddisplacement = np.ones_like(v0z)
+                dL0_dh = 0.0 * self.roots.orientation[..., 2]
+                dL_dus = np.ones_like(v0z)
                 dL_dv0x = np.ones_like(v0z)
                 dL_dv0y = np.ones_like(v0z)
                 dL_dv0z = np.ones_like(v0z)
-            dup_ddisplacement = self.distribution_factor * dL_ddisplacement
-            dL_dshearzonethickness = (
-                dL_dv0x * dv0x_dshearzonethickness
-                + dL_dv0y * dv0y_dshearzonethickness
-                + dL_dv0z * dv0z_dshearzonethickness
+            dup_dus = self.distribution_factor * dL_dus
+            dL_dh = (
+                dL_dv0x * dv0x_dh
+                + dL_dv0y * dv0y_dh
+                + dL_dv0z * dv0z_dh
                 )
-            dup_dshearzonethickness = self.distribution_factor * (dL_dshearzonethickness - dL0_dshearzonethickness)
-            dk_ddisplacement = (
+            dup_dh = self.distribution_factor * (dL_dh - dL0_dh)
+            dk_dus = (
                 1.0 / L
-                - k / L * dL_ddisplacement
+                - k / L * dL_dus
             )
-            dk_dshearzonethickness = (
-                (dv0x_dshearzonethickness + dv0z_dshearzonethickness * self.failure_surface.tanphi) / L
-                - k / L * dL_dshearzonethickness
+            dk_dh = (
+                (dv0x_dh + dv0z_dh * self.failure_surface.tanphi) / L
+                - k / L * dL_dh
             )
-        return(
-            up,
-            k,
-            dup_ddisplacement, 
-            dup_dshearzonethickness,
-            dk_ddisplacement,
-            dk_dshearzonethickness
-        )
-
+            # return values and derivatives in dictionary
+            return({
+                'pullout_displacement': up,
+                'k': k,
+                'dup_dus': dup_dus,
+                'dup_dh': dup_dh,
+                'dk_dus': dk_dus,
+                'dk_dup': dk_dh
+                })
 
 
 ###########################
@@ -1115,7 +1217,66 @@ class DirectShear():
 ###########################
 
 # Waldron class
-class Waldron(DirectShear):
+class Waldron(_DirectShear):
+    """Waldron model class
+
+    Class for Waldron-type models, prediction soil reinforcement as function
+    of direct shear displacements in the soil. 
+
+    This class incorporates all versions of these type of models. For example, 
+    it can allow for root breakage and/or slippage (Waldron and Dakessian, 
+    1981), two- or three-dimensional initial root orientations (Grey, 
+    Meijer et al. 2022), and elasto-plasticity (Meijer et al, 2022)
+    
+    This class inherits from the general direct shear model class:
+    '_DirectShear'.
+
+    Attributes
+    ----------
+    roots
+        MultipleRoots object
+    interface
+        Interface object 
+    soil_profile
+        SoilProfile object
+    failure_surface
+        FailureSurface object
+    distribution_factor
+        Distribution factor for assigning root elongation to pullout 
+        displacement
+    slipping
+        Boolean indicating whether slipping behaviour is included
+    breakage
+        Boolean indicating whether breakage behaviour is included
+    elastoplastic
+        Boolean indicating whether roots behave elasto-plastically (True) or 
+        linear elastic (False)
+    weibull_shape
+        Weibull shape parameter for root breakage (Weibull survival function).
+        if None, roots break 'instantly' (i.e. shape parameter is infinite)
+
+    Methods
+    -------
+    reinforcement(shear_displacement, ...)
+        calculate reinforcement at given level(s) of shear displacement
+    peak_reinforcement()
+        calculate peak reinforcement
+    plot(...)
+        show how reinforcement mobilises with shear displacement
+
+    Raises
+    ------
+    ValueError
+        _description_
+    ValueError
+        _description_
+    TypeError
+        _description_
+    DimensionalityError
+        _description_
+    TypeError
+        _description_
+    """
 
     # initiate model
     def __init__(
@@ -1127,15 +1288,52 @@ class Waldron(DirectShear):
             slipping: bool = True,
             breakage: bool = True,
             elastoplastic: bool = False,
-            weibull_shape: float | int | None = None,
-            **kwargs
-    ): 
+            weibull_shape: float | int | None = None
+    ):
+        """Initialise a Waldron model class object
+
+        Parameters
+        ----------
+        roots : MultipleRoots
+            MultipleRoots object, containing root properties
+        interface : Interface
+            Interface object, containing properties of root--soil interface
+        soil_profile : SoilProfile
+            SoilProfile object
+        failure_surface : FailureSurface
+            FailureSurface object
+        slipping : bool, optional
+            Include root slippage? By default True. This requires the 'length'
+            attribute in 'roots'
+        breakage : bool, optional
+            Include root breakage? By default True. This requires the 
+            'tensile_strength' attribute in 'roots'
+        elastoplastic : bool, optional
+            Include elasto-plastic root behaviour? By default False. This 
+            requires the 'yield_strength' and 'plastic_modulus' attributes
+            in roots
+        weibull_shape : float | int | None, optional
+            Weibull shape parameter for root modelling breakage (when 
+            breakage = True). By default None. If 'None', all roots are 
+            assumed to break instantly (like in the original Waldron-type 
+            models).
+
+        Raises
+        ------
+        ValueError
+            _description_
+        ValueError
+            _description_
+        TypeError
+            _description_
+        """
         # call __init__ from parent class
-        super().__init__(roots, interface, soil_profile, failure_surface, **kwargs)
+        super().__init__(roots, interface, soil_profile, failure_surface)
         # set flags for analysis type (allowing for slippage, breakage and/or elastoplasticity)
         self.slipping = slipping
         self.breakage = breakage
         self.elastoplastic = elastoplastic
+        self.weibull_shape = weibull_shape
         # check weibull shape
         if isinstance(weibull_shape, int) | isinstance(weibull_shape, float):
             if weibull_shape <= 0.0:
@@ -1180,73 +1378,146 @@ class Waldron(DirectShear):
     # calculate root reinforcement at given displacement step
     def reinforcement(
             self,
-            displacement: float | int | Quantity,
-            displacement_unit: str = 'm',
+            shear_displacement: Quantity | float | int | np.ndarray,
+            shear_displacement_unit: str = 'm',
             total: bool = True,
             jac: bool = False,
             sign: int | float = 1.0
-            ) -> Quantity:
+            ) -> dict:
+        """Calculate root reinforcement at current level of displacement
+
+        Parameters
+        ----------
+        shear_displacement : Quantity | float | int | np.ndarray
+            soil shear displacement. If not set as a Quantity (with dimension
+            length), the unit is assumed as 'shear_displacement_unit'.
+        shear_displacement_unit : str, optional
+            assumed shear displacement unit in case 'shear_displacement' not
+            defined as a Quantity, by default 'm'
+        total : bool, optional
+            if True, returns total reinforcement by all roots. If False, return
+            reinforcement for each root seperately as a 2-D matrix (axis 0 = 
+            roots, axis 1 = displacement steps). By default True
+        jac : bool, optional
+            additionally return the derivative of reinforcement with respect 
+            to shear displacement. By default False
+        sign : int, float, optional
+            Multiplication factor for all result returned by the function. 
+            This is used to be able to use minimisation algorithms in order
+            to find the global maximum force, see function self.peak_force(). 
+            Default = 1.0
+
+        Returns
+        -------
+        dict
+            Dictionary with reinforcement results. Has keys:
+            
+            'reinforcement': 
+                shear reinforcement
+            'behaviour_type':
+                list of root behaviour type names
+            'behaviour_fraction': 
+                fraction of total root cross-sectional area that behaves
+                according to each of the types in 'behaviour_type'
+            'derivative': 
+                derivative of reinforcement output with respect to the shear 
+                displacement. Only returned when jac = True
+
+        Raises
+        ------
+        DimensionalityError
+            _description_
+        TypeError
+            _description_
+        """
         # set displacement value with units - and make array (if not already so)
-        if isinstance(displacement, Quantity):
-            if displacement.dimensionality != units('m').dimensionality:
+        if isinstance(shear_displacement, Quantity):
+            if shear_displacement.dimensionality != units('m').dimensionality:
                 raise DimensionalityError('dimensionality of displacement must be length')
-            if not np.isscalar(displacement.magnitude):
-               displacement = Quantity.from_list([displacement])
-        elif isinstance(displacement, int) | isinstance(displacement, float):
-            warnings.warn('Unit of displacement not defined. Assumed as ' + displacement_unit)
-            displacement = np.array([displacement]) * units(displacement_unit)
-        elif isintance(displacement, list):
-            warnings.warn('Unit of displacement not defined. Assumed as ' + displacement_unit)
-            displacement = np.array(displacement) * units(displacement_unit)
-        elif isinstance(displacement, np.ndarray):
-            warnings.warn('Unit of displacement not defined. Assumed as ' + displacement_unit)
-            displacement = displacement * units(displacement_unit)
+            if np.isscalar(shear_displacement.magnitude):
+               shear_displacement = np.array([shear_displacement.magnitude]) * shear_displacement.units
+        elif isinstance(shear_displacement, int) | isinstance(shear_displacement, float):
+            warnings.warn('Unit of displacement not defined. Assumed as ' + shear_displacement_unit)
+            shear_displacement = np.array([shear_displacement]) * units(shear_displacement_unit)
+        elif isinstance(shear_displacement, list):
+            warnings.warn('Unit of displacement not defined. Assumed as ' + shear_displacement_unit)
+            shear_displacement = np.array(shear_displacement) * units(shear_displacement_unit)
+        elif isinstance(shear_displacement, np.ndarray):
+            warnings.warn('Unit of displacement not defined. Assumed as ' + shear_displacement_unit)
+            shear_displacement = shear_displacement * units(shear_displacement_unit)
         else:
             raise TypeError('input type for displacement not recognised')
         # relative cross-sectional area of each root
         xsection_rel = self.roots.xsection.magnitude / np.sum(self.roots.xsection.magnitude)
         # loop through all displacement steps
         cr_all = []
-        dcr_dus_all = []
         xsection_fractions_all = []
-        for disp in displacement:
+        if jac is True:
+            dcr_dus_all = []
+        for us in shear_displacement:
             # pullout displacement (up) and orientation factors (k)
-            up, k, dup_dus, _, dk_dus, _ = self._get_orientation_parameters(
-                disp,
+            res = self.get_orientation_parameters(
+                us,
                 self.failure_surface.shear_zone_thickness,
                 jac = jac
             )
             # pullout force (Tp), survival fraction (S) and behaviour type index (b)
-            Tp, dTp_dup, S, b = self.pullout.force(up, jac = jac)
+            Tp, dTp_dup, S, b = self.pullout.force(
+                res['pullout_displacement'], 
+                jac = jac
+                )
             # reinforcement
-            cr = sign * np.sum(k * Tp) / self.failure_surface.cross_sectional_area
+            cr = sign * res['k'] * Tp / self.failure_surface.cross_sectional_area
+            if total is True:
+                cr = np.sum(cr)
+            cr_all.append(cr)
             # fraction of root cross-sectional area for each behaviour types
             xsection_fractions = np.bincount(
                 b, 
                 weights = S * xsection_rel,
                 minlength = len(self.pullout.behaviour_types)
                 )
+            xsection_fractions_all.append(xsection_fractions)
             # return jacobian if requested
             if jac is True:
                 dcr_dus = sign * (
-                    np.sum(dk_dus * Tp + k * dTp_dup * dup_dus) 
+                    (res['dk_dus'] * Tp + res['k'] * dTp_dup * res['dup_dus']) 
                     / self.failure_surface.cross_sectional_area
                     )
-            else:
-                dcr_dus = None
-            # append
-            cr_all.append(cr)
-            dcr_dus_all.append(dcr_dus)
-            xsection_fractions_all.append(xsection_fractions)
-        # create output arrays
-        cr_out = Quantity.from_list(cr_all).squeeze()
-        dcr_dus_out = Quantity.from_list(dcr_dus_all).squeeze() if dcr_dus_all[0] is not None else None
-        xsection_fractions_out = np.array(xsection_fractions_all).squeeze()
+                if total is True:
+                    dcr_dus = np.sum(dcr_dus)
+                dcr_dus_all.append(dcr_dus)
+        # create output
+        cr_out = np.array([i.magnitude for i in cr_all]).transpose().squeeze() * cr_all[0].units
+        xsection_fractions_out = np.array(xsection_fractions_all).transpose().squeeze()
+        out = {
+            'reinforcement': cr_out, 
+            'behaviour_type': self.pullout.behaviour_types,
+            'behaviour_fraction': xsection_fractions_out
+            }
+        # add derivative of reinforcement with respect to shear displacement
+        if jac is True:
+            out['derivative'] = (
+                np.array([i.magnitude for i in dcr_dus_all]).transpose().squeeze 
+                * dcr_dus_all[0].units
+                )
         # return
-        return(cr_out, dcr_dus_out, xsection_fractions_out)
+        return(out)    
 
     # find soil shear displacement at peak force of each root
-    def _get_displacement_root_peak(self):
+    def _get_displacement_root_peak(self) -> Quantity:
+        """Estimate shear displacement at which each root reaches peak
+
+        The 'peak' is defined as either the point of sudden breakage (
+        tensile strength is exceeded) and/or the point at which the root 
+        starts to slip.
+
+        Returns
+        -------
+        Quantity
+            shear displacement at which each root reaches its peak
+        """
+
         # get force at failure in each root
         if self.breakage is True:
             force_breakage = self.roots.xsection * self.roots.tensile_strength
@@ -1288,51 +1559,110 @@ class Waldron(DirectShear):
         return(shear_displacement)
 
     # find peak reinforcement
-    def peak_reinforcement(self):
+    def peak_reinforcement(self) -> dict:
+        """Find peak reinforcement in Waldron's model
+
+        Function first estimates a feasible range of shear displacements, 
+        based on when roots start breaking and or slipping.
+
+        Subsequently, a optimisation using Scipy's differential_evolution()
+        function is performed to find the peak.
+
+        Returns
+        -------
+        dict
+            Dictionary with peak force results. Has keys:
+
+            'displacement'
+                Shear displacement at peak reinforcement
+            'reinforcement'
+                Peak reinforcement
+
+        """
         # no root breakage or slipping -> infinite reinforcement
         if self.breakage is False and self.slipping is False:
             warnings.warn('No breakage or slipping - peak reinforcement is infinite!')
-            return(
-                np.inf * units('m'),
-                np.inf * units('kPa')
-                )
+            return({
+                'displacement': np.inf * units('m'),
+                'reinforcement': np.inf * units('kPa')
+                })
         # get range of displacements, and get reinforcement for each
+        margin = 0.1  # add little bit of extra to range, just to be sure :-)
         us_all = self._get_displacement_root_peak()
         us_start_unit = 'mm'
-        us_min = np.min(us_all).to(us_start_unit).magnitude
-        us_max = np.max(us_all).to(us_start_unit).magnitude
-        # optimize
+        us_min = (1.0 - margin) * np.min(us_all).to(us_start_unit).magnitude
+        us_max = (1.0 + margin) * np.max(us_all).to(us_start_unit).magnitude
+        # function to optimise
         def fun(x):
-            y, _, _ = self.reinforcement(
-                x,
-                displacement_unit = us_start_unit,
+            return(self.reinforcement(
+                x * units(us_start_unit),
                 jac = False,
                 sign = -1.0
-                )
-            return(y.magnitude)
+                )['reinforcement'].magnitude)
+        # optimise
         sol = differential_evolution(
             fun,
             bounds = [(us_min, us_max)]
             )
-        # peak
+        # extract 
         us_peak = sol.x[0] * units(us_start_unit)
-        cr_peak, _, _ = self.reinforcement(us_peak, jac = False)
-        # return
-        return(us_peak, cr_peak)
+        cr_peak = self.reinforcement(us_peak, jac = False)['reinforcement']
+        # return dictionary with results
+        return({
+            'displacement': us_peak, 
+            'reinforcement': cr_peak
+            })
 
     # plot shear displacement versus reinforcement 
     def plot(
             self,
             n: int = 251,
-            xunit: str = 'mm',
-            yunit: str = 'kPa',
             stack = False,
             peak: bool = True,
+            margin: int | float = 0.05,
             labels = True,
             xlabel: str = 'Shear displacement',
             ylabel: str = 'Reinforcement',
-            margin: int | float = 0.05          
+            xunit: str = 'mm',
+            yunit: str = 'kPa'            
             ):
+        """Plot how forces in the Waldron model mobilise with displacements
+
+        Parameters
+        ----------
+        n : int, optional
+            number of displacement positions to plot, by default 251
+        stack : bool, optional
+            shows contributions of all individual roots by means of a 
+            stackplot. By default False
+        peak : bool, optional
+            show the location of the peak using a scatter point. By default 
+            True
+        margin : int | float, optional
+            Add some extra displacement range so failure in roots nicely shows
+            up in plot. Defined as a fraction of the chosen displacement range
+            based on peak (function _get_displacement_root_peak()). By default
+            0.05.
+        labels : bool | list, optional
+            labels to plot on contribution of each root, by default False.
+            If False, no labels are plotted. If True, labels are plotted using
+            the index of the root in the MultipleRoots object. Custom labels 
+            can be inputted using a list, which must have the same length as 
+            the number of roots in the bundle.
+        xlabel : chr, optional
+            x-axis label, by default 'Pull-out displacement'
+        ylabel : chr, optional
+            y-axis label, by default 'Total force in root bundle'
+        xunit : chr, optional
+            x-axis unit, by default 'mm'
+        yunit : chr, optional
+            y-axis unit, by default 'N'
+
+        Returns
+        -------
+        tuple
+            tuple containing Matplotlib figure and axis objects
+        """
         # no root breakage or slipping -> infinite reinforcement
         if self.breakage is False and self.slipping is False:
             us_peak = 100.0 * units('mm')
@@ -1340,57 +1670,55 @@ class Waldron(DirectShear):
             us_peak = np.max(self._get_displacement_root_peak())
         us = np.linspace(0.0 * us_peak, us_peak * (1.0 + margin), n)
         # total reinforcement, per root, for each displacement step
-        cr_i = [self.reinforcement(i, total = False)[0] for i in us]
-        cr_magnitude = np.stack([i.to(yunit).magnitude for i in cr_i], axis = -1)
-        cr = np.sum(cr_magnitude, axis = 0)
+        res = self.reinforcement(us, jac = False, total = False)
+        cr_total = np.sum(res['reinforcement'], axis = 0).to(yunit).magnitude
         # plot trace
         fig, ax  = plt.subplots()
+        us_plot = us.to(xunit).magnitude
         ax.plot(
-            us.to(xunit).magnitude,
-            cr,
+            us_plot,
+            cr_total,
             c = 'black'
             )
         # stack plot
         if stack is True:
-            ax.stackplot(
-                us.to(xunit).magnitude,
-                cr_magnitude
-            )
-        # label text
-        nroots = len(self.roots.diameter)
-        if labels is True:
-            labels = list(range(1, nroots + 1))
-            plot_labels = True
-        elif isinstance(labels, list):
-            if len(labels) == nroots:
+            cr = res['reinforcement'].to(yunit).magnitude
+            ax.stackplot(us_plot, cr)
+            # labels
+            nroots = len(self.roots.diameter)
+            if labels is True:
+                labels = list(range(1, nroots + 1))
                 plot_labels = True
+            elif isinstance(labels, list):
+                if len(labels) == nroots:
+                    plot_labels = True
+                else:
+                    plot_labels = False
             else:
                 plot_labels = False
-        else:
-            plot_labels = False
-        # add labels to plot
-        if plot_labels is True:
-            # label x-positions - at peaks of each individual root
-            labels_x = us[int(0.5 * n)]
-            # labels y-positions - halfway up each stacking instance
-            labels_y_tmp = self.reinforcement(labels_x, total = False)[0].to(yunit).magnitude
-            labels_y = np.cumsum(labels_y_tmp) - 0.5 * labels_y_tmp
             # add labels to plot
-            for yi, li in zip(labels_y, labels):
-                ax.annotate(
-                    li, 
-                    xy = (labels_x.to(xunit).magnitude, yi), 
-                    ha = 'center', 
-                    va = 'center', 
-                    bbox = dict(boxstyle = 'round', fc = 'white', alpha = 0.5),
-                    fontsize = 'small'
-                    )
+            if plot_labels is True:
+                # label x-positions - at peaks of each individual root
+                labels_x = us[int(0.5 * n)]
+                # labels y-positions - halfway up each stacking instance
+                labels_y_tmp = self.reinforcement(labels_x, total = False)['reinforcement'].to(yunit).magnitude
+                labels_y = np.cumsum(labels_y_tmp) - 0.5 * labels_y_tmp
+                # add labels to plot
+                for yi, li in zip(labels_y, labels):
+                    ax.annotate(
+                        li, 
+                        xy = (labels_x.to(xunit).magnitude, yi), 
+                        ha = 'center', 
+                        va = 'center', 
+                        bbox = dict(boxstyle = 'round', fc = 'white', alpha = 0.5),
+                        fontsize = 'small'
+                        )
         # plot peak
         if peak is True:
-            us_peak, cr_peak = self.peak_reinforcement()
+            peak = self.peak_reinforcement()
             plt.scatter(
-                us_peak.to(xunit).magnitude,
-                cr_peak.to(yunit).magnitude,
+                peak['displacement'].to(xunit).magnitude,
+                peak['reinforcement'].to(yunit).magnitude,
                 c = 'black'
                 )
         # set labels

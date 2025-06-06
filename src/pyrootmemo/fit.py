@@ -47,6 +47,45 @@ import warnings
 
 # Base fit class for distribution fitting
 class _FitBase:
+    """Base class for fitting
+
+    Subsequent fitting classes will inherit methods
+
+    Methods
+    -------
+    _check_input(x, ...)
+        Check wether input x is suitable, e.g. checking for minimum/maximum
+        values or infinite values
+    _get_reference(x, x0)
+        Get reference diameter based on input data
+    _nondimensionalise(x, x0)
+        Make x-data nondimensional, using reference x0
+    _redimensionalise(x, x0)
+        Make non-dimensional x-data dimensional agan, using reference x0
+    
+    Raises
+    ------
+    TypeError
+        _description_
+    ValueError
+        _description_
+    ValueError
+        _description_
+    ValueError
+        _description_
+    ValueError
+        _description_
+    ValueError
+        _description_
+    DimensionalityError
+        _description_
+    TypeError
+        _description_
+    DimensionalityError
+        _description_
+    TypeError
+        _description_
+    """
 
     # check input values
     def _check_input(
@@ -59,6 +98,47 @@ class _FitBase:
             max_include: bool = True,
             label: str = 'x'
     ):  
+        """Check data input
+
+        Checks data input for
+        * values larger (or larger and equal to) minimum value
+        * values smaller (or smaller or equal to) maximum value
+        * all data has finite values
+
+        Parameters
+        ----------
+        x : list | np.ndarray | Quantity
+            x-data
+        finite : bool, optional
+            if True, checks if all x-data has finite values, by default True
+        min : float | int | Quantity | None, optional
+            if set, checks whether all x-data is larger than min value. If 
+            None, no minimum is set. By default None
+        max : float | int | Quantity | None, optional
+            if set, checks whether all x-data is smaller than max value. If 
+            None, no maximum is set. By default None
+        min_include : bool, optional
+            If True, include 'min' value as allowable value, by default True
+        max_include : bool, optional
+            If True, include 'max' value as allowable value, by default True
+        label : str, optional
+            String to idenfity data in raised errors, by default 'x'
+
+        Raises
+        ------
+        TypeError
+            _description_
+        ValueError
+            _description_
+        ValueError
+            _description_
+        ValueError
+            _description_
+        ValueError
+            _description_
+        ValueError
+            _description_
+        """
         # x-values
         if isinstance(x, list):
             x = np.array(x)
@@ -92,6 +172,26 @@ class _FitBase:
             x: np.ndarray | Quantity,
             x0: int | float | Quantity | None = None
             ):
+        """Get reference value for x-data
+
+        Parameters
+        ----------
+        x : np.ndarray | Quantity
+            data
+        x0 : int | float | Quantity | None, optional
+            reference value, by default None
+
+        Raises
+        ------
+        DimensionalityError
+            _description_
+        TypeError
+            _description_
+        DimensionalityError
+            _description_
+        TypeError
+            _description_
+        """
         if isinstance(x, Quantity):
             # x defined with units
             if x0 is None:
@@ -102,7 +202,7 @@ class _FitBase:
                 else:
                     raise DimensionalityError('units of x and x0 are not compatible')
             elif np.isscalar(x0):
-                warnings.warn(f'unit of x0 not defined - assumed {x.units}')
+                # warnings.warn(f'unit of x0 not defined - assumed {x.units}')
                 return(x0 * x.units)
             else:
                 raise TypeError('x0 must be int, float, Quantity or None')
@@ -110,19 +210,37 @@ class _FitBase:
             # x defined without units
             if x0 is None:
                 return(1.0)
-            elif isinstance(x0, Quantity) & (x0.dimensionless is False):
-                raise DimensionalityError('units of x and x0 are not compatible')
+            elif isinstance(x0, Quantity):
+                if x0.dimensionless is not False:
+                    raise DimensionalityError('units of x and x0 are not compatible')
             elif isinstance(x0, int) | isinstance(x0, float):
                 return(x0)
             else:
                 raise TypeError('x0 must be int, float, Quantity or None')
                     
     # generate non-dimensional data (+ apply scaling through magnitude of x0)
-    def nondimensionalise(
+    def _nondimensionalise(
             self,
-            x,
-            x0 = 1.0
-            ):
+            x: Quantity,
+            x0: int | float | Quantity = 1.0
+            ) -> np.ndarray:
+        """Make x-data non-dimensional
+
+        Strips x-data from any units, using reference value x0. Essentially 
+        returns x / x0, so can be used to scale x data simultaneously
+
+        Parameters
+        ----------
+        x : Quantity
+            x-data with units
+        x0 : int | float | Quantity, optional
+            reference value, by default 1.0
+
+        Returns
+        -------
+        np.ndarray
+            Array with non-dimensional values
+        """
         # convert list (or tuple) to numpy array
         if isinstance(x, list) or isinstance(x, tuple):
             if all([isinstance(xi, Quantity) for xi in x]) is True:
@@ -144,11 +262,28 @@ class _FitBase:
             return(x / x0)
 
     # add units (+ scaling through magnitude of x0) to nondimensionalised values
-    def redimensionalise(
+    def _redimensionalise(
             self,
-            x,
-            x0 = 1.0
-    ):
+            x: np.ndarray,
+            x0: int | float | Quantity = 1.0
+            ) -> Quantity:
+        """Make x-data dimensional
+
+        Multiply non-dimensional x-data by reference value x0 to make data 
+        dimensional again
+
+        Parameters
+        ----------
+        x : np.ndarray
+            non-dimensional data
+        x0 : int | float | Quantity, optional
+            reference value, by default 1.0
+
+        Returns
+        -------
+        Quantity
+            Dimensional data
+        """
         return(x * x0)
     
 
@@ -158,6 +293,7 @@ class _FitBase:
 
 class _FitBaseLoglikelihood(_FitBase):
 
+    # initialise class
     def __init__(
         self,
         x: np.ndarray | Quantity,
@@ -186,7 +322,7 @@ class _FitBaseLoglikelihood(_FitBase):
             if len(weights) == len(x):
                 self.weights = weights
             else:
-                ValueError('length of x and weight arrays not compatible')
+                raise ValueError('length of x and weight arrays not compatible')
         self._check_input(
             self.weights, 
             finite = True, 
@@ -234,7 +370,7 @@ class _FitBaseLoglikelihood(_FitBase):
         if J is None or method == 'bootstrap':
             # bootstrapping
             # nondimensionalise data
-            xn = self.nondimensionalise(self.x, self.x0)
+            xn = self._nondimensionalise(self.x, self.x0)
             # select random data indices
             rng = np.random.default_rng()
             indices = rng.choice(
@@ -244,7 +380,7 @@ class _FitBaseLoglikelihood(_FitBase):
                 )
             # generate fit results
             fits = np.array([
-                np.array(self.generate_fit(
+                np.array(self._generate_fit(
                     xn[i], self.weights[i], 
                     nondimensional_input = True, nondimensional_output = True
                     ))
@@ -294,7 +430,7 @@ class Gumbel(_FitBaseLoglikelihood):
         if nondimensional_input is True:
             xn = x
         else:
-            xn = self.nondimensionalise(x, self.x0)
+            xn = self._nondimensionalise(x, self.x0)
         # initial guess
         if self.start is None:
             self.start = self._initialguess_scale_nondimensional(xn, weights)
@@ -316,8 +452,8 @@ class Gumbel(_FitBaseLoglikelihood):
             return(location_nondimensional, scale_nondimensional)
         else:
             return(
-                self.redimensionalise(location_nondimensional, self.x0),
-                self.redimensionalise(scale_nondimensional, self.x0),
+                self._redimensionalise(location_nondimensional, self.x0),
+                self._redimensionalise(scale_nondimensional, self.x0),
             )
     
     # initial guess for (nondimensional) scale parameter
@@ -410,9 +546,9 @@ class Gumbel(_FitBaseLoglikelihood):
         if nondimensional_input is True:
             xn = self.x
         else:
-            xn = self.nondimensionalise(x, self.x0)
-            location = self.nondimensionalise(location, self.x0)
-            scale = self.nondimensionalise(scale, self.x0)
+            xn = self._nondimensionalise(x, self.x0)
+            location = self._nondimensionalise(location, self.x0)
+            scale = self._nondimensionalise(scale, self.x0)
         # coefficients
         c1 = np.sum(weights)
         c2 = np.sum(weights * xn)
@@ -490,7 +626,7 @@ class Weibull(_FitBaseLoglikelihood):
         if nondimensional_input is True:
             xn = x
         else:
-            xn = self.nondimensionalise(x, self.x0)
+            xn = self._nondimensionalise(x, self.x0)
         # initial guess
         if self.start is None:
             self.start = self._initialguess_shape_nondimensional(xn, weights)
@@ -514,7 +650,7 @@ class Weibull(_FitBaseLoglikelihood):
         else:
             return(
                 shape,
-                self.redimensionalise(scale_nondimensional, self.x0)
+                self._redimensionalise(scale_nondimensional, self.x0)
             )
     
     # initial guess for shape function
@@ -634,8 +770,8 @@ class Weibull(_FitBaseLoglikelihood):
         if nondimensional_input is True:
             xn = x
         else:
-            xn = self.nondimensionalise(x, self.x0)
-            scale = self.nondimensionalise(scale, self.x0)
+            xn = self._nondimensionalise(x, self.x0)
+            scale = self._nondimensionalise(scale, self.x0)
         # coefficients
         c1 = np.sum(weights * np.log(xn))
         c2 = np.sum(weights * xn**shape)
@@ -713,6 +849,7 @@ class Power(_FitBaseLoglikelihood):
             lower = lower, upper = upper
             )
 
+    # fit
     def _generate_fit(
             self,
             x,
@@ -731,9 +868,9 @@ class Power(_FitBaseLoglikelihood):
         if nondimensional_input is True:
             xn = x
         else:
-            xn = self.nondimensionalise(x, self.x0)
-            lower = self.nondimensionalise(lower, self.x0)
-            upper = self.nondimensionalise(upper, self.x0)
+            xn = self._nondimensionalise(x, self.x0)
+            lower = self._nondimensionalise(lower, self.x0)
+            upper = self._nondimensionalise(upper, self.x0)
         # initial guess
         if self.start is None:
             self.start = self._initialguess_exponent_nondimensional()
@@ -756,20 +893,20 @@ class Power(_FitBaseLoglikelihood):
             )
         exponent = ft.root
         # multiplier - nondimensionalised
-        multiplier_nondimensional = self.get_multiplier_nondimensional(exponent, lower, upper)
+        multiplier_nondimensional = self._get_multiplier_nondimensional(exponent, lower, upper)
         # return
         if nondimensional_output is True:
             return(multiplier_nondimensional, exponent, lower, upper)
         else:
             return(
-                self.redimensionalise(multiplier_nondimensional, 1. / self.x0),
+                self._redimensionalise(multiplier_nondimensional, 1. / self.x0),
                 exponent,
-                self.redimensionalise(lower, self.x0),
-                self.redimensionalise(upper, self.x0)
+                self._redimensionalise(lower, self.x0),
+                self._redimensionalise(upper, self.x0)
             )
         
     # power law multiplier (asssuming nondimensionalised lower and upper limits)
-    def get_multiplier_nondimensional(
+    def _get_multiplier_nondimensional(
         self,
         exponent, 
         lower,
@@ -839,11 +976,11 @@ class Power(_FitBaseLoglikelihood):
         if nondimensional_input is True:
             xn = x
         else:
-            xn = self.nondimensionalise(x, self.x0)
-            lower = self.nondimensionalise(lower, self.x0)
-            upper = self.nondimensionalise(upper, self.x0)
+            xn = self._nondimensionalise(x, self.x0)
+            lower = self._nondimensionalise(lower, self.x0)
+            upper = self._nondimensionalise(upper, self.x0)
         # calculate (dimensionless) multiplier
-        multiplier = self.get_multiplier_nondimensional(exponent, lower, upper)
+        multiplier = self._get_multiplier_nondimensional(exponent, lower, upper)
         # calculate
         if deriv == 0:
             # calculate log-probability
@@ -852,15 +989,15 @@ class Power(_FitBaseLoglikelihood):
             return(np.sum(weights * logpi))
         elif deriv == 1:
             # calculate derivatives of multiplier
-            dmultiplier_dexponent = self.get_multiplier_nondimensional(exponent, lower, upper, deriv = 1)
+            dmultiplier_dexponent = self._get_multiplier_nondimensional(exponent, lower, upper, deriv = 1)
             # calculate derivative of log-probabilities
             dlogpi_dexponent = dmultiplier_dexponent / multiplier + np.log(xn)
             # return derivative of loglikelihoood
             return(np.sum(weights * dlogpi_dexponent))
         elif deriv == 2:
             # calculate derivatives of multiplier
-            dmultiplier_dexponent = self.get_multiplier_nondimensional(exponent, lower, upper, deriv = 1)
-            d2multiplier_dexponent2 = self.get_multiplier_nondimensional(exponent, lower, upper, deriv = 2)
+            dmultiplier_dexponent = self._get_multiplier_nondimensional(exponent, lower, upper, deriv = 1)
+            d2multiplier_dexponent2 = self._get_multiplier_nondimensional(exponent, lower, upper, deriv = 2)
             # calculate second derivative of log-probabilities
             d2logpi_dexponent2 = (
                 d2multiplier_dexponent2 / multiplier 
@@ -898,9 +1035,9 @@ class Power(_FitBaseLoglikelihood):
             return(y)
         else:
             # cumulative density
-            x = self.nondimensionalise(x, self.x0)
-            lower = self.nondimensionalise(self.lower, self.x0)
-            upper = self.nondimensionalise(self.upper, self.x0)
+            x = self._nondimensionalise(x, self.x0)
+            lower = self._nondimensionalise(self.lower, self.x0)
+            upper = self._nondimensionalise(self.upper, self.x0)
             if np.isclose(self.exponent, -1.0):
                 y = np.log(x / lower) / np.log(upper / lower)
             else:
@@ -950,7 +1087,7 @@ class Gamma(_FitBaseLoglikelihood):
         if nondimensional_input is True:
             xn = x
         else:
-            xn = self.nondimensionalise(x, self.x0)
+            xn = self._nondimensionalise(x, self.x0)
         # initial guess
         if self.start is None:
             self.start = self._initialguess_shape_nondimensional(xn, weights)
@@ -974,7 +1111,7 @@ class Gamma(_FitBaseLoglikelihood):
         else:
             return(
                 shape,
-                self.redimensionalise(scale_nondimensional, self.x0)
+                self._redimensionalise(scale_nondimensional, self.x0)
             )
     
     # initial guess for shape function
@@ -1043,8 +1180,8 @@ class Gamma(_FitBaseLoglikelihood):
         if x is None:
             x = self.x
         # make dimensionless
-        xn = self.nondimensionalise(x, self.x0)
-        scale = self.nondimensionalise(self.scale, self.x0)
+        xn = self._nondimensionalise(x, self.x0)
+        scale = self._nondimensionalise(self.scale, self.x0)
         # get densities
         if cumulative is False:
             # probability density
@@ -1060,7 +1197,7 @@ class Gamma(_FitBaseLoglikelihood):
                     / (gamma(self.shape) * scale**self.shape)
                     * np.exp(-xn / scale)
                     )
-            return(self.redimensionalise(out, 1. / self.x0))
+            return(self._redimensionalise(out, 1. / self.x0))
         else:
             # cumulative density
             P = gammainc(self.shape, xn / scale)
@@ -1089,8 +1226,8 @@ class Gamma(_FitBaseLoglikelihood):
         if nondimensional_input is True:
             xn = x
         else:
-            xn = self.nondimensionalise(x, self.x0)
-            scale = self.nondimensionalise(scale, self.x0)
+            xn = self._nondimensionalise(x, self.x0)
+            scale = self._nondimensionalise(scale, self.x0)
         # coefficients
         c1 = np.sum(weights * np.log(xn))
         c2 = np.sum(weights * np.log(xn))
@@ -1139,13 +1276,43 @@ class Gamma(_FitBaseLoglikelihood):
 
 # linear regression between x and y
 class Linear(_FitBase):
+    """Linear regression class
 
+    Class for a (weighted) linear regression between x and y data.
+
+    Attributes
+    ----------
+    gradient
+        gradient of the best fit
+    intercept
+        intercept of the best fit
+    x
+        Values of the indepedent variable
+    y
+        Values of the dependent variable
+    weights
+        Used weights for each x,y pair
+    """
+
+    # initialise
     def __init__(
             self,
             x: np.ndarray | Quantity,
             y: np.ndarray | Quantity,
             weights: np.ndarray | None = None
-    ):
+    ):  
+        """Initialise a weighted linear regression
+
+        Parameters
+        ----------
+        x : np.ndarray | Quantity
+            values of the indepedent variable
+        y : np.ndarray | Quantity
+            values of the depedent variable
+        weights : np.ndarray | None, optional
+            array with weights for each x,y observation. If None, all 
+            observations are weighted equally. By default None.
+        """
         # check and set x and y parameters
         self._check_input(x, finite = True)
         self.x = x
@@ -1173,16 +1340,16 @@ class Linear(_FitBase):
     # generate fit from data
     def _generate_fit(self):
         """
-        Least-squares linear fit between x and y
+        Weighted least-squares linear fit between x and y
 
         Returns
         -------
-        Intercept and gradient of best fit.
-
+        tuple
+            Intercept and gradient of best fit.
         """
         # non-dimensionalise data
-        xn = self.nondimensionalise(self.x, self.x0)
-        yn = self.nondimensionalise(self.y, self.y0)
+        xn = self._nondimensionalise(self.x, self.x0)
+        yn = self._nondimensionalise(self.y, self.y0)
         # exception - only one unique x-value
         if len(np.unique(xn)) == 1:
             intercept_nondimensional = yn.mean()
@@ -1201,8 +1368,8 @@ class Linear(_FitBase):
             intercept_nondimensional = (cx2 * cy - cx * cxy) / D
             gradient_nondimensional = (-cx * cy + c * cxy) / D
         # redimensionalise data
-        intercept = self.redimensionalise(intercept_nondimensional, self.y0)
-        gradient = self.redimensionalise(gradient_nondimensional, self.y0 / self.x0)
+        intercept = self._redimensionalise(intercept_nondimensional, self.y0)
+        gradient = self._redimensionalise(gradient_nondimensional, self.y0 / self.x0)
         # return results
         return(intercept, gradient)
 
@@ -1231,16 +1398,16 @@ def Powerlaw(
         model: str = 'normal',
         x0: float | int | Quantity = 1.0
         ):
-    """
-    Generate a power law fit
+    """Generate a power law fit
     
     Fit a power law between two sets of x and y data, based on maximising the
     (weighted) loglikelihood. Different fitting models are implemented, as
     described by Meijer (2024), see https://doi.org/10.1007/s11104-024-07007-9.
     These differ in their assumption assumed distribution of fit residuals.
 
-    For each method a seperate class is defined. This function acts as a 
-    convenient wrapper.
+    For each method an object of a different (but related) class object is 
+    returned. Please see individual classes for more details. This function 
+    simply acts as a convenient wrapper.
     
     Parameters
     ----------
@@ -1256,33 +1423,40 @@ def Powerlaw(
     model : str, optional
         fitting model based on the assumed intra-diameter variation, by default 
         'normal'. Can be one of:
-        * `gamma`: gamma distribution. Variation scales with fitted power law.
-        * `gumbel`: gumbel distribution. Variation scales with fitted power 
-                    law.
-        * `logistic`: logistic distribution. Variation scales with fitted power 
-                      law.
-        * `lognormal`: lognormal distribution. Variation scales with fitted power 
-                       law.
-        * `lognormal_uncorrected`: as per `lognormal`. Power law is equal to 
-                                   the geometric rather than the arithmetic
-                                   mean at each value of x.
-        * `normal`: normal distribution. Variation equal at each x
-        * `normal_force`: Normal distribution. Variation scales with x**2
-        * `normal_freesd`: Normal distribution. Seperate power law for 
-                           relationship between variation and x
-        * `normal_scaled`: normal distribution. Variation scales with fitted 
-                           power law
-        * `uniform`: uniform distribution. Variation scales with fitted power 
-                     law
-        * `weibull`: weibull distribution. Variation scales with fitted power 
-                     law
+        * gamma (class PowerlawGamma)
+            gamma distribution. Variation scales with fitted power law.
+        * gumbel (class PowerlawGumbel)
+            gumbel distribution. Variation scales with fitted power law.
+        * logistic (class PowerlawLogistic)
+            logistic distribution. Variation scales with fitted power law.
+        * lognormal (class PowerlawLognormal)
+            lognormal distribution. Variation scales with fitted power law.
+        * lognormal_uncorrected (class PowerlawLognormalUncorrected)
+            as per `lognormal`. Power law is equal to the geometric rather than 
+            the arithmetic mean at each value of x. This means power law will
+            underestimate the mean value of y at any x.
+        * normal (class PowerlawNormal)
+            normal distribution. Variation equal at each x (homoscedastic)
+        * normal_force (class PowerlawForce)
+            Normal distribution. Variation scales with x**2 (homescedastic in
+            terms of (y - y_fit) / x**2)
+        * normal_freesd (class PowerlawFreesd)
+            Normal distribution. Seperate power law for relationship between 
+            variation and x.
+        * normal_scaled (class PowerlawScaled)
+            normal distribution. Variation scales with fitted power law.
+        * uniform (class PowerlawUniform)
+            uniform distribution. Variation scales with fitted power law.
+        * weibull (class PowerlawWeibull)
+            weibull distribution. Variation scales with fitted power law.
     x0 : float | int | Quantity, optional
         reference value for x, by default 1.0. If the unit is not explicityly
         defined, its is assumed to have the same unit as x.
 
     Returns
     ------
-    Power law fit object (different class, depending on chosen fitting method)
+    Power law fit object (different class, depending on chosen fitting method,
+    see 'Parameter > model' documentation for more details )
 
     Raises
     ------
@@ -1328,7 +1502,48 @@ def Powerlaw(
 #################################
 
 class _PowerlawFitBase(_FitBase):
+    """Base class for power law fits
 
+    Different power law methods inherit from this class.
+
+    This class inherits from the base fitting class '_FitBase'.
+    
+    Attributes
+    ----------
+    x
+        x-data used to create fit
+    y
+        y-data used to create fit
+    weights
+        assumed weighting for each x,y observation
+    x0
+        reference value for x-data
+    y0
+        reference value for y-data
+    colinear
+        boolean indicating whether all x,y points perfectly fit a power law
+        (True) or not (False)
+
+    Methods
+    -------
+    __init__(x, y, weights, x0)
+        Constructor
+    check_colinearity()
+        Check if all data on a single line, i.e. a 'perfect' fit
+    predict(x)
+        Predict power law y-values based on known x
+    ks_distance()
+        Kolmogorov-Smirnov distance of the fit
+    covariance(merhod, n)
+        Return covariance matrix for all fitting parameters
+    xrange(n)
+        Create range of x-values based on data
+    confidence_interval(x, level, n)
+        Generate the confidence interval
+    plot(...)
+        Plot data and/or power law fit and/or prediction interval and/or
+        confidence interval
+    """
     # initialise - default
     def __init__(
             self, 
@@ -1338,11 +1553,21 @@ class _PowerlawFitBase(_FitBase):
             x0: int | float | Quantity = 1.0
             ):
         # x and y data
-        self._check_input(x, finite = True, min = 0.0, min_include = False, 
-                          label = 'x')
+        self._check_input(
+            x, 
+            finite = True, 
+            min = 0.0, 
+            min_include = False, 
+            label = 'x'
+            )
         self.x = x
-        self._check_input(y, finite = True, min = 0.0, min_include = False, 
-                          label = 'y')
+        self._check_input(
+            y, 
+            finite = True, 
+            min = 0.0, 
+            min_include = False, 
+            label = 'y'
+            )
         self.y = y
         if len(x) != len(y):
             ValueError('length of x and y arrays not compatible')
@@ -1364,6 +1589,61 @@ class _PowerlawFitBase(_FitBase):
         # check for zero variance case (perfect fit - all points lie on power law curve)
         self.colinear, self.multiplier, self.exponent = self.check_colinearity()
     
+    # check for colinearity - zero variance in residuals
+    def check_colinearity(self) -> tuple:
+        """
+        Check if all data will result in a 'perfect' fit, with zero residuals.
+
+        Returns
+        -------
+        tuple
+            tuple consisting of three elements: a boolean indicating if data 
+            has a perfect fit, the power law multiplier, and the power law
+            exponent of the perfect fit
+
+        """
+        # non-dimensionalise data - remove units
+        xn = self._nondimensionalise(self.x, self.x0)
+        yn = self._nondimensionalise(self.y, self.y0)
+        # unique pairs of x and y only (with non-zero weights) - logtransform
+        mask = (self.weights > 0.0)
+        log_xyn = np.log(np.unique(
+            np.column_stack((xn, yn))[mask, ...], 
+            axis = 0
+            ))
+        # check
+        if len(log_xyn) == 1:
+            check = True
+            exponent = 0.0
+            multiplier_nondimensional = np.exp(log_xyn[0, 1])            
+        else:
+            diff_log_xyn = np.diff(log_xyn, axis = 0)
+            if len(log_xyn) == 2:
+                check = True
+                exponent = diff_log_xyn[0, 1] / diff_log_xyn[0, 0]
+                multiplier_nondimensional = np.exp(log_xyn[0, 1] - exponent * log_xyn[0, 0])
+            else:
+                # calculate cross-products of vectors connecting subsequent data points
+                cross_prod = (
+                    diff_log_xyn[:-1, 0] * diff_log_xyn[1:, 1] 
+                    - diff_log_xyn[1:, 0] * diff_log_xyn[:-1, 1]
+                    )
+                check = all(np.isclose(cross_prod, 0.0))
+                # in case of colinearity, get fitting parameters
+                if check is True:
+                    exponent = np.mean(diff_log_xyn[:, 1] / diff_log_xyn[:, 0])
+                    multiplier_nondimensional = np.mean(np.exp(log_xyn[:, 1] - exponent * log_xyn[:, 0]))
+                else:
+                    exponent = None
+                    multiplier_nondimensional = None
+        # reintroduce scaling/units into multiplier
+        if multiplier_nondimensional is not None:
+            multiplier = self._redimensionalise(multiplier_nondimensional, self.y0)
+        else:
+            multiplier = None
+        # return
+        return(check, multiplier, exponent)
+
     # predict
     def predict(
             self, 
@@ -1386,7 +1666,7 @@ class _PowerlawFitBase(_FitBase):
         """
         if x is None:
             x = self.x
-        xn = self.nondimensionalise(x, self.x0)
+        xn = self._nondimensionalise(x, self.x0)
         return(self.multiplier * xn**self.exponent)
 
     # kolmogorov-smirnov distance
@@ -1430,7 +1710,7 @@ class _PowerlawFitBase(_FitBase):
             n: int = 100
             ) -> np.ndarray:
         """
-        Calculate the covariance matrix
+        Calculate the covariance matrix for all fitting parameters
 
         Return the covariance matrix for the fitting parameter. If the 
         method is set to 'fisher', determines the matrix based on the 
@@ -1458,12 +1738,12 @@ class _PowerlawFitBase(_FitBase):
         else:
             # calculate second partial derivative of loglikelihood
             J = self.loglikelihood(deriv = 2, nondimensional_input = False)
-            if J is None or method == 'bootstrap':
+            if method == 'bootstrap' or J is None:
                 # bootstrapping
                 rng = np.random.default_rng()
                 # nondimensionalise data
-                xn = self.nondimensionalise(self.x, self.x0)
-                yn = self.nondimensionalise(self.y, self.y0)
+                xn = self._nondimensionalise(self.x, self.x0)
+                yn = self._nondimensionalise(self.y, self.y0)
                 # select random data indices
                 indices = rng.choice(
                     np.arange(len(xn), dtype = int),
@@ -1472,7 +1752,7 @@ class _PowerlawFitBase(_FitBase):
                 )
                 # generate fit results
                 fits = np.array([
-                    np.array(self.generate_fit(
+                    np.array(self._generate_fit(
                         xn[i], 
                         yn[i], 
                         self.weights[i],
@@ -1486,7 +1766,7 @@ class _PowerlawFitBase(_FitBase):
             elif method == 'fisher':
                 fisher = -J
                 if np.isscalar(fisher):
-                    return(1. / fisher)
+                    return(1.0 / fisher)
                 else:
                     return(np.linalg.inv(fisher))
             else:
@@ -1555,9 +1835,9 @@ class _PowerlawFitBase(_FitBase):
             return(x, np.column_stack(y_pred, y_pred))
         else:
             # nondimensionalise
-            xn = self.nondimensionalise(x, self.x0)
-            yn_pred = self.nondimensionalise(y_pred, self.y0)
-            mult = self.nondimensionalise(self.multiplier, self.y0)
+            xn = self._nondimensionalise(x, self.x0)
+            yn_pred = self._nondimensionalise(y_pred, self.y0)
+            mult = self._nondimensionalise(self.multiplier, self.y0)
             # derivatives of power-law function
             dyn_dmult = xn**self.exponent
             dyn_dexponent = mult * np.log(xn) * xn**self.exponent
@@ -1576,66 +1856,12 @@ class _PowerlawFitBase(_FitBase):
             yn_lower = yn_pred - sd_mult * np.sqrt(var)
             yn_upper = yn_pred + sd_mult * np.sqrt(var)
             # add scaling and units
-            y_lower = self.redimensionalise(yn_lower, self.y0)
-            y_upper = self.redimensionalise(yn_upper, self.y0)
+            y_lower = self._redimensionalise(yn_lower, self.y0)
+            y_upper = self._redimensionalise(yn_upper, self.y0)
             # return
             return(x, np.column_stack((y_lower, y_upper)))
-                        
-    # check for colinearity - zero variance in residuals
-    def check_colinearity(self) -> tuple:
-        """
-        Check if all data will result in a 'perfect' fit, with zero residuals.
-
-        Returns
-        -------
-        tuple
-            tuple consisting of three elements: a boolean indicating if data 
-            has a perfect fit, the power law multiplier, and the power law
-            exponent of the perfect fit
-
-        """
-        # non-dimensionalise data - remove units
-        xn = self.nondimensionalise(self.x, self.x0)
-        yn = self.nondimensionalise(self.y, self.y0)
-        # unique pairs of x and y only (with non-zero weights) - logtransform
-        mask = (self.weights > 0.0)
-        log_xyn = np.log(np.unique(
-            np.column_stack((xn, yn))[mask, ...], 
-            axis = 0
-            ))
-        # check
-        if len(log_xyn) == 1:
-            check = True
-            exponent = 0.0
-            multiplier_nondimensional = np.exp(log_xyn[0, 1])            
-        else:
-            diff_log_xyn = np.diff(log_xyn, axis = 0)
-            if len(log_xyn) == 2:
-                check = True
-                exponent = diff_log_xyn[0, 1] / diff_log_xyn[0, 0]
-                multiplier_nondimensional = np.exp(log_xyn[0, 1] - exponent * log_xyn[0, 0])
-            else:
-                # calculate cross-products of vectors connecting subsequent data points
-                cross_prod = (
-                    diff_log_xyn[:-1, 0] * diff_log_xyn[1:, 1] 
-                    - diff_log_xyn[1:, 0] * diff_log_xyn[:-1, 1]
-                    )
-                check = all(np.isclose(cross_prod, 0.0))
-                # in case of colinearity, get fitting parameters
-                if check is True:
-                    exponent = np.mean(diff_log_xyn[:, 1] / diff_log_xyn[:, 0])
-                    multiplier_nondimensional = np.mean(np.exp(log_xyn[:, 1] - exponent * log_xyn[:, 0]))
-                else:
-                    exponent = None
-                    multiplier_nondimensional = None
-        # reintroduce scaling/units into multiplier
-        if multiplier_nondimensional is not None:
-            multiplier = self.redimensionalise(multiplier_nondimensional, self.y0)
-        else:
-            multiplier = None
-        # return
-        return(check, multiplier, exponent)
-    
+                    
+    # plot power law
     def plot(
             self,
             xunit: str = 'mm',
@@ -1811,13 +2037,12 @@ class PowerlawWeibull(_PowerlawFitBase):
         self.root_method = root_method
         # get fit (if data not colinear in log-log space, in which case there is zero variance)
         if self.colinear is False:
-            self.multiplier, self.exponent, self.shape = self.generate_fit(
+            self.multiplier, self.exponent, self.shape = self._generate_fit(
                 self.x, self.y, self.weights)
         else: 
             self.shape = np.inf
-        
-        
-    def generate_fit(
+                
+    def _generate_fit(
             self,
             x,
             y,
@@ -1830,8 +2055,8 @@ class PowerlawWeibull(_PowerlawFitBase):
             xn = x
             yn = y
         else:
-            xn = self.nondimensionalise(x, self.x0)
-            yn = self.nondimensionalise(y, self.y0)
+            xn = self._nondimensionalise(x, self.x0)
+            yn = self._nondimensionalise(y, self.y0)
         # initial guess for root finding
         if self.start is None:
             self.start = self._initialguess_shape(xn, yn, weights)
@@ -1853,7 +2078,7 @@ class PowerlawWeibull(_PowerlawFitBase):
             return(multiplier_nondimensional, exponent, shape)
         else:
             return(
-                self.redimensionalise(multiplier_nondimensional, self.y0),
+                self._redimensionalise(multiplier_nondimensional, self.y0),
                 exponent,
                 shape
             )
@@ -1945,9 +2170,9 @@ class PowerlawWeibull(_PowerlawFitBase):
         shape = self.shape if shape is None else shape
         # nondimensionalise data
         if nondimensional_input is False:
-            xn = self.nondimensionalise(x, self.x0)
-            yn = self.nondimensionalise(y, self.y0)
-            multiplier = self.nondimensionalise(multiplier, self.y0)
+            xn = self._nondimensionalise(x, self.x0)
+            yn = self._nondimensionalise(y, self.y0)
+            multiplier = self._nondimensionalise(multiplier, self.y0)
         # calculate
         if self.colinear is True:
             # colinear case
@@ -2028,7 +2253,7 @@ class PowerlawWeibull(_PowerlawFitBase):
             self, 
             x,
             ):
-        xn = self.nondimensionalise(x, self.x0)
+        xn = self._nondimensionalise(x, self.x0)
         return(self.multiplier * xn**self.exponent / gamma(1. + 1. / self.shape))
             
     # generate prediction intervals (at new values of x)
@@ -2134,12 +2359,12 @@ class PowerlawGamma(_PowerlawFitBase):
         self.root_method = root_method
         # get fit (if data not colinear in log-log space, in which case there is zero variance)
         if self.colinear is False:
-            self.multiplier, self.exponent, self.shape = self.generate_fit(
+            self.multiplier, self.exponent, self.shape = self._generate_fit(
                 self.x, self.y, self.weights)
         else: 
             self.shape = np.inf
 
-    def generate_fit(
+    def _generate_fit(
             self,
             x,
             y,
@@ -2152,8 +2377,8 @@ class PowerlawGamma(_PowerlawFitBase):
             xn = x
             yn = y
         else:
-            xn = self.nondimensionalise(x, self.x0)
-            yn = self.nondimensionalise(y, self.y0)
+            xn = self._nondimensionalise(x, self.x0)
+            yn = self._nondimensionalise(y, self.y0)
         # initial guess for root finding
         if self.start is None:
             self.start = list(self._initialguess_shape_nondimensional(xn, yn, weights))
@@ -2191,7 +2416,7 @@ class PowerlawGamma(_PowerlawFitBase):
             return(multiplier_nondimensional, exponent, shape)
         else:
             return(
-                self.redimensionalise(multiplier_nondimensional, self.y0),
+                self._redimensionalise(multiplier_nondimensional, self.y0),
                 exponent,
                 shape
             )
@@ -2284,9 +2509,9 @@ class PowerlawGamma(_PowerlawFitBase):
         shape = self.shape if shape is None else shape
         # nondimensionalise data
         if nondimensional_input is False:
-            xn = self.nondimensionalise(x, self.x0)
-            yn = self.nondimensionalise(y, self.y0)
-            multiplier = self.nondimensionalise(multiplier, self.y0)
+            xn = self._nondimensionalise(x, self.x0)
+            yn = self._nondimensionalise(y, self.y0)
+            multiplier = self._nondimensionalise(multiplier, self.y0)
         else:
             xn = x
             yn = y
@@ -2388,10 +2613,10 @@ class PowerlawGamma(_PowerlawFitBase):
         # scale parameter
         scale = self.get_scale(x)
         # make nondimensional, to get around numpy functions that do not accept Quantities
-        xn = self.nondimensionalise(x, self.x0)
-        yn = self.nondimensionalise(y, self.y0)
-        multiplier_nondimensional = self.nondimensionalise(self.multiplier, self.y0)
-        scale_nondimensional = self.nondimensionalise(scale, self.y0)
+        xn = self._nondimensionalise(x, self.x0)
+        yn = self._nondimensionalise(y, self.y0)
+        multiplier_nondimensional = self._nondimensionalise(self.multiplier, self.y0)
+        scale_nondimensional = self._nondimensionalise(scale, self.y0)
         # calculate density
         if self.colinear is True:
             # colinear case
@@ -2455,12 +2680,12 @@ class PowerlawGumbel(_PowerlawFitBase):
         self.root_method = root_method
         # get fit (if data not colinear in log-log space, in which case there is zero variance)
         if self.colinear is False:
-            self.multiplier, self.exponent, self.scale0 = self.generate_fit(
+            self.multiplier, self.exponent, self.scale0 = self._generate_fit(
                 self.x, self.y, self.weights)
         else: 
-            self.scale0 = self.redimensionalise(0.0, self.y0)
+            self.scale0 = self._redimensionalise(0.0, self.y0)
 
-    def generate_fit(
+    def _generate_fit(
             self,
             x,
             y,
@@ -2473,8 +2698,8 @@ class PowerlawGumbel(_PowerlawFitBase):
             xn = x
             yn = y
         else:
-            xn = self.nondimensionalise(x, self.x0)
-            yn = self.nondimensionalise(y, self.y0)
+            xn = self._nondimensionalise(x, self.x0)
+            yn = self._nondimensionalise(y, self.y0)
         # initial guess for root finding
         if self.start is None:
             self.start = list(self._initialguess_exponent_scale_nondimensional(xn, yn, weights))
@@ -2496,9 +2721,9 @@ class PowerlawGumbel(_PowerlawFitBase):
             return(multiplier_nondimensional, exponent, scale0)
         else:
             return(
-                self.redimensionalise(multiplier_nondimensional, self.y0),
+                self._redimensionalise(multiplier_nondimensional, self.y0),
                 exponent,
-                self.redimensionalise(scale0, self.y0)
+                self._redimensionalise(scale0, self.y0)
             )
 
     def _initialguess_exponent_scale_nondimensional(
@@ -2608,10 +2833,10 @@ class PowerlawGumbel(_PowerlawFitBase):
         scale0 = self.scale0 if scale0 is None else scale0
         # nondimensionalise data
         if nondimensional_input is False:
-            xn = self.nondimensionalise(x, self.x0)
-            yn = self.nondimensionalise(y, self.y0)
-            multiplier = self.nondimensionalise(multiplier, self.y0)
-            scale0 = self.nondimensionalise(scale0, self.y0)
+            xn = self._nondimensionalise(x, self.x0)
+            yn = self._nondimensionalise(y, self.y0)
+            multiplier = self._nondimensionalise(multiplier, self.y0)
+            scale0 = self._nondimensionalise(scale0, self.y0)
         else:
             xn = x
             yn = y
@@ -2733,9 +2958,9 @@ class PowerlawGumbel(_PowerlawFitBase):
         # scale parameter
         location, scale0 = self.get_location_scale0(x)
         # make nondimensional, to get around numpy functions that do not accept Quantities
-        yn = self.nondimensionalise(y, self.y0)
-        location_nondimensional = self.nondimensionalise(location, self.y0)
-        scale0_nondimensional = self.nondimensionalise(scale0, self.y0)
+        yn = self._nondimensionalise(y, self.y0)
+        location_nondimensional = self._nondimensionalise(location, self.y0)
+        scale0_nondimensional = self._nondimensionalise(scale0, self.y0)
         # calclate
         z = (yn - location_nondimensional) / scale0_nondimensional
         if cumulative is False:
@@ -2786,12 +3011,12 @@ class PowerlawUniform(_PowerlawFitBase):
         self.offset = offset
         # get fit (if data not colinear in log-log space, in which case there is zero variance)
         if self.colinear is False:
-            self.multiplier, self.exponent, self.width = self.generate_fit(
+            self.multiplier, self.exponent, self.width = self._generate_fit(
                 self.x, self.y, self.weights)
         else: 
-            self.width = self.redimensionalise(0.0, self.y0)
+            self.width = self._redimensionalise(0.0, self.y0)
 
-    def generate_fit(
+    def _generate_fit(
             self,
             x,
             y,
@@ -2804,8 +3029,8 @@ class PowerlawUniform(_PowerlawFitBase):
             xn = x
             yn = y
         else:
-            xn = self.nondimensionalise(x, self.x0)
-            yn = self.nondimensionalise(y, self.y0)
+            xn = self._nondimensionalise(x, self.x0)
+            yn = self._nondimensionalise(y, self.y0)
         # fit using convex hull method
         if self.algorithm == 'convex_hull':
             # matrix with unique log-transformed x,y positions
@@ -2867,9 +3092,9 @@ class PowerlawUniform(_PowerlawFitBase):
             return(multiplier_nondimensional, exponent, width_nondimensional)
         else:
             return(
-                self.redimensionalise(multiplier_nondimensional, self.y0),
+                self._redimensionalise(multiplier_nondimensional, self.y0),
                 exponent,
-                self.redimensionalise(width_nondimensional, self.y0)
+                self._redimensionalise(width_nondimensional, self.y0)
             )
         
     def loglikelihood(
@@ -2889,8 +3114,8 @@ class PowerlawUniform(_PowerlawFitBase):
         exponent = self.exponent if exponent is None else exponent
         # nondimensionalise data
         if nondimensional_input is False:
-            xn = self.nondimensionalise(x, self.x0)
-            yn = self.nondimensionalise(y, self.y0)
+            xn = self._nondimensionalise(x, self.x0)
+            yn = self._nondimensionalise(y, self.y0)
         else:
             xn = x
             yn = y
@@ -2942,10 +3167,10 @@ class PowerlawUniform(_PowerlawFitBase):
         x = self.x if x is None else x
         y = self.y if y is None else y
         # make nondimensional, to get around numpy functions that do not accept Quantities
-        xn = self.nondimensionalise(x, self.x0)
-        yn = self.nondimensionalise(y, self.y0)
-        multiplier_nondimensional = self.nondimensionalise(self.multiplier, self.y0)
-        width_nondimensional = self.nondimensionalise(self.width, self.y0)
+        xn = self._nondimensionalise(x, self.x0)
+        yn = self._nondimensionalise(y, self.y0)
+        multiplier_nondimensional = self._nondimensionalise(self.multiplier, self.y0)
+        width_nondimensional = self._nondimensionalise(self.width, self.y0)
         # calculate
         lower = (multiplier_nondimensional - 0.5 * width_nondimensional) * xn**self.exponent
         upper = (multiplier_nondimensional + 0.5 * width_nondimensional) * xn**self.exponent
@@ -2998,12 +3223,12 @@ class PowerlawLogistic(_PowerlawFitBase):
         self.root_method = root_method
         # get fit (if data not colinear in log-log space, in which case there is zero variance)
         if self.colinear is False:
-            self.multiplier, self.exponent, self.scale0 = self.generate_fit(
+            self.multiplier, self.exponent, self.scale0 = self._generate_fit(
                 self.x, self.y, self.weights)
         else: 
-            self.scale0 = self.redimensionalise(0.0, self.y0)
+            self.scale0 = self._redimensionalise(0.0, self.y0)
 
-    def generate_fit(
+    def _generate_fit(
             self,
             x,
             y,
@@ -3016,11 +3241,11 @@ class PowerlawLogistic(_PowerlawFitBase):
             xn = x
             yn = y
         else:
-            xn = self.nondimensionalise(x, self.x0)
-            yn = self.nondimensionalise(y, self.y0)
+            xn = self._nondimensionalise(x, self.x0)
+            yn = self._nondimensionalise(y, self.y0)
         # initial guess for root finding
         if self.start is None:
-            self.start = list(self._initialguess_exponent_scale_nondimensional(xn, yn, weights))
+            self.start = list(self._initialguess_nondimensional(xn, yn, weights))
         # find best fitting power law exponent
         f_root = lambda p: self.loglikelihood(
             x = xn, y = yn, weights = weights,
@@ -3046,9 +3271,9 @@ class PowerlawLogistic(_PowerlawFitBase):
             return(multiplier_nondimensional, exponent, scale0_nondimensional)
         else:
             return(
-                self.redimensionalise(multiplier_nondimensional, self.y0),
+                self._redimensionalise(multiplier_nondimensional, self.y0),
                 exponent,
-                self.redimensionalise(scale0_nondimensional, self.y0)
+                self._redimensionalise(scale0_nondimensional, self.y0)
             )
     
     def loglikelihood(
@@ -3072,10 +3297,10 @@ class PowerlawLogistic(_PowerlawFitBase):
         scale0 = self.scale0 if scale0 is None else scale0
         # nondimensionalise data
         if nondimensional_input is False:
-            xn = self.nondimensionalise(x, self.x0)
-            yn = self.nondimensionalise(y, self.y0)
-            multiplier = self.nondimensionalise(multiplier, self.y0)
-            scale0 = self.nondimensionalise(scale0, self.y0)
+            xn = self._nondimensionalise(x, self.x0)
+            yn = self._nondimensionalise(y, self.y0)
+            multiplier = self._nondimensionalise(multiplier, self.y0)
+            scale0 = self._nondimensionalise(scale0, self.y0)
         else:
             xn = x
             yn = y
@@ -3173,10 +3398,10 @@ class PowerlawLogistic(_PowerlawFitBase):
         x = self.x if x is None else x
         y = self.y if y is None else y
         # make nondimensional, to avoid problems
-        yn = self.nondimensionalise(y, self.y0)
+        yn = self._nondimensionalise(y, self.y0)
         # calculate parameters
-        location = self.nondimensionalise(self.predict(x), self.y0)
-        scale0 = self.nondimensionalise(self.get_scale0(x), self.y0)
+        location = self._nondimensionalise(self.predict(x), self.y0)
+        scale0 = self._nondimensionalise(self.get_scale0(x), self.y0)
         # return
         if cumulative is False:
             return(1. / (4. * scale0 * np.cosh((yn - location)/(2. * scale0))**2))
@@ -3213,12 +3438,12 @@ class PowerlawLognormal(_PowerlawFitBase):
         super(PowerlawLognormal, self).__init__(x, y, weights, x0 = x0)
         # get fit (if data not colinear in log-log space, in which case there is zero variance)
         if self.colinear is False:
-            self.multiplier, self.exponent, self.sdlog = self.generate_fit(
+            self.multiplier, self.exponent, self.sdlog = self._generate_fit(
                 self.x, self.y, self.weights)
         else: 
             self.sdlog = 0.0
 
-    def generate_fit(
+    def _generate_fit(
             self,
             x,
             y,
@@ -3231,8 +3456,8 @@ class PowerlawLognormal(_PowerlawFitBase):
             xn = x
             yn = y
         else:
-            xn = self.nondimensionalise(x, self.x0)
-            yn = self.nondimensionalise(y, self.y0)
+            xn = self._nondimensionalise(x, self.x0)
+            yn = self._nondimensionalise(y, self.y0)
         # coefficients
         c1 = np.sum(weights)
         c2 = np.sum(weights * np.log(xn))
@@ -3253,7 +3478,7 @@ class PowerlawLognormal(_PowerlawFitBase):
             return(multiplier_nondimensional, exponent, sdlog)
         else:
             return(
-                self.redimensionalise(multiplier_nondimensional, self.y0),
+                self._redimensionalise(multiplier_nondimensional, self.y0),
                 exponent,
                 sdlog
             )
@@ -3279,9 +3504,9 @@ class PowerlawLognormal(_PowerlawFitBase):
         sdlog = self.sdlog if sdlog is None else sdlog
         # nondimensionalise data
         if nondimensional_input is False:
-            xn = self.nondimensionalise(x, self.x0)
-            yn = self.nondimensionalise(y, self.y0)
-            multiplier = self.nondimensionalise(multiplier, self.y0)
+            xn = self._nondimensionalise(x, self.x0)
+            yn = self._nondimensionalise(y, self.y0)
+            multiplier = self._nondimensionalise(multiplier, self.y0)
         else:
             xn = x
             yn = y
@@ -3362,8 +3587,8 @@ class PowerlawLognormal(_PowerlawFitBase):
             x
             ):
         # nondimensionalise
-        xn = self.nondimensionalise(x, self.x0)
-        multiplier = self.nondimensionalise(self.multiplier, self.y0)
+        xn = self._nondimensionalise(x, self.x0)
+        multiplier = self._nondimensionalise(self.multiplier, self.y0)
         # return meanlog (mean of log(x/x0))
         return(
             np.log(multiplier)
@@ -3394,7 +3619,7 @@ class PowerlawLognormal(_PowerlawFitBase):
         # return
         return(
             x,
-            self.redimensionalise(
+            self._redimensionalise(
                 np.column_stack((y_lower_nondimensional, y_upper_nondimensional)),
                 self.y0
             )
@@ -3410,7 +3635,7 @@ class PowerlawLognormal(_PowerlawFitBase):
         x = self.x if x is None else x
         y = self.y if y is None else y
         # make nondimensional, to avoid problems
-        yn = self.nondimensionalise(y, self.y0)         
+        yn = self._nondimensionalise(y, self.y0)         
         # mean-log parameter
         mulog = self.get_meanlog(x)
         if cumulative is False:
@@ -3436,7 +3661,7 @@ class PowerlawLognormal(_PowerlawFitBase):
         P = np.random.rand(*x.shape)
         # return
         y_nondimensional = np.exp(mulog + np.sqrt(2.) * self.sdlog * erfinv(2. * P - 1.))
-        return(self.redimensionalise(y_nondimensional, self.y0))
+        return(self._redimensionalise(y_nondimensional, self.y0))
 
 
 ###############################
@@ -3445,7 +3670,7 @@ class PowerlawLognormal(_PowerlawFitBase):
 
 class PowerlawLognormalUncorrected(PowerlawLognormal):
 
-    def generate_fit(
+    def _generate_fit(
             self,
             x,
             y,
@@ -3458,8 +3683,8 @@ class PowerlawLognormalUncorrected(PowerlawLognormal):
             xn = x
             yn = y
         else:
-            xn = self.nondimensionalise(x, self.x0)
-            yn = self.nondimensionalise(y, self.y0)
+            xn = self._nondimensionalise(x, self.x0)
+            yn = self._nondimensionalise(y, self.y0)
         # coefficients
         c1 = np.sum(weights)
         c2 = np.sum(weights * np.log(xn))
@@ -3484,7 +3709,7 @@ class PowerlawLognormalUncorrected(PowerlawLognormal):
             return(multiplier_nondimenisonal, exponent, sdlog)
         else:
             return(
-                self.redimensionalise(multiplier_nondimenisonal, self.y0),
+                self._redimensionalise(multiplier_nondimenisonal, self.y0),
                 exponent,
                 sdlog
             )
@@ -3510,9 +3735,9 @@ class PowerlawLognormalUncorrected(PowerlawLognormal):
         sdlog = self.sdlog if sdlog is None else sdlog
         # nondimensionalise data
         if nondimensional_input is False:
-            xn = self.nondimensionalise(x, self.x0)
-            yn = self.nondimensionalise(y, self.y0)
-            multiplier = self.nondimensionalise(multiplier, self.y0)
+            xn = self._nondimensionalise(x, self.x0)
+            yn = self._nondimensionalise(y, self.y0)
+            multiplier = self._nondimensionalise(multiplier, self.y0)
         else:
             xn = x
             yn = y
@@ -3580,8 +3805,8 @@ class PowerlawLognormalUncorrected(PowerlawLognormal):
             x
         ):
         # nondimensionalise
-        xn = self.nondimensionalise(x, self.x0)
-        multiplier = self.nondimensionalise(self.multiplier, self.y0)
+        xn = self._nondimensionalise(x, self.x0)
+        multiplier = self._nondimensionalise(self.multiplier, self.y0)
         # return meanlog (mean of log(x/x0))
         return(np.log(multiplier) + self.exponent * np.log(xn))
     
@@ -3632,10 +3857,10 @@ class _PowerlawNormalBase(_PowerlawFitBase):
         x = self.x if x is None else x
         y = self.y if y is None else y
         # make nondimensional, to avoid problems
-        yn = self.nondimensionalise(y, self.y0)   
+        yn = self._nondimensionalise(y, self.y0)   
         # calculate Gaussian parameters
-        mean = self.nondimensionalise(self.predict(x), self.y0)
-        sd = self.nondimensionalise(self.get_sd(x), self.y0)
+        mean = self._nondimensionalise(self.predict(x), self.y0)
+        sd = self._nondimensionalise(self.get_sd(x), self.y0)
         # return
         if cumulative is False:
             return(
@@ -3752,10 +3977,10 @@ class _PowerlawNormalBase(_PowerlawFitBase):
             xn = x
             yn = y
         else:
-            xn = self.nondimensionalise(x, self.x0)
-            yn = self.nondimensionalise(y, self.y0)
-            multiplier = self.nondimensionalise(multiplier, self.y0)
-            sd_multiplier = self.nondimensionalise(sd_multiplier, self.y0)
+            xn = self._nondimensionalise(x, self.x0)
+            yn = self._nondimensionalise(y, self.y0)
+            multiplier = self._nondimensionalise(multiplier, self.y0)
+            sd_multiplier = self._nondimensionalise(sd_multiplier, self.y0)
         # coefficients
         c1 = np.sum(weights)
         c2 = np.sum(weights * np.log(xn))
@@ -3845,15 +4070,15 @@ class PowerlawNormal(_PowerlawNormalBase):
         self.root_method = root_method
         # get fit (if data not colinear in log-log space, in which case there is zero variance)
         if self.colinear is False:
-            self.multiplier, self.exponent, self.sd_multiplier = self.generate_fit(
+            self.multiplier, self.exponent, self.sd_multiplier = self._generate_fit(
                 self.x, self.y, self.weights,
                 nondimensional_input = False,
                 nondimensional_output = False
                 )
         else: 
-            self.sd_multiplier = self.redimensionalise(0.0, self.y0)
+            self.sd_multiplier = self._redimensionalise(0.0, self.y0)
 
-    def generate_fit(
+    def _generate_fit(
             self,
             x,
             y,
@@ -3866,8 +4091,8 @@ class PowerlawNormal(_PowerlawNormalBase):
             xn = x
             yn = y            
         else:
-            xn = self.nondimensionalise(x, self.x0)
-            yn = self.nondimensionalise(y, self.y0)
+            xn = self._nondimensionalise(x, self.x0)
+            yn = self._nondimensionalise(y, self.y0)
         # initial guess
         if self.start is None:
             self.start = self._initialguess_nondimensional(
@@ -3899,9 +4124,9 @@ class PowerlawNormal(_PowerlawNormalBase):
                 )
         else:
             return(
-                self.redimensionalise(multiplier_nondimensional, self.y0),
+                self._redimensionalise(multiplier_nondimensional, self.y0),
                 exponent,
-                self.redimensionalise(sd_multiplier_nondimensional, self.y0)
+                self._redimensionalise(sd_multiplier_nondimensional, self.y0)
                 )
     
     def _root_nondimensional(
@@ -4023,17 +4248,17 @@ class PowerlawNormalScaled(_PowerlawNormalBase):
         self.root_method = root_method
         # get fit (if data not colinear in log-log space, in which case there is zero variance)
         if self.colinear is False:
-            self.multiplier, self.exponent, self.sd_multiplier = self.generate_fit(
+            self.multiplier, self.exponent, self.sd_multiplier = self._generate_fit(
                 self.x, self.y, self.weights,
                 nondimensional_input = False,
                 nondimensional_output = False
                 )
         else: 
-            self.sd_multiplier = self.redimensionalise(0.0, self.y0)
+            self.sd_multiplier = self._redimensionalise(0.0, self.y0)
         # set sd_exponent, equal to fitted exponent
         self.sd_exponent = self.exponent
 
-    def generate_fit(
+    def _generate_fit(
             self,
             x,
             y,
@@ -4046,8 +4271,8 @@ class PowerlawNormalScaled(_PowerlawNormalBase):
             xn = x
             yn = y            
         else:
-            xn = self.nondimensionalise(x, self.x0)
-            yn = self.nondimensionalise(y, self.y0)
+            xn = self._nondimensionalise(x, self.x0)
+            yn = self._nondimensionalise(y, self.y0)
         # initial guess
         if self.start is None:
             self.start = self._initialguess_nondimensional(
@@ -4080,9 +4305,9 @@ class PowerlawNormalScaled(_PowerlawNormalBase):
                 )
         else:
             return(
-                self.redimensionalise(multiplier_nondimensional, self.y0),
+                self._redimensionalise(multiplier_nondimensional, self.y0),
                 exponent,
-                self.redimensionalise(sd_multiplier_nondimensional, self.y0)
+                self._redimensionalise(sd_multiplier_nondimensional, self.y0)
                 )
     
     def _root_nondimensional(
@@ -4181,16 +4406,16 @@ class PowerlawNormalFreesd(_PowerlawNormalBase):
         self.root_method = root_method
         # get fit (if data not colinear in log-log space, in which case there is zero variance)
         if self.colinear is False:
-            self.multiplier, self.exponent, self.sd_multiplier, self.sd_exponent = self.generate_fit(
+            self.multiplier, self.exponent, self.sd_multiplier, self.sd_exponent = self._generate_fit(
                 self.x, self.y, self.weights,
                 nondimensional_input = False,
                 nondimensional_output = False
                 )
         else: 
-            self.sd_multiplier = self.redimensionalise(0.0, self.y0)
+            self.sd_multiplier = self._redimensionalise(0.0, self.y0)
             self.sd_exponent = 0.0
 
-    def generate_fit(
+    def _generate_fit(
             self,
             x,
             y,
@@ -4203,8 +4428,8 @@ class PowerlawNormalFreesd(_PowerlawNormalBase):
             xn = x
             yn = y            
         else:
-            xn = self.nondimensionalise(x, self.x0)
-            yn = self.nondimensionalise(y, self.y0)
+            xn = self._nondimensionalise(x, self.x0)
+            yn = self._nondimensionalise(y, self.y0)
         # initial guess
         if self.start is None:
             self.start = self._initialguess_nondimensional(
@@ -4212,7 +4437,7 @@ class PowerlawNormalFreesd(_PowerlawNormalBase):
             )
         # get exponents, solving root
         ft = root(
-            self._root_nondimensional,
+            self._root_bothexponents_nondimensional,
             x0 = self.start,
             jac = True,
             args = (xn, yn, weights, True),
@@ -4237,26 +4462,11 @@ class PowerlawNormalFreesd(_PowerlawNormalBase):
                 )
         else:
             return(
-                self.redimensionalise(multiplier_nondimensional, self.y0),
+                self._redimensionalise(multiplier_nondimensional, self.y0),
                 exponent,
-                self.redimensionalise(sd_multiplier_nondimensional, self.y0),
+                self._redimensionalise(sd_multiplier_nondimensional, self.y0),
                 sd_exponent
                 )
-    
-    def _root_nondimensional(
-            self,
-            exponent,
-            xn,
-            yn,
-            weights,
-            jac = True            
-            ):
-        # calculate roots (and derivatives, if jac is True), 
-        return(self._root_bothexponents_nondimensional(
-            [exponent, exponent],
-            xn, yn, weights, 
-            jac = jac
-            ))
 
     def _initialguess_nondimensional(
             self,
@@ -4271,10 +4481,10 @@ class PowerlawNormalFreesd(_PowerlawNormalBase):
         exponent = ftL.gradient
         # generate a number of guesses for sd_exponent
         sd_exponent_guess = exponent + np.linspace(-sd_exponent_offset, sd_exponent_offset, n_range)
-        # fit using assumed values for delta
+        # fit using assumed values for sd_exponent
         fts = [PowerlawNormal(xn, yn, weights = weights, sd_exponent = d) 
                for d in sd_exponent_guess]
-        # get guess with largest likelihood
+        # select guess with largest likelihood
         L = [ft.loglikelihood() for ft in fts]
         i_max = np.argmax(L)
         # return guesses for both exponents
