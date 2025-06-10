@@ -1,0 +1,451 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>pyrootmemo.materials &mdash; pyrootmemo 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search"  style="background: #2980B9" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            pyrootmemo
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../index.html">Home</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../materials/index.html">Materials</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu"  style="background: #2980B9" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">pyrootmemo</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">pyrootmemo.materials</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for pyrootmemo.materials</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyrootmemo.tools.checks</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_namedtuple</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pint</span><span class="w"> </span><span class="kn">import</span> <span class="n">DimensionalityError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">namedtuple</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyrootmemo.tools.helpers</span><span class="w"> </span><span class="kn">import</span> <span class="n">units</span>
+
+<span class="n">Parameter</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span><span class="s2">&quot;parameter&quot;</span><span class="p">,</span> <span class="s2">&quot;value unit&quot;</span><span class="p">)</span>
+
+<span class="c1">#: A dictionary that maps root parameter names to their definitions</span>
+<span class="n">ROOT_PARAMETERS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;elastic_modulus&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;MPa&quot;</span><span class="p">)},</span>
+    <span class="s2">&quot;diameter&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;m&quot;</span><span class="p">)},</span>
+    <span class="s2">&quot;tensile_strength&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;MPa&quot;</span><span class="p">)},</span>
+    <span class="s2">&quot;yield_strength&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;MPa&quot;</span><span class="p">)},</span>
+    <span class="s2">&quot;plastic_modulus&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;MPa&quot;</span><span class="p">)},</span>
+    <span class="s2">&quot;unload_modulus&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;MPa&quot;</span><span class="p">)},</span>
+    <span class="s2">&quot;length&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;m&quot;</span><span class="p">)},</span>
+    <span class="s2">&quot;length_surface&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;m&quot;</span><span class="p">)},</span>
+    <span class="s2">&quot;azimuth_angle&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;degrees&quot;</span><span class="p">)},</span>
+    <span class="s2">&quot;elevation_angle&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;degrees&quot;</span><span class="p">)},</span>
+<span class="p">}</span>
+
+<span class="n">SOIL_PARAMETERS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;cohesion&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;kPa&quot;</span><span class="p">)},</span>
+    <span class="s2">&quot;friction_angle&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;degrees&quot;</span><span class="p">)},</span>
+    <span class="s2">&quot;unit_weight_bulk&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;kN/m^3&quot;</span><span class="p">)},</span>
+    <span class="s2">&quot;unit_weight_dry&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;kN/m^3&quot;</span><span class="p">)},</span>
+    <span class="s2">&quot;unit_weight_saturated&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;kN/m^3&quot;</span><span class="p">)},</span>
+    <span class="s2">&quot;water_content&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;percent&quot;</span><span class="p">)}</span>
+<span class="p">}</span>
+
+<span class="n">ROOT_SOIL_INTERFACE_PARAMETERS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;shear_strength&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;kPa&quot;</span><span class="p">)},</span>
+    <span class="s2">&quot;adhesion&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;kPa&quot;</span><span class="p">)},</span>
+    <span class="s2">&quot;friction_angle&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;degrees&quot;</span><span class="p">)},</span>
+    <span class="s2">&quot;effective_stress&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;kPa&quot;</span><span class="p">)}</span>    
+<span class="p">}</span>
+
+<div class="viewcode-block" id="Roots">
+<a class="viewcode-back" href="../../materials/roots.html#pyrootmemo.materials.Roots">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Roots</span><span class="p">:</span>
+<div class="viewcode-block" id="Roots.__init__">
+<a class="viewcode-back" href="../../materials/roots.html#pyrootmemo.materials.Roots.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">species</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Creates a root object with specified parameters.</span>
+<span class="sd">        The parameters are defined in the ROOT_PARAMETERS dictionary.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        species : str</span>
+<span class="sd">            Name of the species in the format &#39;genus_species&#39;, e.g. &#39;alnus_incana&#39;.</span>
+<span class="sd">        **kwargs : dict</span>
+<span class="sd">            Keyword arguments for root parameters. Each key should be a valid parameter name</span>
+<span class="sd">            from ROOT_PARAMETERS, and the value should be a namedtuple of type Parameter(value, unit). Parameters include:</span>
+<span class="sd">            - elastic_modulus: Elastic modulus of the root (MPa)</span>
+<span class="sd">            - diameter: Diameter of the root (m)</span>
+<span class="sd">            - tensile_strength: Tensile strength of the root (MPa)</span>
+<span class="sd">            - yield_strength: Yield strength of the root (MPa)</span>
+<span class="sd">            - plastic_modulus: Plastic modulus of the root (MPa)</span>
+<span class="sd">            - unload_modulus: Unload modulus of the root (MPa)</span>
+<span class="sd">            - length: Length of the root (m)</span>
+<span class="sd">            - length_surface: Length of the root surface (m)</span>
+<span class="sd">            - azimuth_angle: Azimuth angle of the root (degrees)</span>
+<span class="sd">            - elevation_angle: Elevation angle of the root (degrees)</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        TypeError</span>
+<span class="sd">            Species should be entered as a string, e.g. alnus_incana</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            Species name should be separated with an underscore, e.g. alnus_incana</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            It is suggested to follow botanical nomenclature with genus and species name, e.g. alnus_incana</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            Undefined parameter. Choose one of the following: elastic_modulus, diameter, tensile_strength, yield_strength, plastic_modulus, unload_modulus, length, length_surface, azimuth_angle, elevation_angle</span>
+<span class="sd">        TypeError</span>
+<span class="sd">            Parameter should be of type Parameter(value, unit)</span>
+<span class="sd">        TypeError</span>
+<span class="sd">            Value should be of type float or int or a list</span>
+<span class="sd">        TypeError</span>
+<span class="sd">            Unit should be entered as a string</span>
+<span class="sd">        DimensionalityError</span>
+<span class="sd">            Unit dimensionality does not match the expected dimensionality for the parameter</span>
+<span class="sd">        TypeError</span>
+<span class="sd">            {parameter_name} should only be of type {expected_type} in a list</span>
+<span class="sd">        AttributeError</span>
+<span class="sd">            Diameter is needed to calculate cross-sectional area</span>
+<span class="sd">        AttributeError</span>
+<span class="sd">            Diameter is needed to calculate circumference</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">species</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Species should be entered as a string, e.g. alnus_incana&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;_&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">species</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Species name should be separated with an underscore, e.g. alnus_incana&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">species</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;It is suggested follow botanical nomenclature with genus and species name,e.g. alnus_incana&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">species</span> <span class="o">=</span> <span class="n">species</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ROOT_PARAMETERS</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Undefined parameter. Choose one of the following: </span><span class="si">{</span><span class="n">ROOT_PARAMETERS</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">is_namedtuple</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Parameter should be of type Parameter(value, unit)&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="n">ROOT_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Value should be of type </span><span class="si">{</span><span class="n">ROOT_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;type&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> or a list&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Unit should be entered as a string&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">units</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">ROOT_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dimensionality</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">DimensionalityError</span><span class="p">(</span>
+                    <span class="n">units1</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">units2</span><span class="o">=</span><span class="n">ROOT_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span>
+                    <span class="p">[</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">ROOT_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;type&#39;</span><span class="p">])</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">]</span>
+                <span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> should only be of type </span><span class="si">{</span><span class="n">ROOT_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;type&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> in a list&quot;</span>
+                    <span class="p">)</span>
+
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">value</span> <span class="o">*</span> <span class="n">units</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">))</span>
+
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;diameter&quot;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">xsection</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">diameter</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">4</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span>
+                    <span class="s2">&quot;Diameter is needed to calculate cross-sectional area&quot;</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;diameter&quot;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">circumference</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">diameter</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s2">&quot;Diameter is needed to calculate circumference&quot;</span><span class="p">)</span></div>
+
+            
+<div class="viewcode-block" id="Roots.initial_orientation_vector">
+<a class="viewcode-back" href="../../materials/roots.html#pyrootmemo.materials.Roots.initial_orientation_vector">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initial_orientation_vector</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">axis_angle</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">)</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the initial orientation vector of the root in 3D space.</span>
+<span class="sd">        The vector is calculated based on the azimuth and elevation angles of the root. </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        axis_angle : float  |  int, optional</span>
+<span class="sd">            Angle in radians to rotate the initial orientation vector around the z-axis, by default None.</span>
+<span class="sd">            If None, the initial orientation vector is returned without rotation.</span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        np.ndarray</span>
+<span class="sd">            A 3D vector representing the initial orientation of the root in space.</span>
+<span class="sd">            The vector is of shape (1, 3) and contains the x, y, and z components.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;elevation_angle&#39;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;azimuth_angle&#39;</span><span class="p">):</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">azimuth_angle</span><span class="o">.</span><span class="n">magnitude</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elevation_angle</span><span class="o">.</span><span class="n">magnitude</span><span class="p">),</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">azimuth_angle</span><span class="o">.</span><span class="n">magnitude</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elevation_angle</span><span class="o">.</span><span class="n">magnitude</span><span class="p">),</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elevation_angle</span><span class="o">.</span><span class="n">magnitude</span><span class="p">)</span>
+                <span class="p">],</span> <span class="n">axis</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elevation_angle</span><span class="o">.</span><span class="n">magnitude</span><span class="p">),</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diameter</span><span class="o">.</span><span class="n">magnitude</span><span class="p">),</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elevation_angle</span><span class="o">.</span><span class="n">magnitude</span><span class="p">)</span>
+                <span class="p">],</span> <span class="n">axis</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diameter</span><span class="o">.</span><span class="n">magnitude</span><span class="p">),</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diameter</span><span class="o">.</span><span class="n">magnitude</span><span class="p">),</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diameter</span><span class="o">.</span><span class="n">magnitude</span><span class="p">)</span>
+            <span class="p">],</span> <span class="n">axis</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="c1"># rotate using axis-angle vector (Rodriguez equation)</span>
+        <span class="k">if</span> <span class="n">axis_angle</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">v</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">axis_angle</span><span class="p">):</span>
+                <span class="c1"># scalar input --&gt; assume input equals angle between z-axis and rotated x-axis</span>
+                <span class="n">axis_angle</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">axis_angle</span><span class="p">),</span>
+                    <span class="mf">0.0</span><span class="p">,</span>
+                    <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">axis_angle</span><span class="p">)</span>
+                <span class="p">])</span>
+            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">axis_angle</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="c1"># 2-D input --&gt; assume rotation vector in x-z space</span>
+                <span class="n">axis_angle</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+                    <span class="n">axis_angle</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                    <span class="mf">0.0</span><span class="p">,</span>
+                    <span class="n">axis_angle</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="p">])</span>
+            <span class="c1"># magnitude of rotation, in rad</span>
+            <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">axis_angle</span><span class="p">)</span>  
+            <span class="c1"># rotation axis - unit vector</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">v</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">k</span> <span class="o">=</span> <span class="n">axis_angle</span> <span class="o">/</span> <span class="n">theta</span> 
+                <span class="c1"># apply Rodriguez equation</span>
+                <span class="n">root_vector_rotated</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">v</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+                    <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+                    <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">k</span><span class="p">),</span> <span class="n">k</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">))</span>
+                <span class="p">)</span>
+                <span class="k">return</span> <span class="n">root_vector_rotated</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SingleRoot">
+<a class="viewcode-back" href="../../materials/roots.html#pyrootmemo.materials.SingleRoot">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SingleRoot</span><span class="p">(</span><span class="n">Roots</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    SingleRoot class inherits from Roots and is used to create a single root object with specified parameters. </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="SingleRoot.__init__">
+<a class="viewcode-back" href="../../materials/roots.html#pyrootmemo.materials.SingleRoot.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Creates a single root object with specified parameters.</span>
+<span class="sd">        The parameters are defined in the ROOT_PARAMETERS dictionary.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        TypeError</span>
+<span class="sd">            SingleRoot class cannot have multiple values for parameters other than species. Use MultipleRoots class instead.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">&quot;species&quot;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">&quot;SingleRoot class cannot have multiple values for </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">. Use MultipleRoots class&quot;</span>
+                        <span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="MultipleRoots">
+<a class="viewcode-back" href="../../materials/roots.html#pyrootmemo.materials.MultipleRoots">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MultipleRoots</span><span class="p">(</span><span class="n">Roots</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    MultipleRoots class inherits from Roots and is used to create a collection of root objects with specified parameters. It allows for multiple values for parameters, such as species, diameter, and length. </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Soil</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">uscs_classification</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">usda_classification</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Creates a soil object with specified parameters.</span>
+<span class="sd">        The parameters are defined in the SOIL_PARAMETERS dictionary: cohesion, friction_angle, unit_weight_bulk, unit_weight_dry, unit_weight_saturated, water_content.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        name : str</span>
+<span class="sd">            Name of the soil, e.g. &#39;silty_sand&#39;.</span>
+<span class="sd">        uscs_classification : str, optional</span>
+<span class="sd">            uscs classification of the soil, by default None</span>
+<span class="sd">        usda_classification : str, optional</span>
+<span class="sd">            usda classification of the soil, by default None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Soil name should be entered as a string&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">SOIL_PARAMETERS</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Undefined parameter. Choose one of the following: </span><span class="si">{</span><span class="n">SOIL_PARAMETERS</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">is_namedtuple</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Parameter should be of type Parameter(value, unit)&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="n">SOIL_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Value should be of type </span><span class="si">{</span><span class="n">SOIL_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;type&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> or a list&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Unit should be entered as a string&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">units</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">SOIL_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dimensionality</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">DimensionalityError</span><span class="p">(</span>
+                    <span class="n">units1</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">units2</span><span class="o">=</span><span class="n">SOIL_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span>
+                    <span class="p">[</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">SOIL_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;type&#39;</span><span class="p">])</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">]</span>
+                <span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> should only be of type </span><span class="si">{</span><span class="n">SOIL_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;type&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> in a list&quot;</span>
+                    <span class="p">)</span>
+
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">value</span> <span class="o">*</span> <span class="n">units</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">))</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Interface</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Creates an interface object with specified parameters.</span>
+<span class="sd">        The parameters are defined in the ROOT_SOIL_INTERFACE_PARAMETERS dictionary: shear_strength, adhesion, friction_angle, effective_stress</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ROOT_SOIL_INTERFACE_PARAMETERS</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Undefined parameter. Choose one of the following: </span><span class="si">{</span><span class="n">ROOT_SOIL_INTERFACE_PARAMETERS</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">is_namedtuple</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Parameter should be of type Parameter(value, unit)&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="n">ROOT_SOIL_INTERFACE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Value should be of type </span><span class="si">{</span><span class="n">ROOT_SOIL_INTERFACE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;type&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> or a list&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Unit should be entered as a string&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">units</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">ROOT_SOIL_INTERFACE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dimensionality</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">DimensionalityError</span><span class="p">(</span>
+                    <span class="n">units1</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">units2</span><span class="o">=</span><span class="n">ROOT_SOIL_INTERFACE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span>
+                    <span class="p">[</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">ROOT_SOIL_INTERFACE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;type&#39;</span><span class="p">])</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">]</span>
+                <span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> should only be of type </span><span class="si">{</span><span class="n">ROOT_SOIL_INTERFACE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;type&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> in a list&quot;</span>
+                    <span class="p">)</span>
+
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">value</span> <span class="o">*</span> <span class="n">units</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">))</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Anil Yildiz, Gerrit J. Meijer.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
