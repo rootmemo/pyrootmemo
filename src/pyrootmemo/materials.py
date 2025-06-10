@@ -37,6 +37,53 @@ ROOT_SOIL_INTERFACE_PARAMETERS = {
 }
 
 class Roots:
+    """
+    Roots class is used to create a root object with specified parameters.
+    The parameters are defined in the ROOT_PARAMETERS dictionary: elastic_modulus, diameter, tensile_strength, yield_strength, plastic_modulus, unload_modulus, length, length_surface, azimuth_angle, elevation_angle.
+    It also calculates the cross-sectional area and circumference of the root based on the diameter.
+    It allows for a single root or multiple roots to be created, depending on the class used (SingleRoot or MultipleRoots).
+
+    Attributes
+    ----------
+    species : str
+        Name of the species in the format 'genus_species', e.g. 'alnus_incana'.
+    elastic_modulus : float | int
+        Elastic modulus of the root (MPa).
+    diameter : float | int
+        Diameter of the root (m).
+    tensile_strength : float | int
+        Tensile strength of the root (MPa).
+    yield_strength : float | int
+        Yield strength of the root (MPa).
+    plastic_modulus : float | int
+        Plastic modulus of the root (MPa).
+    unload_modulus : float | int
+        Unload modulus of the root (MPa).
+    length : float | int
+        Length of the root (m).
+    length_surface : float | int
+        Length of the root surface (m).
+    azimuth_angle : float | int
+        Azimuth angle of the root (degrees).
+    elevation_angle : float | int
+        Elevation angle of the root (degrees).
+    xsection : float | int
+        Cross-sectional area of the root (m^2), calculated as π * (diameter / 2)^2.
+    circumference : float | int
+        Circumference of the root (m), calculated as π * diameter.
+    initial_orientation_vector : np.ndarray
+        A 3D vector representing the initial orientation of the root in space, calculated based on the azimuth and elevation angles.
+    axis_angle : float | int, optional
+        Angle in radians to rotate the initial orientation vector around the z-axis, by default None.
+        If None, the initial orientation vector is returned without rotation.
+
+    Methods
+    -------
+    initial_orientation_vector(axis_angle: float | int = None) -> np.ndarray
+        Returns the initial orientation vector of the root in 3D space.
+        The vector is calculated based on the azimuth and elevation angles of the root.
+        If axis_angle is provided, the vector is rotated around the z-axis by that angle.
+    """
     def __init__(self, species: str, **kwargs):
         """
         Creates a root object with specified parameters.
@@ -242,6 +289,32 @@ class MultipleRoots(Roots):
 
 
 class Soil:
+    """
+    Soil class is used to create a soil object with specified parameters.
+    The parameters are defined in the SOIL_PARAMETERS dictionary: cohesion, friction_angle, unit_weight_bulk, unit_weight_dry, unit_weight_saturated, water_content.
+    It also allows for USCS and USDA classifications of the soil.
+
+    Attributes
+    ----------
+    name : str
+        Name of the soil, e.g. 'silty_sand'.
+    uscs_classification : str, optional
+        USCS classification of the soil, by default None
+    usda_classification : str, optional
+        USDA classification of the soil, by default None
+    cohesion : float | int
+        Cohesion of the soil (kPa).
+    friction_angle : float | int
+        Friction angle of the soil (degrees).
+    unit_weight_bulk : float | int
+        Bulk unit weight of the soil (kN/m^3).
+    unit_weight_dry : float | int
+        Dry unit weight of the soil (kN/m^3).
+    unit_weight_saturated : float | int
+        Saturated unit weight of the soil (kN/m^3).
+    water_content : float | int
+        Water content of the soil (percentage).
+    """
     def __init__(
         self,
         name: str,
@@ -261,10 +334,31 @@ class Soil:
             uscs classification of the soil, by default None
         usda_classification : str, optional
             usda classification of the soil, by default None
+
+        Raises
+        ------
+        TypeError
+            Soil name should be entered as a string
+        ValueError
+            Undefined parameter. Choose one of the following: cohesion, friction_angle, unit_weight_bulk, unit_weight_dry, unit_weight_saturated, water_content
+        TypeError
+            Parameter should be of type Parameter(value, unit)
+        TypeError
+            Value should be of type float or int or a list
+        TypeError
+            Unit should be entered as a string
+        DimensionalityError
+            Unit dimensionality does not match the expected dimensionality for the parameter
+        TypeError
+            Parameter chosen is not of the expected type in a list
         """
         if not isinstance(name, str):
             raise TypeError("Soil name should be entered as a string")
         self.name = name.lower().replace(" ", "_")
+        self.uscs_classification = uscs_classification
+        self.usda_classification = usda_classification
+        #TODO: add checks for uscs classification
+        #TODO: add checks for usda classification
         for k, v in kwargs.items():
             if k not in SOIL_PARAMETERS.keys():
                 raise ValueError(
