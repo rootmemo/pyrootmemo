@@ -103,9 +103,9 @@ class Roots:
                 )
             if not is_namedtuple(v):
                 raise TypeError("Parameter should be of type Parameter(value, unit)")
-            if not isinstance(v.value, (ROOT_PARAMETERS[k]["type"] | list)):
+            if not isinstance(v.value, (ROOT_PARAMETERS[k]['type'] | list)):
                 raise TypeError(
-                    f"Value should be of type {ROOT_PARAMETERS[k]["type"]} or a list"
+                    f"Value should be of type {ROOT_PARAMETERS[k]['type']} or a list"
                 )
             if not isinstance(v.unit, str):
                 raise TypeError("Unit should be entered as a string")
@@ -115,10 +115,10 @@ class Roots:
                 )
             if isinstance(v.value, list):
                 if not all(
-                    [isinstance(entry, ROOT_PARAMETERS[k]["type"]) for entry in v.value]
+                    [isinstance(entry, ROOT_PARAMETERS[k]['type']) for entry in v.value]
                 ):
                     raise TypeError(
-                        f"{k} should only be of type {ROOT_PARAMETERS[k]["type"]} in a list"
+                        f"{k} should only be of type {ROOT_PARAMETERS[k]['type']} in a list"
                     )
 
             setattr(self, k, v.value * units(v.unit))
@@ -272,7 +272,7 @@ class Soil:
                 )
             if not is_namedtuple(v):
                 raise TypeError("Parameter should be of type Parameter(value, unit)")
-            if not isinstance(v.value, (SOIL_PARAMETERS[k]["type"] | list)):
+            if not isinstance(v.value, (SOIL_PARAMETERS[k]['type'] | list)):
                 raise TypeError(
                     f"Value should be of type {SOIL_PARAMETERS[k]['type']} or a list"
                 )
@@ -284,7 +284,7 @@ class Soil:
                 )
             if isinstance(v.value, list):
                 if not all(
-                    [isinstance(entry, SOIL_PARAMETERS[k]["type"]) for entry in v.value]
+                    [isinstance(entry, SOIL_PARAMETERS[k]['type']) for entry in v.value]
                 ):
                     raise TypeError(
                         f"{k} should only be of type {SOIL_PARAMETERS[k]['type']} in a list"
@@ -309,7 +309,7 @@ class Interface:
                 )
             if not is_namedtuple(v):
                 raise TypeError("Parameter should be of type Parameter(value, unit)")
-            if not isinstance(v.value, (ROOT_SOIL_INTERFACE_PARAMETERS[k]["type"] | list)):
+            if not isinstance(v.value, (ROOT_SOIL_INTERFACE_PARAMETERS[k]['type'] | list)):
                 raise TypeError(
                     f"Value should be of type {ROOT_SOIL_INTERFACE_PARAMETERS[k]['type']} or a list"
                 )
@@ -321,7 +321,7 @@ class Interface:
                 )
             if isinstance(v.value, list):
                 if not all(
-                    [isinstance(entry, ROOT_SOIL_INTERFACE_PARAMETERS[k]["type"]) for entry in v.value]
+                    [isinstance(entry, ROOT_SOIL_INTERFACE_PARAMETERS[k]['type']) for entry in v.value]
                 ):
                     raise TypeError(
                         f"{k} should only be of type {ROOT_SOIL_INTERFACE_PARAMETERS[k]['type']} in a list"
