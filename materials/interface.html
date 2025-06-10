@@ -19,7 +19,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="prev" title="Soils" href="soils.html" /> 
+    <link rel="prev" title="Soils" href="soil.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -47,7 +47,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Getting Started</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Materials</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="roots.html"> Roots</a></li>
-<li class="toctree-l2"><a class="reference internal" href="soils.html"> Soils</a></li>
+<li class="toctree-l2"><a class="reference internal" href="soil.html"> Soil</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#"> Interface</a></li>
 </ul>
 </li>
@@ -80,13 +80,31 @@
              
   <section id="interface">
 <h1>Interface<a class="headerlink" href="#interface" title="Link to this heading"></a></h1>
+<p>The class <code class="xref py py-class docutils literal notranslate"><span class="pre">Interface</span></code> is imported by:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pyrootmemo.materials</span><span class="w"> </span><span class="kn">import</span> <span class="n">Interface</span>
+</pre></div>
+</div>
+<p>It is used to represent the interface between soil and roots.</p>
+<dl class="py class">
+<dt class="sig sig-object py">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Interface</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#Interface"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#Interface.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Creates an interface object with specified parameters.
+The parameters are defined in the ROOT_SOIL_INTERFACE_PARAMETERS dictionary: shear_strength, adhesion, friction_angle, effective_stress</p>
+</dd></dl>
+
+</dd></dl>
+
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="soils.html" class="btn btn-neutral float-left" title="Soils" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="soil.html" class="btn btn-neutral float-left" title="Soils" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
     </div>
 
   <hr/>

@@ -15,6 +15,3 @@ Welcome to the pyrootmemo documentation!
    Home <self>
    quickstart
    materials/index
-
-   
-

@@ -8,15 +8,22 @@ Currently implemented classes are:
 
 * :class:`.Roots`: Creates a root object with specified parameters
 
-* :class:`.Soils`: Creates a soil object with specified parameters
+* :class:`.Soil`: Creates a soil object with specified parameters
 
 * :class:`.Interface`: Creates an interface object with specified parameters
 
+.. automodule:: pyrootmemo.materials
+   :members: Roots, Soil, Interface, ROOT_PARAMETERS, SOIL_PARAMETERS, INTERFACE_PARAMETERS
+   :undoc-members:
+   :show-inheritance:
+   :exclude-members: init
+   :noindex: true
+
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :hidden:
-   :caption: Inference
+   :caption: Materials
 
     Roots <roots>
-    Soils <soils>
+    Soil <soil>
     Interface <interface>

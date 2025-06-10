@@ -186,9 +186,9 @@
                 <span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Unit should be entered as a string&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">units</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">ROOT_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dimensionality</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">units</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">ROOT_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;unit&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">dimensionality</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="n">DimensionalityError</span><span class="p">(</span>
-                    <span class="n">units1</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">units2</span><span class="o">=</span><span class="n">ROOT_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span>
+                    <span class="n">units1</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">units2</span><span class="o">=</span><span class="n">ROOT_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;unit&#39;</span><span class="p">]</span>
                 <span class="p">)</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span>
@@ -332,7 +332,11 @@
 
 
 
+<div class="viewcode-block" id="Soil">
+<a class="viewcode-back" href="../../materials/soil.html#pyrootmemo.materials.Soil">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">Soil</span><span class="p">:</span>
+<div class="viewcode-block" id="Soil.__init__">
+<a class="viewcode-back" href="../../materials/soil.html#pyrootmemo.materials.Soil.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -369,9 +373,9 @@
                 <span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Unit should be entered as a string&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">units</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">SOIL_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dimensionality</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">units</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">SOIL_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;unit&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">dimensionality</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="n">DimensionalityError</span><span class="p">(</span>
-                    <span class="n">units1</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">units2</span><span class="o">=</span><span class="n">SOIL_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span>
+                    <span class="n">units1</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">units2</span><span class="o">=</span><span class="n">SOIL_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;unit&#39;</span><span class="p">]</span>
                 <span class="p">)</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span>
@@ -381,9 +385,15 @@
                         <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> should only be of type </span><span class="si">{</span><span class="n">SOIL_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;type&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> in a list&quot;</span>
                     <span class="p">)</span>
 
-            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">value</span> <span class="o">*</span> <span class="n">units</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">))</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">value</span> <span class="o">*</span> <span class="n">units</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">))</span></div>
+</div>
 
+
+<div class="viewcode-block" id="Interface">
+<a class="viewcode-back" href="../../materials/interface.html#pyrootmemo.materials.Interface">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">Interface</span><span class="p">:</span>
+<div class="viewcode-block" id="Interface.__init__">
+<a class="viewcode-back" href="../../materials/interface.html#pyrootmemo.materials.Interface.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
@@ -406,9 +416,9 @@
                 <span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Unit should be entered as a string&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">units</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">ROOT_SOIL_INTERFACE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dimensionality</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">units</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">ROOT_SOIL_INTERFACE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;unit&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">dimensionality</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="n">DimensionalityError</span><span class="p">(</span>
-                    <span class="n">units1</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">units2</span><span class="o">=</span><span class="n">ROOT_SOIL_INTERFACE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span>
+                    <span class="n">units1</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">units2</span><span class="o">=</span><span class="n">ROOT_SOIL_INTERFACE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;unit&#39;</span><span class="p">]</span>
                 <span class="p">)</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span>
@@ -418,7 +428,9 @@
                         <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> should only be of type </span><span class="si">{</span><span class="n">ROOT_SOIL_INTERFACE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s1">&#39;type&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> in a list&quot;</span>
                     <span class="p">)</span>
 
-            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">value</span> <span class="o">*</span> <span class="n">units</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">))</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">value</span> <span class="o">*</span> <span class="n">units</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">))</span></div>
+</div>
+
 </pre></div>
 
            </div>

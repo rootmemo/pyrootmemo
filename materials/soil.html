@@ -48,7 +48,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Getting Started</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Materials</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="roots.html"> Roots</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#"> Soils</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#"> Soil</a></li>
 <li class="toctree-l2"><a class="reference internal" href="interface.html"> Interface</a></li>
 </ul>
 </li>
@@ -71,7 +71,7 @@
           <li class="breadcrumb-item"><a href="index.html">Materials</a></li>
       <li class="breadcrumb-item active">Soils</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/materials/soils.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/materials/soil.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -81,6 +81,33 @@
              
   <section id="soils">
 <h1>Soils<a class="headerlink" href="#soils" title="Link to this heading"></a></h1>
+<p>The class <code class="xref py py-class docutils literal notranslate"><span class="pre">Soil</span></code> is imported by:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pyrootmemo.materials</span><span class="w"> </span><span class="kn">import</span> <span class="n">Soil</span>
+</pre></div>
+</div>
+<p>It is used to represent the soil properties and conditions that affect the shear strength and, in turn, slope stability.</p>
+<dl class="py class">
+<dt class="sig sig-object py">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Soil</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uscs_classification</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">usda_classification</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#Soil"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uscs_classification</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">usda_classification</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#Soil.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
+<dd><p>Creates a soil object with specified parameters.
+The parameters are defined in the SOIL_PARAMETERS dictionary: cohesion, friction_angle, unit_weight_bulk, unit_weight_dry, unit_weight_saturated, water_content.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<em>str</em>) – Name of the soil, e.g. ‘silty_sand’.</p></li>
+<li><p><strong>uscs_classification</strong> (<em>str</em><em>, </em><em>optional</em>) – uscs classification of the soil, by default None</p></li>
+<li><p><strong>usda_classification</strong> (<em>str</em><em>, </em><em>optional</em>) – usda classification of the soil, by default None</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 </section>
 
 
