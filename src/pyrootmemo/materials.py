@@ -274,7 +274,7 @@ class Soil:
                 raise TypeError("Parameter should be of type Parameter(value, unit)")
             if not isinstance(v.value, (SOIL_PARAMETERS[k]["type"] | list)):
                 raise TypeError(
-                    f"Value should be of type {SOIL_PARAMETERS[k]["type"]} or a list"
+                    f"Value should be of type {SOIL_PARAMETERS[k]['type']} or a list"
                 )
             if not isinstance(v.unit, str):
                 raise TypeError("Unit should be entered as a string")
@@ -287,7 +287,7 @@ class Soil:
                     [isinstance(entry, SOIL_PARAMETERS[k]["type"]) for entry in v.value]
                 ):
                     raise TypeError(
-                        f"{k} should only be of type {SOIL_PARAMETERS[k]["type"]} in a list"
+                        f"{k} should only be of type {SOIL_PARAMETERS[k]['type']} in a list"
                     )
 
             setattr(self, k, v.value * units(v.unit))
@@ -311,7 +311,7 @@ class Interface:
                 raise TypeError("Parameter should be of type Parameter(value, unit)")
             if not isinstance(v.value, (ROOT_SOIL_INTERFACE_PARAMETERS[k]["type"] | list)):
                 raise TypeError(
-                    f"Value should be of type {ROOT_SOIL_INTERFACE_PARAMETERS[k]["type"]} or a list"
+                    f"Value should be of type {ROOT_SOIL_INTERFACE_PARAMETERS[k]['type']} or a list"
                 )
             if not isinstance(v.unit, str):
                 raise TypeError("Unit should be entered as a string")
@@ -324,7 +324,7 @@ class Interface:
                     [isinstance(entry, ROOT_SOIL_INTERFACE_PARAMETERS[k]["type"]) for entry in v.value]
                 ):
                     raise TypeError(
-                        f"{k} should only be of type {ROOT_SOIL_INTERFACE_PARAMETERS[k]["type"]} in a list"
+                        f"{k} should only be of type {ROOT_SOIL_INTERFACE_PARAMETERS[k]['type']} in a list"
                     )
 
             setattr(self, k, v.value * units(v.unit))
