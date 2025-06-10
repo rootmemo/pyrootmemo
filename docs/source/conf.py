@@ -23,8 +23,6 @@ extensions = [
     'sphinx.ext.napoleon', # To parse NumPy/Google style docstrings
     'sphinx_rtd_theme',
     'sphinx.ext.viewcode',
-
-    # You can add more, e.g. 'sphinx.ext.viewcode', 'sphinx.ext.intersphinx', etc.
 ]
 
 autoclass_content = 'init'

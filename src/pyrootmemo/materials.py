@@ -109,9 +109,9 @@ class Roots:
                 )
             if not isinstance(v.unit, str):
                 raise TypeError("Unit should be entered as a string")
-            if not units(v.unit).check(ROOT_PARAMETERS[k]["unit"].dimensionality):
+            if not units(v.unit).check(ROOT_PARAMETERS[k]['unit'].dimensionality):
                 raise DimensionalityError(
-                    units1=v.unit, units2=ROOT_PARAMETERS[k]["unit"]
+                    units1=v.unit, units2=ROOT_PARAMETERS[k]['unit']
                 )
             if isinstance(v.value, list):
                 if not all(
@@ -278,9 +278,9 @@ class Soil:
                 )
             if not isinstance(v.unit, str):
                 raise TypeError("Unit should be entered as a string")
-            if not units(v.unit).check(SOIL_PARAMETERS[k]["unit"].dimensionality):
+            if not units(v.unit).check(SOIL_PARAMETERS[k]['unit'].dimensionality):
                 raise DimensionalityError(
-                    units1=v.unit, units2=SOIL_PARAMETERS[k]["unit"]
+                    units1=v.unit, units2=SOIL_PARAMETERS[k]['unit']
                 )
             if isinstance(v.value, list):
                 if not all(
@@ -315,9 +315,9 @@ class Interface:
                 )
             if not isinstance(v.unit, str):
                 raise TypeError("Unit should be entered as a string")
-            if not units(v.unit).check(ROOT_SOIL_INTERFACE_PARAMETERS[k]["unit"].dimensionality):
+            if not units(v.unit).check(ROOT_SOIL_INTERFACE_PARAMETERS[k]['unit'].dimensionality):
                 raise DimensionalityError(
-                    units1=v.unit, units2=ROOT_SOIL_INTERFACE_PARAMETERS[k]["unit"]
+                    units1=v.unit, units2=ROOT_SOIL_INTERFACE_PARAMETERS[k]['unit']
                 )
             if isinstance(v.value, list):
                 if not all(
