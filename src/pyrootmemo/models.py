@@ -1619,8 +1619,9 @@ class Waldron(_DirectShear):
             n: int = 251,
             stack = False,
             peak: bool = True,
-            margin: int | float = 0.05,
+            margin_axis: int | float = 0.20,
             labels = True,
+            margin_label: int | float = 0.05,
             xlabel: str = 'Shear displacement',
             ylabel: str = 'Reinforcement',
             xunit: str = 'mm',
@@ -1638,17 +1639,20 @@ class Waldron(_DirectShear):
         peak : bool, optional
             show the location of the peak using a scatter point. By default 
             True
-        margin : int | float, optional
+        margin_axis : int | float, optional
             Add some extra displacement range so failure in roots nicely shows
             up in plot. Defined as a fraction of the chosen displacement range
             based on peak (function _get_displacement_root_peak()). By default
-            0.05.
+            0.20.
         labels : bool | list, optional
             labels to plot on contribution of each root, by default False.
             If False, no labels are plotted. If True, labels are plotted using
             the index of the root in the MultipleRoots object. Custom labels 
             can be inputted using a list, which must have the same length as 
             the number of roots in the bundle.
+        margin_label : int | float, optional
+            Fraction of plot width to offset plotting labels from moment
+            of failure (breakage, slipping). By default 0.10.
         xlabel : chr, optional
             x-axis label, by default 'Pull-out displacement'
         ylabel : chr, optional
@@ -1667,8 +1671,9 @@ class Waldron(_DirectShear):
         if self.breakage is False and self.slipping is False:
             us_peak = 100.0 * units('mm')
         else:
-            us_peak = np.max(self._get_displacement_root_peak())
-        us = np.linspace(0.0 * us_peak, us_peak * (1.0 + margin), n)
+            us_peak_all = self._get_displacement_root_peak()
+            us_peak = np.max(us_peak_all)
+        us = np.linspace(0.0 * us_peak, us_peak * (1.0 + margin_axis), n)
         # total reinforcement, per root, for each displacement step
         res = self.reinforcement(us, jac = False, total = False)
         cr_total = np.sum(res['reinforcement'], axis = 0).to(yunit).magnitude
@@ -1698,16 +1703,23 @@ class Waldron(_DirectShear):
                 plot_labels = False
             # add labels to plot
             if plot_labels is True:
-                # label x-positions - at peaks of each individual root
-                labels_x = us[int(0.5 * n)]
-                # labels y-positions - halfway up each stacking instance
-                labels_y_tmp = self.reinforcement(labels_x, total = False)['reinforcement'].to(yunit).magnitude
-                labels_y = np.cumsum(labels_y_tmp) - 0.5 * labels_y_tmp
+                # label x-positions 
+                if (self.slipping is False) and (self.breakage is False):
+                    labels_x = us[int((1.0 - margin_label) * n)]
+                    labels_y_tmp = self.reinforcement(labels_x, total = False)['reinforcement'].to(yunit).magnitude
+                    labels_y = np.cumsum(labels_y_tmp) - 0.5 * labels_y_tmp
+                    labels_x = np.full(len(labels_y), labels_x)
+                else:
+                    labels_x = us_peak_all - margin_label * np.max(us_peak_all)
+                    labels_y_tmp = self.reinforcement(labels_x, total = False)['reinforcement'].to(yunit).magnitude
+                    labels_x = labels_x.to(xunit).magnitude
+                    labels_y_tmp = np.triu(labels_y_tmp)
+                    labels_y = np.sum(labels_y_tmp, axis = 0) - 0.5 * np.diag(labels_y_tmp)
                 # add labels to plot
-                for yi, li in zip(labels_y, labels):
+                for xi, yi, li in zip(labels_x, labels_y, labels):
                     ax.annotate(
                         li, 
-                        xy = (labels_x.to(xunit).magnitude, yi), 
+                        xy = (xi, yi), 
                         ha = 'center', 
                         va = 'center', 
                         bbox = dict(boxstyle = 'round', fc = 'white', alpha = 0.5),

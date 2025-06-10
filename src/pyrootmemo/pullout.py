@@ -142,9 +142,6 @@ class PulloutEmbeddedElastic():
                 1.0 
                 / (2.0 * force_unbroken[index1] * self.coefficients[0][index1, 1])
                 )
-        print(force_unbroken)
-        print(dforceunbroken_ddisplacement)
-        print(behaviour_index)
         # return
         return(
             force_unbroken, 
