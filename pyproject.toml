@@ -16,6 +16,11 @@ scipy = ">1.14"
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.29.5"
 
+
+[tool.poetry.group.docs.dependencies]
+sphinx = "^8.2.3"
+sphinx-autobuild = "^2024.10.3"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
