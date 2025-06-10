@@ -25,7 +25,8 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install sphinx sphinx-rtd-theme numpy
+          pip install sphinx sphinx-rtd-theme
+          pip install -r requirements.txt
 
       - name: Build docs
         run: |
