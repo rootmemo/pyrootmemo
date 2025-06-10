@@ -6,6 +6,7 @@ from pyrootmemo.tools.helpers import units
 
 Parameter = namedtuple("parameter", "value unit")
 
+#: A dictionary that maps root parameter names to their definitions
 ROOT_PARAMETERS = {
     "elastic_modulus": {"type": (float | int), "unit": units("MPa")},
     "diameter": {"type": (float | int), "unit": units("m")},
@@ -233,6 +234,9 @@ class SingleRoot(Roots):
 
 
 class MultipleRoots(Roots):
+    """
+    MultipleRoots class inherits from Roots and is used to create a collection of root objects with specified parameters. It allows for multiple values for parameters, such as species, diameter, and length. 
+    """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
