@@ -1,0 +1,41 @@
+name: Build and Deploy Sphinx Documentation
+
+on:
+  push:
+    branches:
+      - main
+  # You can also add:
+  # pull_request:
+  #   branches: [ main ]
+  # or 'workflow_dispatch:' for on-demand builds.
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install sphinx sphinx-rtd-theme sphinx-autodoc  # plus any extra packages you need
+
+      - name: Build docs
+        run: |
+          cd docs
+          make html
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs/_build/html
+          # The action defaults to pushing to 'gh-pages' branch.
+          # If your repository setup requires a different branch, set 'publish_branch: some-other-branch'
