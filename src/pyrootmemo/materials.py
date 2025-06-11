@@ -6,7 +6,7 @@ from pyrootmemo.tools.helpers import units
 
 Parameter = namedtuple("parameter", "value unit")
 
-#: A dictionary that maps root parameter names to their definitions
+#: A dictionary that maps root parameter names to their types and units.
 ROOT_PARAMETERS = {
     "elastic_modulus": {"type": (float | int), "unit": units("MPa")},
     "diameter": {"type": (float | int), "unit": units("m")},
@@ -20,6 +20,7 @@ ROOT_PARAMETERS = {
     "elevation_angle": {"type": (float | int), "unit": units("degrees")},
 }
 
+#: A dictionary that maps soil parameter names to their types and units.
 SOIL_PARAMETERS = {
     "cohesion": {"type": (float | int), "unit": units("kPa")},
     "friction_angle": {"type": (float | int), "unit": units("degrees")},
@@ -29,6 +30,7 @@ SOIL_PARAMETERS = {
     "water_content": {"type": (float | int), "unit": units("").to("percent")}
 }
 
+#: A dictionary that maps root-soil interface parameter names to their types and units.
 ROOT_SOIL_INTERFACE_PARAMETERS = {
     "shear_strength": {"type": (float | int), "unit": units("kPa")},
     "adhesion": {"type": (float | int), "unit": units("kPa")},
@@ -40,7 +42,6 @@ class Roots:
     """
     Roots class is used to create a root object with specified parameters.
     The parameters are defined in the ROOT_PARAMETERS dictionary: elastic_modulus, diameter, tensile_strength, yield_strength, plastic_modulus, unload_modulus, length, length_surface, azimuth_angle, elevation_angle.
-    It also calculates the cross-sectional area and circumference of the root based on the diameter.
     It allows for a single root or multiple roots to be created, depending on the class used (SingleRoot or MultipleRoots).
 
     Attributes
@@ -257,7 +258,7 @@ class Roots:
 
 class SingleRoot(Roots):
     """
-    SingleRoot class inherits from Roots and is used to create a single root object with specified parameters. 
+    SingleRoot class inherits from Roots and is used to create a single root object with specified parameters.
     """
     def __init__(self, **kwargs):
         """
@@ -282,7 +283,7 @@ class SingleRoot(Roots):
 
 class MultipleRoots(Roots):
     """
-    MultipleRoots class inherits from Roots and is used to create a collection of root objects with specified parameters. It allows for multiple values for parameters, such as species, diameter, and length. 
+    MultipleRoots class inherits from Roots and is used to create a collection of root objects with specified parameters.
     """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -392,10 +393,19 @@ class Interface:
         **kwargs,
     ):
         """
-        Creates an interface object with specified parameters.
-        The parameters are defined in the ROOT_SOIL_INTERFACE_PARAMETERS dictionary: shear_strength, adhesion, friction_angle, effective_stress
+        Creates an soil-root interface object with specified parameters.
 
-        """
+        Attributes
+        ----------
+        shear_strength : float | int
+            Shear strength of the interface (kPa).
+        adhesion : float | int
+            Adhesion of the interface (kPa).
+        friction_angle : float | int
+            Friction angle of the interface (degrees).
+        effective_stress : float | int
+            Effective stress of the interface (kPa).
+       """
         for k, v in kwargs.items():
             if k not in ROOT_SOIL_INTERFACE_PARAMETERS.keys():
                 raise ValueError(
