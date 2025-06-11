@@ -2428,7 +2428,7 @@ class PowerlawGamma(_PowerlawFitBase):
             weights
     ):
         # guess for power law exponent
-        ftL = Linear(xn, yn, weights = weights)
+        ftL = Linear(np.log(xn), np.log(yn), weights = weights)
         exponent = ftL.gradient
         # guess for shape
         shape = None
