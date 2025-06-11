@@ -1,7 +1,13 @@
 import numpy as np
 from pint import UnitRegistry
-
+from collections import namedtuple
 units = UnitRegistry()
+
+#: Parameter is a named tuple that holds a value and its unit
+#: It is used to store physical quantities with their respective units
+#: This allows for better organization and readability of code
+#: Example usage: Parameter(value=1, unit='m')
+Parameter = namedtuple("parameter", "value unit")
 
 
 def secant(degree) -> float:
