@@ -91,7 +91,13 @@
 <dl class="py data">
 <dt class="sig sig-object py">
 <span class="sig-name descname"><span class="pre">ROOT_PARAMETERS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'azimuth_angle':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'degree')&gt;},</span> <span class="pre">'diameter':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'meter')&gt;},</span> <span class="pre">'elastic_modulus':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'megapascal')&gt;},</span> <span class="pre">'elevation_angle':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'degree')&gt;},</span> <span class="pre">'length':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'meter')&gt;},</span> <span class="pre">'length_surface':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'meter')&gt;},</span> <span class="pre">'plastic_modulus':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'megapascal')&gt;},</span> <span class="pre">'tensile_strength':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'megapascal')&gt;},</span> <span class="pre">'unload_modulus':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'megapascal')&gt;},</span> <span class="pre">'yield_strength':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'megapascal')&gt;}}</span></em></dt>
-<dd><p>A dictionary that maps root parameter names to their definitions</p>
+<dd><p>A dictionary that maps root parameter names to their types and units.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">SOIL_PARAMETERS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'cohesion':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'kilopascal')&gt;},</span> <span class="pre">'friction_angle':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'degree')&gt;},</span> <span class="pre">'unit_weight_bulk':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1.0,</span> <span class="pre">'kilonewton</span> <span class="pre">/</span> <span class="pre">meter</span> <span class="pre">**</span> <span class="pre">3')&gt;},</span> <span class="pre">'unit_weight_dry':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1.0,</span> <span class="pre">'kilonewton</span> <span class="pre">/</span> <span class="pre">meter</span> <span class="pre">**</span> <span class="pre">3')&gt;},</span> <span class="pre">'unit_weight_saturated':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1.0,</span> <span class="pre">'kilonewton</span> <span class="pre">/</span> <span class="pre">meter</span> <span class="pre">**</span> <span class="pre">3')&gt;},</span> <span class="pre">'water_content':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(100.0,</span> <span class="pre">'percent')&gt;}}</span></em></dt>
+<dd><p>A dictionary that maps soil parameter names to their types and units.</p>
 </dd></dl>
 
 <dl class="py class">
@@ -256,13 +262,99 @@ The parameters are defined in the SOIL_PARAMETERS dictionary: cohesion, friction
 <dt class="sig sig-object py">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Interface</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#Interface"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Creates an interface object with specified parameters.
-The parameters are defined in the ROOT_SOIL_INTERFACE_PARAMETERS dictionary: shear_strength, adhesion, friction_angle, effective_stress</p>
+<p>Creates an soil-root interface object with specified parameters.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">shear_strength</span></span></dt>
+<dd><p>Shear strength of the interface (kPa).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float | int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">adhesion</span></span></dt>
+<dd><p>Adhesion of the interface (kPa).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float | int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">friction_angle</span></span></dt>
+<dd><p>Friction angle of the interface (degrees).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float | int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">effective_stress</span></span></dt>
+<dd><p>Effective stress of the interface (kPa).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float | int</p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py">
 <span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#Interface.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
-<dd><p>Creates an interface object with specified parameters.
-The parameters are defined in the ROOT_SOIL_INTERFACE_PARAMETERS dictionary: shear_strength, adhesion, friction_angle, effective_stress</p>
+<dd><p>Creates an soil-root interface object with specified parameters.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">shear_strength</span></span></dt>
+<dd><p>Shear strength of the interface (kPa).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float | int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">adhesion</span></span></dt>
+<dd><p>Adhesion of the interface (kPa).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float | int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">friction_angle</span></span></dt>
+<dd><p>Friction angle of the interface (degrees).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float | int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">effective_stress</span></span></dt>
+<dd><p>Effective stress of the interface (kPa).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float | int</p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 </dd></dl>

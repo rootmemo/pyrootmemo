@@ -80,7 +80,7 @@
 
 <span class="n">Parameter</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span><span class="s2">&quot;parameter&quot;</span><span class="p">,</span> <span class="s2">&quot;value unit&quot;</span><span class="p">)</span>
 
-<span class="c1">#: A dictionary that maps root parameter names to their definitions</span>
+<span class="c1">#: A dictionary that maps root parameter names to their types and units.</span>
 <span class="n">ROOT_PARAMETERS</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">&quot;elastic_modulus&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;MPa&quot;</span><span class="p">)},</span>
     <span class="s2">&quot;diameter&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;m&quot;</span><span class="p">)},</span>
@@ -94,6 +94,7 @@
     <span class="s2">&quot;elevation_angle&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;degrees&quot;</span><span class="p">)},</span>
 <span class="p">}</span>
 
+<span class="c1">#: A dictionary that maps soil parameter names to their types and units.</span>
 <span class="n">SOIL_PARAMETERS</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">&quot;cohesion&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;kPa&quot;</span><span class="p">)},</span>
     <span class="s2">&quot;friction_angle&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;degrees&quot;</span><span class="p">)},</span>
@@ -103,6 +104,7 @@
     <span class="s2">&quot;water_content&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;percent&quot;</span><span class="p">)}</span>
 <span class="p">}</span>
 
+<span class="c1">#: A dictionary that maps root-soil interface parameter names to their types and units.</span>
 <span class="n">ROOT_SOIL_INTERFACE_PARAMETERS</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">&quot;shear_strength&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;kPa&quot;</span><span class="p">)},</span>
     <span class="s2">&quot;adhesion&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;unit&quot;</span><span class="p">:</span> <span class="n">units</span><span class="p">(</span><span class="s2">&quot;kPa&quot;</span><span class="p">)},</span>
@@ -116,7 +118,6 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Roots class is used to create a root object with specified parameters.</span>
 <span class="sd">    The parameters are defined in the ROOT_PARAMETERS dictionary: elastic_modulus, diameter, tensile_strength, yield_strength, plastic_modulus, unload_modulus, length, length_surface, azimuth_angle, elevation_angle.</span>
-<span class="sd">    It also calculates the cross-sectional area and circumference of the root based on the diameter.</span>
 <span class="sd">    It allows for a single root or multiple roots to be created, depending on the class used (SingleRoot or MultipleRoots).</span>
 
 <span class="sd">    Attributes</span>
@@ -342,7 +343,7 @@
 <a class="viewcode-back" href="../../materials/roots.html#pyrootmemo.materials.SingleRoot">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">SingleRoot</span><span class="p">(</span><span class="n">Roots</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    SingleRoot class inherits from Roots and is used to create a single root object with specified parameters. </span>
+<span class="sd">    SingleRoot class inherits from Roots and is used to create a single root object with specified parameters.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 <div class="viewcode-block" id="SingleRoot.__init__">
 <a class="viewcode-back" href="../../materials/roots.html#pyrootmemo.materials.SingleRoot.__init__">[docs]</a>
@@ -373,7 +374,7 @@
 <a class="viewcode-back" href="../../materials/roots.html#pyrootmemo.materials.MultipleRoots">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">MultipleRoots</span><span class="p">(</span><span class="n">Roots</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    MultipleRoots class inherits from Roots and is used to create a collection of root objects with specified parameters. It allows for multiple values for parameters, such as species, diameter, and length. </span>
+<span class="sd">    MultipleRoots class inherits from Roots and is used to create a collection of root objects with specified parameters.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
@@ -494,10 +495,19 @@
         <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Creates an interface object with specified parameters.</span>
-<span class="sd">        The parameters are defined in the ROOT_SOIL_INTERFACE_PARAMETERS dictionary: shear_strength, adhesion, friction_angle, effective_stress</span>
+<span class="sd">        Creates an soil-root interface object with specified parameters.</span>
 
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        Attributes</span>
+<span class="sd">        ----------</span>
+<span class="sd">        shear_strength : float | int</span>
+<span class="sd">            Shear strength of the interface (kPa).</span>
+<span class="sd">        adhesion : float | int</span>
+<span class="sd">            Adhesion of the interface (kPa).</span>
+<span class="sd">        friction_angle : float | int</span>
+<span class="sd">            Friction angle of the interface (degrees).</span>
+<span class="sd">        effective_stress : float | int</span>
+<span class="sd">            Effective stress of the interface (kPa).</span>
+<span class="sd">       &quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ROOT_SOIL_INTERFACE_PARAMETERS</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>

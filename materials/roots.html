@@ -103,7 +103,6 @@
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>Roots class is used to create a root object with specified parameters.
 The parameters are defined in the ROOT_PARAMETERS dictionary: elastic_modulus, diameter, tensile_strength, yield_strength, plastic_modulus, unload_modulus, length, length_surface, azimuth_angle, elevation_angle.
-It also calculates the cross-sectional area and circumference of the root based on the diameter.
 It allows for a single root or multiple roots to be created, depending on the class used (SingleRoot or MultipleRoots).</p>
 <dl class="py attribute">
 <dt class="sig sig-object py">
@@ -383,7 +382,7 @@ The parameters are defined in the ROOT_PARAMETERS dictionary.</p>
 <dt class="sig sig-object py" id="pyrootmemo.materials.MultipleRoots">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MultipleRoots</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#MultipleRoots"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyrootmemo.materials.MultipleRoots" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Roots</span></code></p>
-<p>MultipleRoots class inherits from Roots and is used to create a collection of root objects with specified parameters. It allows for multiple values for parameters, such as species, diameter, and length.</p>
+<p>MultipleRoots class inherits from Roots and is used to create a collection of root objects with specified parameters.</p>
 </dd></dl>
 
 </section>
