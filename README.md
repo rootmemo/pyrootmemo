@@ -1,3 +1,11 @@
+
+![GitHub commit activity](https://img.shields.io/github/commit-activity/m/rootmemo/pyrootmemo)
+![GitHub Release Date](https://img.shields.io/github/release-date/rootmemo/pyrootmemo)
+![GitHub License](https://img.shields.io/github/license/rootmemo/pyrootmemo)
+![GitHub Repo stars](https://img.shields.io/github/stars/rootmemo/pyrootmemo)
+![Read the Docs](https://img.shields.io/readthedocs/pyrootmemo)
+
+
 # pyrootmemo
 
 A Python package to modelling and measuring the effects of roots on slope stability
