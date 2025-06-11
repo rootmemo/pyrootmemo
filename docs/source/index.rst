@@ -20,5 +20,6 @@ Welcome to the `pyrootmemo` documentation! This project is designed to help you 
    theory
    materials/index
    models/index
+   geometry/index
    contribute
    

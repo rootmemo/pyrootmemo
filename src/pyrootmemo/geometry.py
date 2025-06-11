@@ -19,29 +19,29 @@ FAILURE_SURFACE_PARAMETERS = {
 UNIT_WEIGHT_WATER = 9.81 * units('kN/m^3')
 
 class SoilProfile:
-    def __init__(self, soils, **kwargs):
-        """
-        Initialize a SoilProfile object with a list of Soil objects and optional parameters.
-        This class represents a profile of soils, allowing for the calculation of vertical stress
+    """
+       Initialize a SoilProfile object with a list of Soil objects and optional parameters.
+       This class represents a profile of soils, allowing for the calculation of vertical stress
 
-        Attributes
-        ----------
-        soils : pyrootmemo.materials.Soil
-            A list of Soil objects representing the different soil layers in the profile.
-        depth : pyrootmemo.tools.helpers.Parameter
-            The depth of each soil layer in the profile, specified as a Parameter object.
-        groundwater_table : pyrootmemo.tools.helpers.Parameter
-            The depth of the groundwater table in the profile, specified as a Parameter object.
+       Attributes
+       ----------
+       soils : pyrootmemo.materials.Soil
+           A list of Soil objects representing the different soil layers in the profile.
+       depth : pyrootmemo.tools.helpers.Parameter
+           The depth of each soil layer in the profile, specified as a Parameter object.
+       groundwater_table : pyrootmemo.tools.helpers.Parameter
+           The depth of the groundwater table in the profile, specified as a Parameter object.
         
-        Methods 
-        ------
-        get_soil
-            Returns the Soil object at the specified depth.
-        vertical_stress
-            Calculates the vertical stress at a specific depth in the soil profile.
-        pore_pressure
-            Calculates the pore pressure at a specific depth in the soil profile.
-        """
+       Methods 
+       ------
+       get_soil
+           Returns the Soil object at the specified depth.
+       calc_vertical_stress
+           Calculates the vertical stress at a specific depth in the soil profile.
+       calc_pore_pressure
+           Calculates the pore pressure at a specific depth in the soil profile.
+    """
+    def __init__(self, soils, **kwargs):
         if not isinstance(soils, list):
             raise TypeError("Soils should be a list of Soil objects")
         if not all([isinstance(s, Soil) for s in soils]):
@@ -110,7 +110,7 @@ class SoilProfile:
         soils_deeper = [s for s, d in zip(self.soils, self.depth) if d >= depth]
         return(soils_deeper[0])
     
-    def vertical_stress(
+    def calc_vertical_stress(
             self,
             depth
             ):
@@ -149,7 +149,7 @@ class SoilProfile:
             + unit_weight_below * thickness_below
             ))
     
-    def pore_pressure(
+    def calc_pore_pressure(
             self,
             depth,
             direction = 0.0 * units('deg')    # flow direction, relative to the horizontal
