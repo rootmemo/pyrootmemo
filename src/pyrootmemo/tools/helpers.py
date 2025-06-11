@@ -1,7 +1,9 @@
 import numpy as np
 from pint import UnitRegistry
-
+from collections import namedtuple
 units = UnitRegistry()
+
+Parameter = namedtuple("parameter", "value unit")
 
 
 def secant(degree) -> float:
