@@ -1,9 +1,3 @@
-# Root reinforcement models
-# - Wu/Waldron model (Class "Wwm")
-# - Fibre bundle model (Class "Fbm")
-# - Root bundle model weibull (Class "Rbmw")
-
-# import packages and functions
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -19,41 +13,30 @@ from pint import Quantity, DimensionalityError
 import warnings
 
 
-########################
-### WU/WALDRON MODEL ###
-########################
-
-
-# WWM class
 class Wwm():
-    """Class for Wu/Waldron root reinforcement
+    """
+    This class implements the Wu/Waldron model for root reinforcement.
+    The Wu/Waldron model is a simple model that calculates the peak force
+    mobilised by a bundle of roots, and the peak reinforcement that can be
+    mobilised by the bundle at a given failure surface.
+    The model assumes that all roots are mobilised at the same time, and that
+    the peak force is the sum of the maximum tensile forces that can be
+    mobilised in all roots.
 
     Attributes
     ----------
-    roots
-        MultipleRoots object containing properties of all roots in bundle
-
+    roots : pyrootmemo.materials.MultipleRoots
+        MultipleRoots object containing properties of all roots in bundle. roots
+        must contain attributes 'diameter' and 'tensile_strength'.
+            
     Methods
     -------
-    __init__(self, roots)
+    __init__(roots)
         Constructor
     peak_force()
-        Return peak force mobilised by all roots
+        Calculate peak force in the bundle
     peak_reinforcement(failure_surface, k)
-        Return peak reinforcement 
-
-    Raises
-    ------
-    TypeError
-        _description_
-    AttributeError
-        _description_
-    TypeError
-        _description_
-    AttributeError
-        _description_
-    TypeError
-        _description_
+        Calculate peak reinforcement by the bundle
     """
     
     # initialise class
@@ -70,19 +53,15 @@ class Wwm():
             MultipleRoots class.
             Class must contain attributes 'diameter', 'xsection', 'tensile_strength'
         """
-        # check if MultipleRoots type
         if not isinstance(roots, MultipleRoots):
-            raise TypeError('roots must be object of class MultipleRoots')
-        # check if roots contains all required instances
+            raise TypeError('roots must be an object of class MultipleRoots')
         attributes_required = ['diameter', 'xsection', 'tensile_strength']
         for i in attributes_required:
             if not hasattr(roots, i):
-                raise AttributeError('roots must contain ' + str(i) + ' attribute')
-        # set roots as class parameters
+                raise AttributeError('roots object must contain ' + str(i) + ' attribute')
         self.roots = roots
 
-    # Calculate peak force 
-    def peak_force(self) -> Quantity:
+    def peak_force(self) -> np.ndarray:
         """
         Calculates WWM peak force.
 
@@ -91,12 +70,12 @@ class Wwm():
 
         Returns
         -------
-        Quantity
-            Peak force
+        peak_force : np.ndarray
+            Peak force mobilised by the bundle of roots, in units of force.
         """
-        return(np.sum(self.roots.xsection * self.roots.tensile_strength))
+        self.peak_force = np.sum(self.roots.xsection * self.roots.tensile_strength)
+        return self.peak_force
 
-    # reinforcement
     def peak_reinforcement(
             self, 
             failure_surface: FailureSurface,
