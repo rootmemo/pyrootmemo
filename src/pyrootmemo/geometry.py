@@ -1,12 +1,8 @@
 import numpy as np
 from pyrootmemo.tools.checks import is_namedtuple
 from pyrootmemo.materials import Soil
-from collections import namedtuple
 from pyrootmemo.tools.helpers import units
 from pint import DimensionalityError
-
-
-Parameter = namedtuple("parameter", "value unit")
 
 SOIL_PROFILE_PARAMETERS = {
     "depth": {"type": (float | int), "unit": units("m")},
@@ -20,18 +16,31 @@ FAILURE_SURFACE_PARAMETERS = {
     "cross_sectional_area": {"type": (float | int), "unit": units("m^2")},
 }
 
+UNIT_WEIGHT_WATER = 9.81 * units('kN/m^3')
+
 class SoilProfile:
     def __init__(self, soils, **kwargs):
         """
         Initialize a SoilProfile object with a list of Soil objects and optional parameters.
         This class represents a profile of soils, allowing for the calculation of vertical stress
 
-        Parameters
+        Attributes
         ----------
         soils : pyrootmemo.materials.Soil
             A list of Soil objects representing the different soil layers in the profile.
-        **kwargs : dict
-            Optional parameters for the soil profile, such as depth and groundwater table.
+        depth : pyrootmemo.tools.helpers.Parameter
+            The depth of each soil layer in the profile, specified as a Parameter object.
+        groundwater_table : pyrootmemo.tools.helpers.Parameter
+            The depth of the groundwater table in the profile, specified as a Parameter object.
+        
+        Methods 
+        ------
+        get_soil
+            Returns the Soil object at the specified depth.
+        vertical_stress
+            Calculates the vertical stress at a specific depth in the soil profile.
+        pore_pressure
+            Calculates the pore pressure at a specific depth in the soil profile.
         """
         if not isinstance(soils, list):
             raise TypeError("Soils should be a list of Soil objects")
@@ -82,7 +91,6 @@ class SoilProfile:
 
             setattr(self, k, v.value * units(v.unit))
 
-    # get soil object at specified depth
     def get_soil(
             self,
             depth            
@@ -96,13 +104,12 @@ class SoilProfile:
             The depth at which to retrieve the soil object.
         Returns
         ------- 
-        Soil
-            The Soil object corresponding to the specified depth.
+        soils_deeper : pyrootmemo.materials.Soil
+            Returns the Soil object at the specified depth.
         """
         soils_deeper = [s for s, d in zip(self.soils, self.depth) if d >= depth]
         return(soils_deeper[0])
     
-    # calculate vertical stress at specific depth
     def vertical_stress(
             self,
             depth
@@ -119,14 +126,11 @@ class SoilProfile:
         float
             The vertical stress at the specified depth, in kPa.
         """
-        # depth at top of each layer
         depth_top = np.append(0.0 * units('m'), self.depth[:-1])
-        # thickness of (part of) each layer, above the requested depth
         thickness = (
             np.minimum(self.depth, depth)
             - np.minimum(depth_top, depth)
         )
-        # get thickness contribution of (part of) each layer, but above and below water table
         if depth > self.groundwater_table:
             tmp_above = np.minimum(depth, self.groundwater_table)
             thickness_above = (
@@ -135,32 +139,25 @@ class SoilProfile:
                 )
             thickness_below = thickness - thickness_above
         else:
-            # all above water table
             thickness_above = thickness
             thickness_below = 0.0 * thickness
-        # calculate total stress 
         unit = 'kN/m^3'
-        unit_weight_above = np.array([s.unit_weight_bulk.to(unit).magnitude for s in self.soils]) * units(unit)
-        unit_weight_below = np.array([s.unit_weight_saturated.to(unit).magnitude for s in self.soils]) * units(unit)
+        unit_weight_above = np.array([soil.unit_weight_bulk.to(unit).magnitude for soil in self.soils]) * units(unit)
+        unit_weight_below = np.array([soil.unit_weight_saturated.to(unit).magnitude for soil in self.soils]) * units(unit)
         return(np.sum(
             unit_weight_above * thickness_above
             + unit_weight_below * thickness_below
             ))
     
-    # calculate pore pressure at specific depth
     def pore_pressure(
             self,
             depth,
-            unit_weight_water = 9.81 * units('kN/m^3'),
             direction = 0.0 * units('deg')    # flow direction, relative to the horizontal
             ):
         if depth <= self.groundwater_table:
-            # depth above water table -> retun zero (no suction assumed)
             return(0.0 * units('kPa'))
         else:
-            # below water table -> calculate
-            pore_pressure = unit_weight_water * (depth - self.groundwater_table)
-            # adjust for flow direction, and return
+            pore_pressure = UNIT_WEIGHT_WATER * (depth - self.groundwater_table)
             return(pore_pressure * np.cos(direction)**2)
 
         
