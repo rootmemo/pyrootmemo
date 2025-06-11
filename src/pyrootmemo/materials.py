@@ -48,33 +48,33 @@ class Roots:
     ----------
     species : str
         Name of the species in the format 'genus_species', e.g. 'alnus_incana'.
-    elastic_modulus : float | int
+    elastic_modulus : Parameter(float | int, str)
         Elastic modulus of the root (MPa).
-    diameter : float | int
+    diameter : Parameter(float | int, str)
         Diameter of the root (m).
-    tensile_strength : float | int
+    tensile_strength : Parameter(float | int, str)
         Tensile strength of the root (MPa).
-    yield_strength : float | int
+    yield_strength : Parameter(float | int, str)
         Yield strength of the root (MPa).
-    plastic_modulus : float | int
+    plastic_modulus : Parameter(float | int, str)
         Plastic modulus of the root (MPa).
-    unload_modulus : float | int
+    unload_modulus : Parameter(float | int, str)
         Unload modulus of the root (MPa).
-    length : float | int
+    length : Parameter(float | int, str)
         Length of the root (m).
-    length_surface : float | int
+    length_surface : Parameter(float | int, str)
         Length of the root surface (m).
-    azimuth_angle : float | int
+    azimuth_angle : Parameter(float | int, str)
         Azimuth angle of the root (degrees).
-    elevation_angle : float | int
+    elevation_angle : Parameter(float | int, str)
         Elevation angle of the root (degrees).
-    xsection : float | int
+    xsection : Parameter(float | int, str)
         Cross-sectional area of the root (m^2), calculated as π * (diameter / 2)^2.
-    circumference : float | int
+    circumference : Parameter(float | int, str)
         Circumference of the root (m), calculated as π * diameter.
     initial_orientation_vector : np.ndarray
         A 3D vector representing the initial orientation of the root in space, calculated based on the azimuth and elevation angles.
-    axis_angle : float | int, optional
+    axis_angle : Parameter(float | int, str), optional
         Angle in radians to rotate the initial orientation vector around the z-axis, by default None.
         If None, the initial orientation vector is returned without rotation.
 
