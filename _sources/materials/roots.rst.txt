@@ -7,10 +7,13 @@ The :class:`.Roots` class is imported by::
 
 It is used to represent the roots of a plant, which can be used to model the interaction of the plant with the soil and its environment. 
 
-.. autoclass:: pyrootmemo.materials.Roots
+.. autoclass:: pyrootmemo.tools.helpers.Parameter
     :members:
-    :exclude-members: init
-    :show-inheritance:
+    :no-index: true
+
+.. autoclass:: pyrootmemo.materials.Roots
+    :members: __init__
+    :show-inheritance: true
     :class-doc-from: class
     :no-index: true
 
@@ -45,3 +48,5 @@ The :class:`.MultipleRoots` class is imported by::
     :exclude-members: init
     :show-inheritance:
     :class-doc-from: class
+
+

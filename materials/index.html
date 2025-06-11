@@ -20,7 +20,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Roots" href="roots.html" />
-    <link rel="prev" title="Getting Started" href="../quickstart.html" /> 
+    <link rel="prev" title="Theory" href="../theory.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -46,13 +46,15 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../index.html">Home</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../theory.html">Theory</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Materials</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="roots.html"> Roots</a></li>
-<li class="toctree-l2"><a class="reference internal" href="soil.html"> Soil</a></li>
-<li class="toctree-l2"><a class="reference internal" href="interface.html"> Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="roots.html">Roots</a></li>
+<li class="toctree-l2"><a class="reference internal" href="soil.html">Soil</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interface.html">Interface</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../models/index.html">Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contribute.html">Contributing</a></li>
 </ul>
 
         </div>
@@ -88,277 +90,6 @@
 <li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Soil</span></code>: Creates a soil object with specified parameters</p></li>
 <li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Interface</span></code>: Creates an interface object with specified parameters</p></li>
 </ul>
-<dl class="py data">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">ROOT_PARAMETERS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'azimuth_angle':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'degree')&gt;},</span> <span class="pre">'diameter':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'meter')&gt;},</span> <span class="pre">'elastic_modulus':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'megapascal')&gt;},</span> <span class="pre">'elevation_angle':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'degree')&gt;},</span> <span class="pre">'length':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'meter')&gt;},</span> <span class="pre">'length_surface':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'meter')&gt;},</span> <span class="pre">'plastic_modulus':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'megapascal')&gt;},</span> <span class="pre">'tensile_strength':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'megapascal')&gt;},</span> <span class="pre">'unload_modulus':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'megapascal')&gt;},</span> <span class="pre">'yield_strength':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'megapascal')&gt;}}</span></em></dt>
-<dd><p>A dictionary that maps root parameter names to their types and units.</p>
-</dd></dl>
-
-<dl class="py data">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">SOIL_PARAMETERS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'cohesion':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'kilopascal')&gt;},</span> <span class="pre">'friction_angle':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1,</span> <span class="pre">'degree')&gt;},</span> <span class="pre">'unit_weight_bulk':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1.0,</span> <span class="pre">'kilonewton</span> <span class="pre">/</span> <span class="pre">meter</span> <span class="pre">**</span> <span class="pre">3')&gt;},</span> <span class="pre">'unit_weight_dry':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1.0,</span> <span class="pre">'kilonewton</span> <span class="pre">/</span> <span class="pre">meter</span> <span class="pre">**</span> <span class="pre">3')&gt;},</span> <span class="pre">'unit_weight_saturated':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(1.0,</span> <span class="pre">'kilonewton</span> <span class="pre">/</span> <span class="pre">meter</span> <span class="pre">**</span> <span class="pre">3')&gt;},</span> <span class="pre">'water_content':</span> <span class="pre">{'type':</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int,</span> <span class="pre">'unit':</span> <span class="pre">&lt;Quantity(100.0,</span> <span class="pre">'percent')&gt;}}</span></em></dt>
-<dd><p>A dictionary that maps soil parameter names to their types and units.</p>
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Roots</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">species</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#Roots"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Creates a root object with specified parameters.
-The parameters are defined in the ROOT_PARAMETERS dictionary.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>species</strong> (<em>str</em>) – Name of the species in the format ‘genus_species’, e.g. ‘alnus_incana’.</p></li>
-<li><p><strong>**kwargs</strong> (<em>dict</em>) – Keyword arguments for root parameters. Each key should be a valid parameter name
-from ROOT_PARAMETERS, and the value should be a namedtuple of type Parameter(value, unit). Parameters include:
-- elastic_modulus: Elastic modulus of the root (MPa)
-- diameter: Diameter of the root (m)
-- tensile_strength: Tensile strength of the root (MPa)
-- yield_strength: Yield strength of the root (MPa)
-- plastic_modulus: Plastic modulus of the root (MPa)
-- unload_modulus: Unload modulus of the root (MPa)
-- length: Length of the root (m)
-- length_surface: Length of the root surface (m)
-- azimuth_angle: Azimuth angle of the root (degrees)
-- elevation_angle: Elevation angle of the root (degrees)</p></li>
-</ul>
-</dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><ul class="simple">
-<li><p><strong>TypeError</strong> – Species should be entered as a string, e.g. alnus_incana</p></li>
-<li><p><strong>ValueError</strong> – Species name should be separated with an underscore, e.g. alnus_incana</p></li>
-<li><p><strong>ValueError</strong> – It is suggested to follow botanical nomenclature with genus and species name, e.g. alnus_incana</p></li>
-<li><p><strong>ValueError</strong> – Undefined parameter. Choose one of the following: elastic_modulus, diameter, tensile_strength, yield_strength, plastic_modulus, unload_modulus, length, length_surface, azimuth_angle, elevation_angle</p></li>
-<li><p><strong>TypeError</strong> – Parameter should be of type Parameter(value, unit)</p></li>
-<li><p><strong>TypeError</strong> – Value should be of type float or int or a list</p></li>
-<li><p><strong>TypeError</strong> – Unit should be entered as a string</p></li>
-<li><p><strong>DimensionalityError</strong> – Unit dimensionality does not match the expected dimensionality for the parameter</p></li>
-<li><p><strong>TypeError</strong> – {parameter_name} should only be of type {expected_type} in a list</p></li>
-<li><p><strong>AttributeError</strong> – Diameter is needed to calculate cross-sectional area</p></li>
-<li><p><strong>AttributeError</strong> – Diameter is needed to calculate circumference</p></li>
-</ul>
-</dd>
-</dl>
-<dl class="py method">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">species</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#Roots.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
-<dd><p>Creates a root object with specified parameters.
-The parameters are defined in the ROOT_PARAMETERS dictionary.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>species</strong> (<em>str</em>) – Name of the species in the format ‘genus_species’, e.g. ‘alnus_incana’.</p></li>
-<li><p><strong>**kwargs</strong> (<em>dict</em>) – Keyword arguments for root parameters. Each key should be a valid parameter name
-from ROOT_PARAMETERS, and the value should be a namedtuple of type Parameter(value, unit). Parameters include:
-- elastic_modulus: Elastic modulus of the root (MPa)
-- diameter: Diameter of the root (m)
-- tensile_strength: Tensile strength of the root (MPa)
-- yield_strength: Yield strength of the root (MPa)
-- plastic_modulus: Plastic modulus of the root (MPa)
-- unload_modulus: Unload modulus of the root (MPa)
-- length: Length of the root (m)
-- length_surface: Length of the root surface (m)
-- azimuth_angle: Azimuth angle of the root (degrees)
-- elevation_angle: Elevation angle of the root (degrees)</p></li>
-</ul>
-</dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><ul class="simple">
-<li><p><strong>TypeError</strong> – Species should be entered as a string, e.g. alnus_incana</p></li>
-<li><p><strong>ValueError</strong> – Species name should be separated with an underscore, e.g. alnus_incana</p></li>
-<li><p><strong>ValueError</strong> – It is suggested to follow botanical nomenclature with genus and species name, e.g. alnus_incana</p></li>
-<li><p><strong>ValueError</strong> – Undefined parameter. Choose one of the following: elastic_modulus, diameter, tensile_strength, yield_strength, plastic_modulus, unload_modulus, length, length_surface, azimuth_angle, elevation_angle</p></li>
-<li><p><strong>TypeError</strong> – Parameter should be of type Parameter(value, unit)</p></li>
-<li><p><strong>TypeError</strong> – Value should be of type float or int or a list</p></li>
-<li><p><strong>TypeError</strong> – Unit should be entered as a string</p></li>
-<li><p><strong>DimensionalityError</strong> – Unit dimensionality does not match the expected dimensionality for the parameter</p></li>
-<li><p><strong>TypeError</strong> – {parameter_name} should only be of type {expected_type} in a list</p></li>
-<li><p><strong>AttributeError</strong> – Diameter is needed to calculate cross-sectional area</p></li>
-<li><p><strong>AttributeError</strong> – Diameter is needed to calculate circumference</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">initial_orientation_vector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">axis_angle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#Roots.initial_orientation_vector"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
-<dd><p>Returns the initial orientation vector of the root in 3D space.
-The vector is calculated based on the azimuth and elevation angles of the root.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>axis_angle</strong> (<em>float</em><em>  |  </em><em>int</em><em>, </em><em>optional</em>) – Angle in radians to rotate the initial orientation vector around the z-axis, by default None.
-If None, the initial orientation vector is returned without rotation.</p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>A 3D vector representing the initial orientation of the root in space.
-The vector is of shape (1, 3) and contains the x, y, and z components.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>np.ndarray</p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Soil</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uscs_classification</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">usda_classification</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#Soil"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Creates a soil object with specified parameters.
-The parameters are defined in the SOIL_PARAMETERS dictionary: cohesion, friction_angle, unit_weight_bulk, unit_weight_dry, unit_weight_saturated, water_content.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>name</strong> (<em>str</em>) – Name of the soil, e.g. ‘silty_sand’.</p></li>
-<li><p><strong>uscs_classification</strong> (<em>str</em><em>, </em><em>optional</em>) – uscs classification of the soil, by default None</p></li>
-<li><p><strong>usda_classification</strong> (<em>str</em><em>, </em><em>optional</em>) – usda classification of the soil, by default None</p></li>
-</ul>
-</dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><ul class="simple">
-<li><p><strong>TypeError</strong> – Soil name should be entered as a string</p></li>
-<li><p><strong>ValueError</strong> – Undefined parameter. Choose one of the following: cohesion, friction_angle, unit_weight_bulk, unit_weight_dry, unit_weight_saturated, water_content</p></li>
-<li><p><strong>TypeError</strong> – Parameter should be of type Parameter(value, unit)</p></li>
-<li><p><strong>TypeError</strong> – Value should be of type float or int or a list</p></li>
-<li><p><strong>TypeError</strong> – Unit should be entered as a string</p></li>
-<li><p><strong>DimensionalityError</strong> – Unit dimensionality does not match the expected dimensionality for the parameter</p></li>
-<li><p><strong>TypeError</strong> – Parameter chosen is not of the expected type in a list</p></li>
-</ul>
-</dd>
-</dl>
-<dl class="py method">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uscs_classification</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">usda_classification</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#Soil.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
-<dd><p>Creates a soil object with specified parameters.
-The parameters are defined in the SOIL_PARAMETERS dictionary: cohesion, friction_angle, unit_weight_bulk, unit_weight_dry, unit_weight_saturated, water_content.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>name</strong> (<em>str</em>) – Name of the soil, e.g. ‘silty_sand’.</p></li>
-<li><p><strong>uscs_classification</strong> (<em>str</em><em>, </em><em>optional</em>) – uscs classification of the soil, by default None</p></li>
-<li><p><strong>usda_classification</strong> (<em>str</em><em>, </em><em>optional</em>) – usda classification of the soil, by default None</p></li>
-</ul>
-</dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><ul class="simple">
-<li><p><strong>TypeError</strong> – Soil name should be entered as a string</p></li>
-<li><p><strong>ValueError</strong> – Undefined parameter. Choose one of the following: cohesion, friction_angle, unit_weight_bulk, unit_weight_dry, unit_weight_saturated, water_content</p></li>
-<li><p><strong>TypeError</strong> – Parameter should be of type Parameter(value, unit)</p></li>
-<li><p><strong>TypeError</strong> – Value should be of type float or int or a list</p></li>
-<li><p><strong>TypeError</strong> – Unit should be entered as a string</p></li>
-<li><p><strong>DimensionalityError</strong> – Unit dimensionality does not match the expected dimensionality for the parameter</p></li>
-<li><p><strong>TypeError</strong> – Parameter chosen is not of the expected type in a list</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Interface</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#Interface"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Creates an soil-root interface object with specified parameters.</p>
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">shear_strength</span></span></dt>
-<dd><p>Shear strength of the interface (kPa).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float | int</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">adhesion</span></span></dt>
-<dd><p>Adhesion of the interface (kPa).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float | int</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">friction_angle</span></span></dt>
-<dd><p>Friction angle of the interface (degrees).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float | int</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">effective_stress</span></span></dt>
-<dd><p>Effective stress of the interface (kPa).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float | int</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#Interface.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
-<dd><p>Creates an soil-root interface object with specified parameters.</p>
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">shear_strength</span></span></dt>
-<dd><p>Shear strength of the interface (kPa).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float | int</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">adhesion</span></span></dt>
-<dd><p>Adhesion of the interface (kPa).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float | int</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">friction_angle</span></span></dt>
-<dd><p>Friction angle of the interface (degrees).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float | int</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">effective_stress</span></span></dt>
-<dd><p>Effective stress of the interface (kPa).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float | int</p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-</dd></dl>
-
 <div class="toctree-wrapper compound">
 </div>
 </section>
@@ -367,7 +98,7 @@ The parameters are defined in the SOIL_PARAMETERS dictionary: cohesion, friction
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="../quickstart.html" class="btn btn-neutral float-left" title="Getting Started" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../theory.html" class="btn btn-neutral float-left" title="Theory" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="roots.html" class="btn btn-neutral float-right" title="Roots" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

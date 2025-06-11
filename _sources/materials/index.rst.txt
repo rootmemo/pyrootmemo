@@ -12,18 +12,11 @@ Currently implemented classes are:
 
 * :class:`.Interface`: Creates an interface object with specified parameters
 
-.. automodule:: pyrootmemo.materials
-   :members: Roots, Soil, Interface, ROOT_PARAMETERS, SOIL_PARAMETERS, INTERFACE_PARAMETERS
-   :undoc-members:
-   :show-inheritance:
-   :exclude-members: init
-   :noindex: true
-
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :hidden:
    :caption: Materials
 
-    Roots <roots>
-    Soil <soil>
-    Interface <interface>
+   Roots <roots>
+   Soil <soil>
+   Interface <interface>

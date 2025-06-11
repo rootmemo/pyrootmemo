@@ -46,8 +46,9 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../index.html">Home</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../theory.html">Theory</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Materials</a><ul class="current">
-<li class="toctree-l2 current"><a class="current reference internal" href="#"> Roots</a><ul>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Roots</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#singleroot">SingleRoot</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#pyrootmemo.materials.SingleRoot"><code class="docutils literal notranslate"><span class="pre">SingleRoot</span></code></a></li>
 </ul>
@@ -58,11 +59,12 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="soil.html"> Soil</a></li>
-<li class="toctree-l2"><a class="reference internal" href="interface.html"> Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="soil.html">Soil</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interface.html">Interface</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../models/index.html">Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contribute.html">Contributing</a></li>
 </ul>
 
         </div>
@@ -97,6 +99,15 @@
 </pre></div>
 </div>
 <p>It is used to represent the roots of a plant, which can be used to model the interaction of the plant with the soil and its environment.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">Parameter</span></span></dt>
+<dd><p>Parameter is a named tuple that holds a value and its unit
+It is used to store physical quantities with their respective units
+This allows for better organization and readability of code
+Example usage: Parameter(value=1, unit=’m’)</p>
+</dd></dl>
+
 <dl class="py class">
 <dt class="sig sig-object py">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Roots</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">species</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#Roots"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
@@ -121,7 +132,7 @@ It allows for a single root or multiple roots to be created, depending on the cl
 <dd><p>Elastic modulus of the root (MPa).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float | int</p>
+<dd class="field-odd"><p>Parameter(float | int, str)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -132,7 +143,7 @@ It allows for a single root or multiple roots to be created, depending on the cl
 <dd><p>Diameter of the root (m).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float | int</p>
+<dd class="field-odd"><p>Parameter(float | int, str)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -143,7 +154,7 @@ It allows for a single root or multiple roots to be created, depending on the cl
 <dd><p>Tensile strength of the root (MPa).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float | int</p>
+<dd class="field-odd"><p>Parameter(float | int, str)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -154,7 +165,7 @@ It allows for a single root or multiple roots to be created, depending on the cl
 <dd><p>Yield strength of the root (MPa).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float | int</p>
+<dd class="field-odd"><p>Parameter(float | int, str)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -165,7 +176,7 @@ It allows for a single root or multiple roots to be created, depending on the cl
 <dd><p>Plastic modulus of the root (MPa).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float | int</p>
+<dd class="field-odd"><p>Parameter(float | int, str)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -176,7 +187,7 @@ It allows for a single root or multiple roots to be created, depending on the cl
 <dd><p>Unload modulus of the root (MPa).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float | int</p>
+<dd class="field-odd"><p>Parameter(float | int, str)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -187,7 +198,7 @@ It allows for a single root or multiple roots to be created, depending on the cl
 <dd><p>Length of the root (m).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float | int</p>
+<dd class="field-odd"><p>Parameter(float | int, str)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -198,7 +209,7 @@ It allows for a single root or multiple roots to be created, depending on the cl
 <dd><p>Length of the root surface (m).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float | int</p>
+<dd class="field-odd"><p>Parameter(float | int, str)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -209,7 +220,7 @@ It allows for a single root or multiple roots to be created, depending on the cl
 <dd><p>Azimuth angle of the root (degrees).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float | int</p>
+<dd class="field-odd"><p>Parameter(float | int, str)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -220,7 +231,7 @@ It allows for a single root or multiple roots to be created, depending on the cl
 <dd><p>Elevation angle of the root (degrees).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float | int</p>
+<dd class="field-odd"><p>Parameter(float | int, str)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -231,7 +242,7 @@ It allows for a single root or multiple roots to be created, depending on the cl
 <dd><p>Cross-sectional area of the root (m^2), calculated as π * (diameter / 2)^2.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float | int</p>
+<dd class="field-odd"><p>Parameter(float | int, str)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -242,7 +253,7 @@ It allows for a single root or multiple roots to be created, depending on the cl
 <dd><p>Circumference of the root (m), calculated as π * diameter.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float | int</p>
+<dd class="field-odd"><p>Parameter(float | int, str)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -265,7 +276,7 @@ It allows for a single root or multiple roots to be created, depending on the cl
 If None, the initial orientation vector is returned without rotation.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float | int, optional</p>
+<dd class="field-odd"><p>Parameter(float | int, str), optional</p>
 </dd>
 </dl>
 </dd></dl>
@@ -315,26 +326,6 @@ from ROOT_PARAMETERS, and the value should be a namedtuple of type Parameter(val
 <li><p><strong>AttributeError</strong> – Diameter is needed to calculate cross-sectional area</p></li>
 <li><p><strong>AttributeError</strong> – Diameter is needed to calculate circumference</p></li>
 </ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">initial_orientation_vector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">axis_angle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#Roots.initial_orientation_vector"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
-<dd><p>Returns the initial orientation vector of the root in 3D space.
-The vector is calculated based on the azimuth and elevation angles of the root.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>axis_angle</strong> (<em>float</em><em>  |  </em><em>int</em><em>, </em><em>optional</em>) – Angle in radians to rotate the initial orientation vector around the z-axis, by default None.
-If None, the initial orientation vector is returned without rotation.</p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>A 3D vector representing the initial orientation of the root in space.
-The vector is of shape (1, 3) and contains the x, y, and z components.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>np.ndarray</p>
 </dd>
 </dl>
 </dd></dl>

@@ -43,8 +43,10 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../index.html">Home</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../theory.html">Theory</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../materials/index.html">Materials</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../models/index.html">Models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contribute.html">Contributing</a></li>
 </ul>
 
         </div>
@@ -124,33 +126,33 @@
 <span class="sd">    ----------</span>
 <span class="sd">    species : str</span>
 <span class="sd">        Name of the species in the format &#39;genus_species&#39;, e.g. &#39;alnus_incana&#39;.</span>
-<span class="sd">    elastic_modulus : float | int</span>
+<span class="sd">    elastic_modulus : Parameter(float | int, str)</span>
 <span class="sd">        Elastic modulus of the root (MPa).</span>
-<span class="sd">    diameter : float | int</span>
+<span class="sd">    diameter : Parameter(float | int, str)</span>
 <span class="sd">        Diameter of the root (m).</span>
-<span class="sd">    tensile_strength : float | int</span>
+<span class="sd">    tensile_strength : Parameter(float | int, str)</span>
 <span class="sd">        Tensile strength of the root (MPa).</span>
-<span class="sd">    yield_strength : float | int</span>
+<span class="sd">    yield_strength : Parameter(float | int, str)</span>
 <span class="sd">        Yield strength of the root (MPa).</span>
-<span class="sd">    plastic_modulus : float | int</span>
+<span class="sd">    plastic_modulus : Parameter(float | int, str)</span>
 <span class="sd">        Plastic modulus of the root (MPa).</span>
-<span class="sd">    unload_modulus : float | int</span>
+<span class="sd">    unload_modulus : Parameter(float | int, str)</span>
 <span class="sd">        Unload modulus of the root (MPa).</span>
-<span class="sd">    length : float | int</span>
+<span class="sd">    length : Parameter(float | int, str)</span>
 <span class="sd">        Length of the root (m).</span>
-<span class="sd">    length_surface : float | int</span>
+<span class="sd">    length_surface : Parameter(float | int, str)</span>
 <span class="sd">        Length of the root surface (m).</span>
-<span class="sd">    azimuth_angle : float | int</span>
+<span class="sd">    azimuth_angle : Parameter(float | int, str)</span>
 <span class="sd">        Azimuth angle of the root (degrees).</span>
-<span class="sd">    elevation_angle : float | int</span>
+<span class="sd">    elevation_angle : Parameter(float | int, str)</span>
 <span class="sd">        Elevation angle of the root (degrees).</span>
-<span class="sd">    xsection : float | int</span>
+<span class="sd">    xsection : Parameter(float | int, str)</span>
 <span class="sd">        Cross-sectional area of the root (m^2), calculated as π * (diameter / 2)^2.</span>
-<span class="sd">    circumference : float | int</span>
+<span class="sd">    circumference : Parameter(float | int, str)</span>
 <span class="sd">        Circumference of the root (m), calculated as π * diameter.</span>
 <span class="sd">    initial_orientation_vector : np.ndarray</span>
 <span class="sd">        A 3D vector representing the initial orientation of the root in space, calculated based on the azimuth and elevation angles.</span>
-<span class="sd">    axis_angle : float | int, optional</span>
+<span class="sd">    axis_angle : Parameter(float | int, str), optional</span>
 <span class="sd">        Angle in radians to rotate the initial orientation vector around the z-axis, by default None.</span>
 <span class="sd">        If None, the initial orientation vector is returned without rotation.</span>
 

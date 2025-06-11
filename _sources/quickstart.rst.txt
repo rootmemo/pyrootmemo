@@ -1,6 +1,9 @@
 Getting Started
 ===============
 
+.. note::
+   This documentation is a work in progress. If you have any suggestions or find any issues, please feel free to :ref:`contribute <sec-contribute>` !
+
 Overview
 --------
 
