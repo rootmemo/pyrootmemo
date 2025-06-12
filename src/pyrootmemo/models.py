@@ -122,8 +122,15 @@ class Fbm():
     """
     Class for fibre bundle models.
     
-    This class uses the "matrix" method as described in Yildiz & Meijer. This
-    method follows the following steps:
+    Fibre bundle models assume the total force carried by the 'bundle' of
+    individual roots is distributed according to a load sharing factor. The
+    ratio in forces between two intact roots is equal to the ratio of their
+    diameters to the power of the (dimensionless) load sharing coefficient.
+
+    The traditional implementation by Pollen & Simon (2005) uses an iterative
+    algorithm, incrementally increasing the force until all roots have broken.
+    This class instead uses the "matrix" method as described in Yildiz & 
+    Meijer. This method follows the following steps:
     
     1. Roots are sorted in order of breakage. The 'sorting order', i.e. the 
        list of indices to sort root properties into the correct order, is 
@@ -134,14 +141,14 @@ class Fbm():
     2. A matrix is generated that calculates the force in every root (rows), 
        at the moment of breakage of any root (columns). This matrix is stored
        as the class attribute 'matrix', and assumes roots have already been 
-       sorted in order of breakage
+       sorted in order of breakage.
        
     3. Peak forces can now easily be termined by finding the column in the 
-       matrix that has the largest sum of forces
+       matrix that has the largest sum of forces.
        
     Attributes
     ----------
-    roots
+    roots : pyrootmemo.materials.MultipleRoots
         MultipleRoots object containing properties of all roots in bundle
     load_sharing
         Load sharing value used
@@ -164,7 +171,7 @@ class Fbm():
     reduction_factor()
         FBMw reinforcement relative to WWM reinforcement
     plot(**kwargs)
-        Generate plot showing how reinforcements mobilises
+        Generate plot showing how reinforcement mobilises
     """
     
     # initialise class
@@ -177,7 +184,7 @@ class Fbm():
 
         Parameters
         ----------
-        roots : MultipleRoots
+        roots : pyrootmemo.materials.MultipleRoots
             MultipleRoots object containing root properties. Must contain 
             attributes 'diameter', 'xsection' and 'tensile_strength'
         load_sharing : float | int
@@ -227,7 +234,9 @@ class Fbm():
         """Create force matrix
 
         Generate matrix for force in each root (rows) at breakage of each 
-        root (columns). Assumes roots are sorted in order of breakage.
+        root (columns). Assumes roots are pre-sorted in order of breakage, 
+        so that broken roots can be easily removed by only keeping the 
+        lower triangle of the matrix.
         """
         # root capacity (force)
         force = self._tensile_capacity()
@@ -290,7 +299,7 @@ class Fbm():
             raise AttributeError('Failure surface does not contain attribute cross_sectional_area')
         # check k-factor
         if not (isinstance(k, int) | isinstance(k, float)):
-            TypeError('k must be an scalar integer or float')
+            raise TypeError('k must be an scalar integer or float')
         # return
         return(k * self.peak_force() / failure_surface.cross_sectional_area)
     
@@ -468,6 +477,18 @@ class Rbmw():
     """
     Class for Root Bundle Model Weibull (RBMw).
     
+    The Root Bundle Model (Weibull) is a displacement-driven reinforcement 
+    model developed by Schwarz et al (2013). Breakage of roots is taken 
+    into account through a Weibull survival function, calculating the 
+    likelihood that a root is still intact given the current loading.
+    
+    While Schwarz et al. set both the Weibull shape and scale parameter 
+    independently, the implementation in this code automatically infers the 
+    correct scale parameter from the root biomechanical properties instead to
+    avoid overfitting. It is still possible to manually set the weibull scale
+    parameter but realise that in this case the average strength of a root
+    no longer matches the average strength defined in the 'roots' object.
+
     Attributes
     ----------
     roots
@@ -521,32 +542,34 @@ class Rbmw():
         """
         # check if roots of correct class
         if not isinstance(roots, MultipleRoots):
-            TypeError('roots must be instance of class MultipleRoots')
+            raise TypeError('roots must be instance of class MultipleRoots')
+        # calculate weibull scale parameter (if not already explicitly defined)
+        if weibull_scale is None: 
+            self.weibull_scale = 1.0 / gamma(1.0 + 1.0 / weibull_shape)
+            root_attributes_required = ['xsection', 'tensile_strength', 'length', 'elastic_modulus']
+        else:
+            if not (isinstance(weibull_scale, float) | isinstance(weibull_scale, int)):
+                raise ValueError('weibull_scale must be a scalar value or None')
+            if weibull_scale <= 0.0:
+                raise ValueError('weibull_shape must exceed zero')
+            if np.isinf(weibull_scale):
+                raise ValueError('weibull_shape must have a finite value')
+            self.weibull_scale = weibull_scale
+            root_attributes_required = ['xsection', 'length', 'elastic_modulus']
         # check if roots contains all required instances
-        attributes_required = ['xsection', 'tensile_strength', 'length', 'elastic_modulus']
-        for i in attributes_required:
+        for i in root_attributes_required:
             if not hasattr(roots, i):
-                AttributeError('roots must contain ' + i + ' values')
+                raise AttributeError('roots must contain ' + i + ' values')
         # set roots
         self.roots = roots
         # check and set weibull shape parameter
         if not (isinstance(weibull_shape, float) | isinstance(weibull_shape, int)):
-            ValueError('weibull_shape must be a scalar value')
+            raise ValueError('weibull_shape must be a scalar value')
         if weibull_shape <= 0.0:
-            ValueError('weibull_shape must exceed zero ')
+            raise ValueError('weibull_shape must exceed zero ')
         if np.isinf(weibull_shape):
-            ValueError('weibull_shape must have a finite value')
+            raise ValueError('weibull_shape must have a finite value')
         self.weibull_shape = weibull_shape
-        # calculate weibull scale parameter (if not already explicitly defined)
-        if weibull_scale is None: 
-            self.weibull_scale = 1. / gamma(1. + 1. / weibull_shape)
-        else:
-            if not (isinstance(weibull_scale, float) | isinstance(weibull_scale, int)):
-                ValueError('weibull_scale must be a scalar value')
-            if weibull_scale <= 0.0:
-                ValueError('weibull_shape must exceed zero')
-            if np.isinf(weibull_scale):
-                ValueError('weibull_shape must have a finite value')
 
     # forces in roots at current level of axial displacement
     def force(
@@ -782,9 +805,9 @@ class Rbmw():
         """
         # check cross-sectional area correctly defined
         if not isinstance(failure_surface, FailureSurface):
-            TypeError('failure_surface must be intance of FailureSurface class')
+            raise TypeError('failure_surface must be intance of FailureSurface class')
         if not hasattr(failure_surface, 'cross_sectional_area'):
-            AttributeError('failure_surface must contain attribute "cross_sectional_area"')
+            raise AttributeError('failure_surface must contain attribute "cross_sectional_area"')
         # check k-value
         if not(isinstance(k, int) | isinstance(k, float)):
             raise TypeError('k must be scalar integer or float')
@@ -1021,13 +1044,13 @@ class _DirectShear():
         """
         # check instances are of the correct class
         if not isinstance(roots, MultipleRoots):
-            TypeError('roots must be instance of class MultipleRoots')
+            raise TypeError('roots must be instance of class MultipleRoots')
         if not isinstance(interface, Interface):
-            TypeError('interface must be instance of class Interface')
+            raise TypeError('interface must be instance of class Interface')
         if not isinstance(soil_profile, SoilProfile):
-            TypeError('soil_profile must be instance of class SoilProfile')
+            raise TypeError('soil_profile must be instance of class SoilProfile')
         if not isinstance(failure_surface, FailureSurface):
-            TypeError('failure_surface must be instance of class FailureSurface')
+            raise TypeError('failure_surface must be instance of class FailureSurface')
         # assign input
         self.roots = roots
         self.interface = interface
