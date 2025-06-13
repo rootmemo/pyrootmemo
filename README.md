@@ -5,6 +5,7 @@
 ![GitHub Repo stars](https://img.shields.io/github/stars/rootmemo/pyrootmemo)
 ![Read the Docs](https://img.shields.io/readthedocs/pyrootmemo)
 
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/rootmemo/pyrootmemo.git/sbee2025)
 
 # pyrootmemo
 
