@@ -1,7 +1,7 @@
 import numpy as np
 from pyrootmemo.tools.checks import is_namedtuple
 from pyrootmemo.materials import Soil
-from pyrootmemo.tools.helpers import units
+from pyrootmemo.helpers import units
 from pint import DimensionalityError
 
 SOIL_PROFILE_PARAMETERS = {
