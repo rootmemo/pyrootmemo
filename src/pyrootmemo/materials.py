@@ -2,7 +2,7 @@ import numpy as np
 from pyrootmemo.tools.checks import is_namedtuple
 from pint import DimensionalityError
 from collections import namedtuple
-from pyrootmemo.helpers import units
+from pyrootmemo.tools.helpers import units
 
 Parameter = namedtuple("parameter", "value unit")
 
