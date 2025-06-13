@@ -9,3 +9,7 @@ dependencies:
   - ipykernel
   - pint
   - pandas
+  - pip
+   - pip:
+     - git+https://github.com/rootmemo/pyrootmemo.git
+  
