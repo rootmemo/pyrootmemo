@@ -2,7 +2,7 @@ import numpy as np
 from pyrootmemo.tools.checks import is_namedtuple
 from pint import DimensionalityError
 from collections import namedtuple
-from pyrootmemo.tools.helpers import units
+from pyrootmemo.helpers import units
 
 Parameter = namedtuple("parameter", "value unit")
 
@@ -171,17 +171,11 @@ class Roots:
 
             setattr(self, k, v.value * units(v.unit))
 
-            if hasattr(self, "diameter"):
-                self.xsection = np.pi * self.diameter**2 / 4
-            else:
-                raise AttributeError(
-                    "Diameter is needed to calculate cross-sectional area"
-                )
-
-            if hasattr(self, "diameter"):
-                self.circumference = np.pi * self.diameter
-            else:
-                raise AttributeError("Diameter is needed to calculate circumference")
+        if hasattr(self, "diameter"):
+            self.xsection = np.pi * (self.diameter / 2)**2
+            self.circumference = np.pi * self.diameter
+        else:
+            raise AttributeError("Diameter is needed to calculate cross-sectional area and circumference")
             
     def initial_orientation_vector(
             self,
