@@ -10,6 +10,6 @@ dependencies:
   - pint
   - pandas
   - pip
-   - pip:
-     - git+https://github.com/rootmemo/pyrootmemo.git
+  - pip:
+    - git+https://github.com/rootmemo/pyrootmemo.git
   
