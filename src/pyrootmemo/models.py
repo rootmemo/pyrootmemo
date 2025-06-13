@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from scipy.special import gamma
 from scipy.optimize import minimize, differential_evolution
-from pyrootmemo.tools.helpers import units
+from pyrootmemo.helpers import units
 from pyrootmemo.geometry import SoilProfile, FailureSurface
 from pyrootmemo.materials import MultipleRoots, Interface
 from pyrootmemo.pullout import PulloutEmbeddedElastic, PulloutEmbeddedElasticSlipping, PulloutEmbeddedElasticBreakage, PulloutEmbeddedElasticBreakageSlipping, PulloutEmbeddedElastoplastic, PulloutEmbeddedElastoplasticSlipping, PulloutEmbeddedElastoplasticBreakage, PulloutEmbeddedElastoplasticBreakageSlipping

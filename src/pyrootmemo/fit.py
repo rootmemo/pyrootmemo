@@ -34,7 +34,7 @@ from scipy.spatial import ConvexHull
 from pint import Quantity
 from pint.errors import DimensionalityError
 from pyrootmemo.tools.utils_plot import round_range
-from pyrootmemo.tools.helpers import units
+from pyrootmemo.helpers import units
 from pint import Quantity
 import warnings
 

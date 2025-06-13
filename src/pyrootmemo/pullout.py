@@ -2,7 +2,7 @@
 import numpy as np
 from scipy.special import gamma
 import matplotlib.pyplot as plt
-from pyrootmemo.tools.helpers import units
+from pyrootmemo.helpers import units
 from pint import Quantity
 
 
