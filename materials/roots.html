@@ -49,14 +49,8 @@
 <li class="toctree-l1"><a class="reference internal" href="../theory.html">Theory</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Materials</a><ul class="current">
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Roots</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#singleroot">SingleRoot</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#pyrootmemo.materials.SingleRoot"><code class="docutils literal notranslate"><span class="pre">SingleRoot</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#multipleroots">MultipleRoots</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#pyrootmemo.materials.MultipleRoots"><code class="docutils literal notranslate"><span class="pre">MultipleRoots</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l3"><a class="reference internal" href="#singleroot">SingleRoot</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#multipleroots">MultipleRoots</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="soil.html">Soil</a></li>
@@ -109,274 +103,24 @@ This allows for better organization and readability of code
 Example usage: Parameter(value=1, unit=’m’)</p>
 </dd></dl>
 
-<dl class="py class">
-<dt class="sig sig-object py">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Roots</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">species</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#Roots"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<p>Roots class is used to create a root object with specified parameters.
-The parameters are defined in the ROOT_PARAMETERS dictionary: elastic_modulus, diameter, tensile_strength, yield_strength, plastic_modulus, unload_modulus, length, length_surface, azimuth_angle, elevation_angle.
-It allows for a single root or multiple roots to be created, depending on the class used (SingleRoot or MultipleRoots).</p>
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">species</span></span></dt>
-<dd><p>Name of the species in the format ‘genus_species’, e.g. ‘alnus_incana’.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>str</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">elastic_modulus</span></span></dt>
-<dd><p>Elastic modulus of the root (MPa).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Parameter(float | int, str)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">diameter</span></span></dt>
-<dd><p>Diameter of the root (m).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Parameter(float | int, str)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">tensile_strength</span></span></dt>
-<dd><p>Tensile strength of the root (MPa).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Parameter(float | int, str)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">yield_strength</span></span></dt>
-<dd><p>Yield strength of the root (MPa).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Parameter(float | int, str)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">plastic_modulus</span></span></dt>
-<dd><p>Plastic modulus of the root (MPa).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Parameter(float | int, str)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">unload_modulus</span></span></dt>
-<dd><p>Unload modulus of the root (MPa).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Parameter(float | int, str)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">length</span></span></dt>
-<dd><p>Length of the root (m).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Parameter(float | int, str)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">length_surface</span></span></dt>
-<dd><p>Length of the root surface (m).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Parameter(float | int, str)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">azimuth_angle</span></span></dt>
-<dd><p>Azimuth angle of the root (degrees).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Parameter(float | int, str)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">elevation_angle</span></span></dt>
-<dd><p>Elevation angle of the root (degrees).</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Parameter(float | int, str)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">xsection</span></span></dt>
-<dd><p>Cross-sectional area of the root (m^2), calculated as π * (diameter / 2)^2.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Parameter(float | int, str)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">circumference</span></span></dt>
-<dd><p>Circumference of the root (m), calculated as π * diameter.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Parameter(float | int, str)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">initial_orientation_vector</span></span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#Roots.initial_orientation_vector"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
-<dd><p>A 3D vector representing the initial orientation of the root in space, calculated based on the azimuth and elevation angles.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>np.ndarray</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">axis_angle</span></span></dt>
-<dd><p>Angle in radians to rotate the initial orientation vector around the z-axis, by default None.
-If None, the initial orientation vector is returned without rotation.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Parameter(float | int, str), optional</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">initial_orientation_vector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">axis_angle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">np.ndarray</span></span></span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#Roots.initial_orientation_vector"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
-<dd><p>Returns the initial orientation vector of the root in 3D space.
-The vector is calculated based on the azimuth and elevation angles of the root.
-If axis_angle is provided, the vector is rotated around the z-axis by that angle.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">species</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#Roots.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a></dt>
-<dd><p>Creates a root object with specified parameters.
-The parameters are defined in the ROOT_PARAMETERS dictionary.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>species</strong> (<em>str</em>) – Name of the species in the format ‘genus_species’, e.g. ‘alnus_incana’.</p></li>
-<li><p><strong>**kwargs</strong> (<em>dict</em>) – Keyword arguments for root parameters. Each key should be a valid parameter name
-from ROOT_PARAMETERS, and the value should be a namedtuple of type Parameter(value, unit). Parameters include:
-- elastic_modulus: Elastic modulus of the root (MPa)
-- diameter: Diameter of the root (m)
-- tensile_strength: Tensile strength of the root (MPa)
-- yield_strength: Yield strength of the root (MPa)
-- plastic_modulus: Plastic modulus of the root (MPa)
-- unload_modulus: Unload modulus of the root (MPa)
-- length: Length of the root (m)
-- length_surface: Length of the root surface (m)
-- azimuth_angle: Azimuth angle of the root (degrees)
-- elevation_angle: Elevation angle of the root (degrees)</p></li>
-</ul>
-</dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><ul class="simple">
-<li><p><strong>TypeError</strong> – Species should be entered as a string, e.g. alnus_incana</p></li>
-<li><p><strong>ValueError</strong> – Species name should be separated with an underscore, e.g. alnus_incana</p></li>
-<li><p><strong>ValueError</strong> – It is suggested to follow botanical nomenclature with genus and species name, e.g. alnus_incana</p></li>
-<li><p><strong>ValueError</strong> – Undefined parameter. Choose one of the following: elastic_modulus, diameter, tensile_strength, yield_strength, plastic_modulus, unload_modulus, length, length_surface, azimuth_angle, elevation_angle</p></li>
-<li><p><strong>TypeError</strong> – Parameter should be of type Parameter(value, unit)</p></li>
-<li><p><strong>TypeError</strong> – Value should be of type float or int or a list</p></li>
-<li><p><strong>TypeError</strong> – Unit should be entered as a string</p></li>
-<li><p><strong>DimensionalityError</strong> – Unit dimensionality does not match the expected dimensionality for the parameter</p></li>
-<li><p><strong>TypeError</strong> – {parameter_name} should only be of type {expected_type} in a list</p></li>
-<li><p><strong>AttributeError</strong> – Diameter is needed to calculate cross-sectional area</p></li>
-<li><p><strong>AttributeError</strong> – Diameter is needed to calculate circumference</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
 <p><code class="xref py py-class docutils literal notranslate"><span class="pre">Roots</span></code> has two subclasses:</p>
 <ul class="simple">
-<li><p><a class="reference internal" href="#pyrootmemo.materials.SingleRoot" title="pyrootmemo.materials.SingleRoot"><code class="xref py py-class docutils literal notranslate"><span class="pre">SingleRoot</span></code></a>: Represents a single root with specific parameters.</p></li>
-<li><p><a class="reference internal" href="#pyrootmemo.materials.MultipleRoots" title="pyrootmemo.materials.MultipleRoots"><code class="xref py py-class docutils literal notranslate"><span class="pre">MultipleRoots</span></code></a>: Represents a system of roots, which can include multiple roots with different parameters.</p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">SingleRoot</span></code>: Represents a single root with specific parameters.</p></li>
+<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">MultipleRoots</span></code>: Represents a system of roots, which can include multiple roots with different parameters.</p></li>
 </ul>
 <section id="singleroot">
 <h2>SingleRoot<a class="headerlink" href="#singleroot" title="Link to this heading"></a></h2>
-<p>The <a class="reference internal" href="#pyrootmemo.materials.SingleRoot" title="pyrootmemo.materials.SingleRoot"><code class="xref py py-class docutils literal notranslate"><span class="pre">SingleRoot</span></code></a> class is imported by:</p>
+<p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">SingleRoot</span></code> class is imported by:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pyrootmemo.materials</span><span class="w"> </span><span class="kn">import</span> <span class="n">SingleRoot</span>
 </pre></div>
 </div>
-<dl class="py class">
-<dt class="sig sig-object py" id="pyrootmemo.materials.SingleRoot">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">SingleRoot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#SingleRoot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyrootmemo.materials.SingleRoot" title="Link to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Roots</span></code></p>
-<p>SingleRoot class inherits from Roots and is used to create a single root object with specified parameters.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="pyrootmemo.materials.SingleRoot.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#SingleRoot.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyrootmemo.materials.SingleRoot.__init__" title="Link to this definition"></a></dt>
-<dd><p>Creates a single root object with specified parameters.
-The parameters are defined in the ROOT_PARAMETERS dictionary.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>TypeError</strong> – SingleRoot class cannot have multiple values for parameters other than species. Use MultipleRoots class instead.</p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
 </section>
 <section id="multipleroots">
 <h2>MultipleRoots<a class="headerlink" href="#multipleroots" title="Link to this heading"></a></h2>
-<p>The <a class="reference internal" href="#pyrootmemo.materials.MultipleRoots" title="pyrootmemo.materials.MultipleRoots"><code class="xref py py-class docutils literal notranslate"><span class="pre">MultipleRoots</span></code></a> class is imported by:</p>
+<p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">MultipleRoots</span></code> class is imported by:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pyrootmemo.materials</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultipleRoots</span>
 </pre></div>
 </div>
-<dl class="py class">
-<dt class="sig sig-object py" id="pyrootmemo.materials.MultipleRoots">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MultipleRoots</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/materials.html#MultipleRoots"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyrootmemo.materials.MultipleRoots" title="Link to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Roots</span></code></p>
-<p>MultipleRoots class inherits from Roots and is used to create a collection of root objects with specified parameters.</p>
-</dd></dl>
-
 </section>
 </section>
 
