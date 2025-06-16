@@ -11,5 +11,5 @@ dependencies:
   - pandas
   - pip
   - pip:
-    - git+https://github.com/rootmemo/pyrootmemo.git
+    - git+https://github.com/rootmemo/pyrootmemo.git@sbee2025
   
