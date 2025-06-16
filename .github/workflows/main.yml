@@ -1,51 +1,16 @@
-name: Build and Deploy Sphinx Documentation
-
-on:
-  push:
-    branches:
-      - main
-  # You can also add:
-  # pull_request:
-  #   branches: [ main ]
-  # or 'workflow_dispatch:' for on-demand builds.
-
-permissions:
-  contents: write
-
+name: Build Notebook Container
+on: [push] # You may want to trigger this Action on other things than a push.
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, '#no_ci')"
-
     steps:
-      - name: Check out the repository
-        uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.12
+    - name: checkout files in repo
+      uses: actions/checkout@master
 
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install sphinx sphinx-rtd-theme
-          pip install -r requirements.txt
-
-      - name: Build docs
-        run: |
-          cd docs
-          make html
-
-      - name: Upload built documentation as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: docs-html
-          path: docs/build/html
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: docs/build/html  # Where your built HTML files are located
-          publish_branch: gh-pages
+    - name: update jupyter dependencies with repo2docker
+      uses: machine-learning-apps/repo2docker-action@master
+      with:
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        MYBINDERORG_CACHE: true
