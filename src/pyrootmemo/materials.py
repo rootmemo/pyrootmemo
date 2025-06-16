@@ -18,6 +18,8 @@ ROOT_PARAMETERS = {
     "length_surface": {"type": (float | int), "unit": units("m")},
     "azimuth_angle": {"type": (float | int), "unit": units("degrees")},
     "elevation_angle": {"type": (float | int), "unit": units("degrees")},
+    "x0": {"type": (float | int), "unit": units('mm')},
+    "y0": {"type": (float | int), "unit": units('mm')}
 }
 
 #: A dictionary that maps soil parameter names to their types and units.
