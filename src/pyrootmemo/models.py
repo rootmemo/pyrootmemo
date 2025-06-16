@@ -4,6 +4,7 @@ import matplotlib as mpl
 from scipy.special import gamma
 from scipy.optimize import minimize, differential_evolution
 from pyrootmemo.helpers import units
+from pyrootmemo.tools.checks import check_kwargs
 from pyrootmemo.geometry import SoilProfile, FailureSurface
 from pyrootmemo.materials import MultipleRoots, Interface
 from pyrootmemo.pullout import PulloutEmbeddedElastic, PulloutEmbeddedElasticSlipping, PulloutEmbeddedElasticBreakage, PulloutEmbeddedElasticBreakageSlipping, PulloutEmbeddedElastoplastic, PulloutEmbeddedElastoplasticSlipping, PulloutEmbeddedElastoplasticBreakage, PulloutEmbeddedElastoplasticBreakageSlipping
@@ -11,6 +12,58 @@ from pyrootmemo.tools.utils_rotation import axisangle_rotate
 from pyrootmemo.tools.utils_plot import round_range
 from pint import Quantity, DimensionalityError
 import warnings
+
+from collections import namedtuple
+Parameter = namedtuple("parameter", "value unit")
+
+
+def create_quantity(
+        x: Quantity | Parameter, 
+        unit: None | str = None, 
+        scalar: bool = False
+        ) -> Quantity:
+    if isinstance(x, Quantity):
+        if scalar is True:
+            if not np.isscalar(x.magnitude):
+                raise ValueError('Magnitude of Quantity x must be a scalar')
+        if unit is not None:
+            if isinstance(unit, str):
+                if x.dimensionality != units(unit).dimensionality:
+                    raise ValueError('units of x not compatible with unit')
+            else:
+                raise TypeError('unit must be None or a string')
+        return(x)
+    elif isinstance(x, tuple):
+        if len(x) == 2:
+            if not isinstance(x[1], str):
+                raise TypeError('second element of x (unit) must be str')
+            if unit is not None:
+                if isinstance(unit, str):
+                    if units(x[1]).dimensionality != units(unit).dimensionality:
+                        raise ValueError('unit not compatible with unit in x')
+                else:
+                    raise TypeError('unit must be None or a string')
+            if scalar is True:
+                if not np.isscalar(x[0]):
+                    raise TypeError('value in x must be scalar')
+            if np.isscalar(x[0]):
+                if not (isinstance(x[0], int) or isinstance(x[0], float)):
+                    raise TypeError('first element of x (value) must be int or float')
+                else:
+                    return(x[0] * units(x[1]))
+            elif isinstance(x[0], list):
+                if any([not (isinstance(i, int) or isinstance(i, float)) for i in x[0]]):
+                    raise TypeError('all values in list must be int or float')
+            elif isinstance(x[0], np.ndarray):
+                if not (np.issubdtype(x[0].dtype, np.integer) or np.issubdtype(x[0].dtype, np.floating)):
+                    raise TypeError('all values in array must be int or float')
+            else:
+                raise TypeError('values in x must not recognised')
+        else:
+            raise TypeError('x must be Quantity or Parameter(value: int | float, unit: str)')
+        return(x[0] * units(x[1]))
+    else:
+        raise TypeError('x must be Quantity or Parameter(value: int | float, unit: str)')
 
 
 class Wwm():
@@ -99,25 +152,15 @@ class Wwm():
         Quantity
             Peak reinforcement
         """        
-        # check cross-sectional area correctly defined
         if not isinstance(failure_surface, FailureSurface):
             raise TypeError('failure_surface must be intance of FailureSurface class')
         if not hasattr(failure_surface, 'cross_sectional_area'):
             raise AttributeError('failure_surface must contain attribute "cross_sectional_area"')
-        # check k-factor
         if not (isinstance(k, int) | isinstance(k, float)):
             raise TypeError('k must be an scalar integer or float')
-        # return
         return(k * self.peak_force() / failure_surface.cross_sectional_area)
 
 
-
-##########################
-### FIBRE BUNDLE MODEL ###
-##########################
-
-
-# FBM class
 class Fbm():
     """
     Class for fibre bundle models.
@@ -164,17 +207,16 @@ class Fbm():
     -------
     __init__(roots, load_sharing)
         Constructor
-    peak_force()
+    calc_peak_force()
         Calculate peak force in bundle
-    peak_reinforcement(failure_surface, k)
+    calc_peak_reinforcement(failure_surface, k)
         Calculate peak reinforcement by bundle
-    reduction_factor()
+    calc_reduction_factor()
         FBMw reinforcement relative to WWM reinforcement
-    plot(**kwargs)
+    plot(...)
         Generate plot showing how reinforcement mobilises
     """
     
-    # initialise class
     def __init__(
             self, 
             roots: MultipleRoots, 
@@ -190,76 +232,60 @@ class Fbm():
         load_sharing : float | int
             FBM load sharing parameter
 
-        Raises
-        ------
-        AttributeError
-            _description_
-        ValueError
-            _description_
-        ValueError
-            _description_
         """
-        # check roots input
         if not isinstance(roots, MultipleRoots):
             raise TypeError('roots must be object of class MultipleRoots')
-        attributes_required = ['diameter', 'xsection', 'tensile_strength']
-        for i in attributes_required:
+        roots_attributes_required = ['diameter', 'xsection', 'tensile_strength']
+        for i in roots_attributes_required:
             if not hasattr(roots, i):
                 raise AttributeError('roots must contain ' + str(i) + ' attribute')
-        # check if loadsharing parameter is a finite, scalar value
+        self.roots = roots
         if not (isinstance(load_sharing, int) | isinstance(load_sharing, float)):
             raise ValueError('load_sharing must be a scalar integer or float')
         if np.isinf(load_sharing):
             raise ValueError('load_sharing must have finite value')
-        # set parameters
-        self.roots = roots
         self.load_sharing = load_sharing
-        # get sorting order (get roots in order of failure
         self.sort_order = np.argsort(
-            self._tensile_capacity() 
+            roots.tensile_strength 
+            * roots.xsection
             / (roots.diameter ** load_sharing)
             )
-        # get breakage order (order of root breakages
         self.breakage_order = np.argsort(self.sort_order)
-        # get force matrix
-        self.matrix = self._get_matrix()
-        
-    # tensile capacity - force at which roots break
-    def _tensile_capacity(self) -> Quantity:
-        """Calculate force at which each roots breaks"""
-        return(self.roots.tensile_strength * self.roots.xsection)
-    
-    # matrix  - matrix 
-    def _get_matrix(self) -> Quantity:
-        """Create force matrix
+        self.matrix = self.calc_matrix()
+
+    def calc_matrix(self) -> Quantity:
+        """Create matrix with forces in each root at breakage of all roots
 
         Generate matrix for force in each root (rows) at breakage of each 
-        root (columns). Assumes roots are pre-sorted in order of breakage, 
-        so that broken roots can be easily removed by only keeping the 
-        lower triangle of the matrix.
+        root (columns). In this matrix, roots are pre-sorted in order of 
+        breakage using the 'breakage_order'. This makes it easy to only
+        keep roots in the matrix that are still intact (lower triangle of 
+        the square matrix).
+
+        Returns
+        -------
+        Quantity
+            matrix with forces in each roots (rows) at point of breakage of
+            each root (columns). Roots are sorted in order of breakage.
         """
-        # root capacity (force)
-        force = self._tensile_capacity()
-        # get units
-        force_unit = force.units
-        # sort data
-        y_sorted = (force.magnitude)[self.sort_order]
+        force_break = self.roots.tensile_strength * self.roots.xsection
+        force_unit = force_break.units
+        y_sorted = (force_break.magnitude)[self.sort_order]
         x_sorted = (self.roots.diameter.magnitude)[self.sort_order]
-        # forces in each root (rows) as function of breaking root (columns)
         matrix = np.outer(
             x_sorted ** self.load_sharing,
             y_sorted / (x_sorted ** self.load_sharing)
             )
-        # remove roots that have broken (upper triagle of matrix, so keep 
-        # lower triangle)
         matrix_broken = np.tril(matrix)
-        # return with units added back
         return(matrix_broken * force_unit)
 
-    # peak force
-    def peak_force(self) -> Quantity:
+    def calc_peak_force(self) -> Quantity:
         """Calculate peak force in the fibre bundle
 
+        Calculat the peak force that the entire fibre bundle can carry. This
+        reinforcement is calculated using the 'matrix method' as described 
+        by Yildiz and Meijer.
+        
         Returns
         -------
         Quantity
@@ -267,8 +293,7 @@ class Fbm():
         """
         return(np.max(np.sum(self.matrix, axis = 0)))
 
-    # reinforcement
-    def peak_reinforcement(
+    def calc_peak_reinforcement(
             self, 
             failure_surface: FailureSurface,
             k: int | float = 1.0
@@ -292,62 +317,71 @@ class Fbm():
         Quantity
             Peak root reinforcement.
         """
-        # check cross-sectional area correctly defined
         if not isinstance(failure_surface, FailureSurface):
             raise TypeError('failure_surface must be intance of FailureSurface class')
         if not hasattr(failure_surface, 'cross_sectional_area'):
             raise AttributeError('Failure surface does not contain attribute cross_sectional_area')
-        # check k-factor
         if not (isinstance(k, int) | isinstance(k, float)):
             raise TypeError('k must be an scalar integer or float')
-        # return
-        return(k * self.peak_force() / failure_surface.cross_sectional_area)
+        return(k * self.calc_peak_force() / failure_surface.cross_sectional_area)
     
-    # reduction factor
-    def reduction_factor(self) -> float:
-        """FBM reinforcement relative to WWM
+    def calc_reduction_factor(self) -> float:
+        """Calculate FBM peak reinforcement relative to WWM
 
-        Calculate the ratio between bundle peak force and the sum of 
+        Calculate the ratio between fibre bundle peak force and the sum of 
         individual fibre strengths. Function will thus return a value between
         0.0 and 1.0. '1.0' indicates all roots break simultaneously.
 
         Returns
         -------
         float
-            reduction factor.
+            ratio between FBM and WWM peak reinforcements.
         """
         force_fbm = self.peak_force()
         force_sum = np.sum(self.roots.xsection * self.roots.tensile_strength)
-        return((force_fbm / force_sum).magnitude)
+        factor = force_fbm / force_sum
+        if isinstance(factor, Quantity):
+            return(factor.magnitude)
+        else:
+            return(factor)
     
-    # plot how roots mobilise, according to FBM
     def plot(
             self,
             unit: str = 'N',
-            reference_diameter: int | float | Quantity = 1.0,
-            reference_diameter_unit: str = 'mm',
+            reference_diameter: Quantity | Parameter = (1.0, 'mm'),
             stack: bool = False,
             peak: bool = True,
             labels: list | bool = False, 
             label_margin: float = 0.05, 
             xlabel: str = 'Force in reference root', 
             ylabel: str = 'Total force in root bundle'      
-            ):
+            ) -> tuple:
         """Plot FBM force mobilisation
 
-        Generate a matplotlib plot showing how forces in each roots are 
-        mobilised, as function of the force in the reference root
+        Generate a matplotlib plot showing how forces in the fibre bundle are 
+        mobilised, as function of the force in a root with a specific 
+        reference diameter ('reference_diameter') that never breaks.
+
+        All values of force are shown in terms of a user-defined unit,
+        controlled by input argument 'unit'. 
+
+        The contribution of each individual roots can be shows by means of
+        a stackplot (if `stack = True'). Each root can be labelled using the 
+        optional 'label' input argument. By default, `stack = False' and only
+        the force in the entire bundle is shown.
+
+        In order to show distinct breakages, forces are caculated both at the 
+        moment of breakages as well as *just* after the moment of breakages.
 
         Parameters
         ----------
         unit : str, optional
             unit used for plotting forces, by default 'N'
-        reference_diameter : int | float | Quantity, optional
-            value of the reference diameter, by default 1.0
-        reference_diameter_unit : str, optional
-            unit of the reference diameter, by default 'mm'
+        reference_diameter : Quantity | Parameter(float | int, str), optional
+            value of the reference diameter, by default 1.0 mm
         stack : bool, optional
-            show contributions of each individual root, by default False
+            show contributions of each individual root by means of a 
+            stackplot, by default False
         peak : bool, optional
             show location of peak force, by default True
         labels : list | bool, optional
@@ -368,69 +402,56 @@ class Fbm():
         tuple
             Tuple containing the matplotlib figure and axis object
             
-        Raises
-        ------
-        DimensionalityError
-            _description_
-        ValueError
-            _description_
         """
-        # force matrix - force in each root (row) at breakage of each root (columns) - sorted
-        M = self.matrix.to(unit).magnitude
-        # diameters, normalised and sorted in order of breakage
-        if isinstance(reference_diameter, Quantity):
-            if reference_diameter.dimensionality != units('mm').dimensionality:
-                raise DimensionalityError('dimensionality of reference_diameter must be length')
-            if not np.isscalar(reference_diameter.magnitude):
-                raise ValueError('reference diameter must be a scalar')
-        elif not(isinstance(reference_diameter, int) | isinstance(reference_diameter, float)):
-            raise TypeError('reference_diameter must be float, int or Quantity')            
-        diameter = self.roots.diameter.to(reference_diameter_unit).magnitude[self.sort_order]
-        # force in reference root at moments of breakage, and just after
-        x_before = np.diag(M) * (reference_diameter / diameter)**self.load_sharing
-        x_after = x_before + 1.0e-12 * np.max(x_before)
-        x_all = np.append(0.0, np.stack((x_before, x_after)).ravel(order = 'F'))
-        # total reinforcement
-        y_before = np.sum(M, axis = 0)
-        y_after = y_before - np.diag(M)
-        y_all = np.append(0.0, np.stack((y_before, y_after)).ravel(order = 'F'))
-        # plot
+        reference_diameter = create_quantity(reference_diameter, 'mm', scalar = True)
+        diameter = self.roots.diameter.to(reference_diameter.units).magnitude[self.sort_order]
+        matrix = self.matrix.to(unit).magnitude
+        force_reference_before = np.diag(matrix) * (reference_diameter.magnitude / diameter)**self.load_sharing
+        force_reference_after = force_reference_before + 1.0e-12 * np.max(force_reference_before)
+        force_reference_all = np.append(0.0, np.stack((force_reference_before, force_reference_after)).ravel(order = 'F'))
+        force_total_before = np.sum(matrix, axis = 0)
+        force_total_after = force_total_before - np.diag(matrix)
+        force_total_all = np.append(0.0, np.stack((force_total_before, force_total_after)).ravel(order = 'F'))
         fig, ax = plt.subplots()
+
         if stack is True:
-            # forces in individual roots
-            y_before_i = M
-            y_after_i = M - np.diag(np.diag(M))
-            y_all_i = np.concatenate((
-                np.zeros((M.shape[0], 1)),
-                np.stack((y_before_i, y_after_i), axis = -1).reshape(M.shape[0], 2 * M.shape[1]),
-                ), axis = -1)
-            # reverse y-values (forces), so plot lines are stacked in order from last breaking to first breaking
-            y_all_i = np.flip(y_all_i, axis = 0)
-            # colour order - use default matplotlib colors, but order in which roots are defined
+            force_individual_before = matrix
+            force_individual_after = matrix - np.diag(np.diag(matrix))
+            force_individual_all = np.flip(
+                np.concatenate(
+                    (
+                        np.zeros((matrix.shape[0], 1)),
+                        np.stack((
+                            force_individual_before, 
+                            force_individual_after
+                            ), axis = -1)
+                            .reshape(matrix.shape[0], 2 * matrix.shape[1]),
+                    ), 
+                    axis = -1),
+                axis = 0
+                )
             prop_cycle = mpl.rcParams['axes.prop_cycle']
             colors = prop_cycle.by_key()['color']
             n_color = len(colors)
-            colors_new = np.array(colors * int(np.ceil(M.shape[0] / n_color)))[np.flip(self.sort_order)]
-            # plot stacked traces
-            ax.stackplot(x_all, y_all_i, colors = colors_new)
-            # plot total trace
-            ax.plot(x_all, y_all, c = 'black')
-            # label text
+            colors_new = np.array(
+                colors 
+                * int(np.ceil(matrix.shape[0] / n_color))
+                )[np.flip(self.sort_order)]
+            ax.stackplot(force_reference_all, force_individual_all, colors = colors_new)
             if labels is True:
                 labels = list(self.sort_order + 1)
                 plot_labels = True
             elif isinstance(labels, list):
-                if len(labels) == M.shape[0]:
+                if len(labels) == matrix.shape[0]:
                     labels = np.array(labels)[self.sort_order]
                     plot_labels = True
                 else:
                     plot_labels = False
             else:
                 plot_labels = False
-            # add labels to plot
             if plot_labels is True:
-                labels_x = x_before - label_margin * np.max(x_before)
-                labels_y = (y_before - 0.5 * np.diag(M)) * labels_x / x_before
+                labels_x = force_reference_before - label_margin * np.max(force_reference_before)
+                labels_y = (force_total_before - 0.5 * np.diag(matrix)) * labels_x / force_reference_before
                 for xi, yi, li in zip(labels_x, labels_y, labels):
                     ax.annotate(
                         li, xy = (xi, yi), 
@@ -439,40 +460,27 @@ class Fbm():
                         bbox = dict(boxstyle = 'round', fc = 'white', alpha = 0.5),
                         fontsize = 'small'
                         )
-        else:
-            # bundle force at moments of breakage, and just after
-            y_before = np.sum(M, axis = 0)
-            y_after = y_before - np.diag(M)
-            # bundle force array for plotting
-            y_all = np.append(0.0, np.stack((y_before, y_after)).ravel(order = 'F'))
-            # plot
-            ax.plot(x_all, y_all)
-        # add peak reinforcement
+                    
+        ax.plot(force_reference_all, force_total_all, c = 'black')
+
+        matrix_sum0 = np.sum(matrix, axis = 0)
+        i_peak = np.argmax(matrix_sum0)
+        force_reference_peak = force_reference_before[i_peak]
+        force_total_peak = matrix_sum0[i_peak]
         if peak is True:
-            Msum0 = np.sum(M, axis = 0)
-            i_peak = np.argmax(Msum0)
-            x_peak = x_before[i_peak]
-            y_peak = Msum0[i_peak]
-            plt.scatter(x_peak, y_peak, c = 'black')
-        # axes
+            plt.scatter(force_reference_peak, force_total_peak, c = 'black')
+
         ax.set_xlabel(xlabel + " [" + unit + "]")
         ax.set_ylabel(ylabel + " [" + unit + "]")
-        ax.set_xlim(round_range(x_all, limits = [0.0, None])['limits'])
+        ax.set_xlim(round_range(force_reference_all, limits = [0.0, None])['limits'])
         ax.set_ylim(round_range(
-            self.peak_force().to(unit).magnitude, 
+            force_total_peak, 
             limits = [0.0, None]
             )['limits'])
-        # return plotted object
+        
         return(fig, ax)
 
 
-
-############
-### RBMw ###
-############
-
-
-# RBMw class
 class Rbmw():
     """
     Class for Root Bundle Model Weibull (RBMw).
@@ -502,19 +510,18 @@ class Rbmw():
     -------
     __init__(roots, load_sharing)
         Constructor
-    force(displacement)
+    calc_force(displacement)
         Calculate force in bundle at given displacement
-    peak_force()
+    calc_peak_force()
         Calculate peak force in bundle
-    peak_reinforcement(failure_surface, k)
+    calc_peak_reinforcement(failure_surface, k)
         Calculate peak reinforcement by bundle
-    reduction_factor()
+    calc_reduction_factor()
         RBMw reinforcement relative to WWM reinforcement
-    plot(**kwargs)
+    plot(...)
         Generate plot showing how reinforcements mobilises with displacement
     """
 
-    # initialise class
     def __init__(
             self, 
             roots: MultipleRoots,
@@ -540,10 +547,6 @@ class Rbmw():
             Weibull shape parameter assuming an average ratio of 1, i.e.
             scale = 1 / gamma(1 + 1 / shape)
         """
-        # check if roots of correct class
-        if not isinstance(roots, MultipleRoots):
-            raise TypeError('roots must be instance of class MultipleRoots')
-        # calculate weibull scale parameter (if not already explicitly defined)
         if weibull_scale is None: 
             self.weibull_scale = 1.0 / gamma(1.0 + 1.0 / weibull_shape)
             root_attributes_required = ['xsection', 'tensile_strength', 'length', 'elastic_modulus']
@@ -556,13 +559,14 @@ class Rbmw():
                 raise ValueError('weibull_shape must have a finite value')
             self.weibull_scale = weibull_scale
             root_attributes_required = ['xsection', 'length', 'elastic_modulus']
-        # check if roots contains all required instances
+
+        if not isinstance(roots, MultipleRoots):
+            raise TypeError('roots must be instance of class MultipleRoots')
         for i in root_attributes_required:
             if not hasattr(roots, i):
                 raise AttributeError('roots must contain ' + i + ' values')
-        # set roots
         self.roots = roots
-        # check and set weibull shape parameter
+
         if not (isinstance(weibull_shape, float) | isinstance(weibull_shape, int)):
             raise ValueError('weibull_shape must be a scalar value')
         if weibull_shape <= 0.0:
@@ -571,11 +575,9 @@ class Rbmw():
             raise ValueError('weibull_shape must have a finite value')
         self.weibull_shape = weibull_shape
 
-    # forces in roots at current level of axial displacement
-    def force(
+    def calc_force(
             self,
-            displacement: Quantity | int | float | np.ndarray,
-            displacement_unit = 'm',
+            displacement: Quantity | Parameter,
             total: bool = True,
             deriv: int = 0,
             sign: int | float = 1.0
@@ -584,13 +586,8 @@ class Rbmw():
 
         Parameters
         ----------
-        displacement : Quantity | int | float | np.ndarray
-            Quantity object with displacements. Should have unit with dimension 
-            length. Can also be defined at integer, float or numpy array, in
-            which case the 'displacement_unit' argument is used as unit.
-        displacement_unit : str, optional
-            The unit of displacement, in case displacement not inputted as a 
-            Quantity
+        displacement : Quantity | Parameter(int | float | np.ndarray, str)
+            Current displacement.
         total : bool, optional
             If True, return the total force of all roots. Otherwise, return
             results per root (axis 0, rows) at each displacement step 
@@ -610,28 +607,11 @@ class Rbmw():
         Quantity
             (sum of) forces (or derivatives) in the root bundle
 
-        Raises
-        ------
-        DimensionalityError
-            _description_
-        TypeError
-            _description_
-        ValueError
-            _description_
         """
-        # if displacement is not defined with a unit, make into a Quantity
-        if isinstance(displacement, Quantity):
-            if displacement.dimensionality != units('m').dimensionality:
-                raise DimensionalityError('dimensionality of displacement must be length') 
-        elif isinstance(displacement, int) | isinstance(displacement, float) | isinstance(displacement, np.ndarray):
-            warnings.warn('Unit of displacement not defined. Assumed as ' + displacement_unit)
-            displacement = displacement * units(displacement_unit)
-        else:
-            raise TypeError('displacement must be of type Quantity, float, int or np.ndarray')
-        # if displacement is a scalar -> make a numpy array
+        displacement = create_quantity(displacement, 'mm')
         if np.isscalar(displacement.magnitude):
-            displacement_scalar_input = True
             displacement = np.array([displacement.magnitude]) * displacement.units
+            displacement_scalar_input = True
         else:
             displacement_scalar_input = False
         # write force mobilisation curve in form: 
@@ -649,58 +629,45 @@ class Rbmw():
             )[:, np.newaxis]
         x = displacement[np.newaxis, :]
         k = self.weibull_shape
-        # force
         if deriv == 0:
-            # calculate force per displacement step, per root
-            y = a * x * np.exp(-(x / b) ** k)
-            # return
+            force = a * x * np.exp(-(x / b) ** k)
             if total is True:
                 if displacement_scalar_input is True:
-                    return(sign * np.sum(y))
+                    return(sign * np.sum(force))
                 else:
-                    return(sign * np.sum(y, axis = 0))
+                    return(sign * np.sum(force, axis = 0))
             else:
-                return(sign * y.squeeze())
-        # derivative of force with respect to displacement
+                return(sign * force.squeeze())
         elif deriv == 1:
-            # calculate derivative of force with respect to dispalcement
-            # per displacement step, per root
-            dy_dx = (
+            dforce_dx = (
                 a * (1.0 - k * (x / b) ** k)
                 * np.exp(-(x / b) ** k)
             )
-            # return
             if total is True:
                 if displacement_scalar_input is True:
-                    return(sign * np.sum(dy_dx))
+                    return(sign * np.sum(dforce_dx))
                 else:
-                    return(sign * np.sum(dy_dx, axis = 0))
+                    return(sign * np.sum(dforce_dx, axis = 0))
             else:
-                return(sign * dy_dx.squeeze())
-        # second derivative of force with respect to displacement
+                return(sign * dforce_dx.squeeze())
         elif deriv == 2:
-            # calculate 2nd derivative of force with respect to displacement
-            # per displacement step, per root
-            dy2_dx2 = (
+            dforce2_dx2 = (
                 a * k / x
                 * np.exp(-(x / b) ** k)
                 * (x / b) ** k
                 * (k * (x / b) ** k - k - 1.0)
                 )
-            # return
             if total is True:
                 if displacement_scalar_input is True:
-                    return(sign * np.sum(dy2_dx2))
+                    return(sign * np.sum(dforce2_dx2))
                 else:
-                    return(sign * np.sum(dy2_dx2, axis = 0))
+                    return(sign * np.sum(dforce2_dx2, axis = 0))
             else:
-                return(sign * dy2_dx2.squeeze())
-        # higher order derivatives
+                return(sign * dforce2_dx2.squeeze())
         else:
             raise ValueError('Only deriv = 0, 1 or 2 are currently available.')
 
-    # Calculate peak force 
-    def peak_force(
+    def calc_peak_force(
             self,
             method: str = 'Newton-CG'
             ) -> dict:
@@ -725,8 +692,8 @@ class Rbmw():
         method : str, optional
             Method to use in the scipy.optimize.minimize algorithm.
             Default is 'Newton-CG'. Analytical jacobian and hessian are 
-            analytically known (see function self.force(), which allows for
-            returning derivatives).
+            analytically known (see function self.calc_force(), which allows 
+            for returning derivatives).
 
         Returns
         -------
@@ -735,53 +702,57 @@ class Rbmw():
             containing the Quantity of the displacement and force at 
             peak.   
         """
-        # displacements until peak reinforcement of each root
-        displacements = (
+        displacement_peak_all = (
             self.roots.tensile_strength / self.roots.elastic_modulus * self.roots.length
             / self.weibull_shape ** (1. / self.weibull_shape)
             * self.weibull_scale
         )
-        displacements = np.sort(np.unique(displacements.magnitude)) * displacements.units
-        # force and gradients at each peak
-        forces = self.force(displacements, total = True).magnitude
-        gradients = self.force(displacements, total = True, deriv = 1).magnitude
-        # forwards predictions and max
-        disp_diff = np.diff(displacements.magnitude)
-        forces_forwards = np.append(forces[:-1] + disp_diff * gradients[:-1], 0.0)
-        forces_max = np.maximum(forces, forces_forwards)
-        # select which starting guesses to keep (max force that can be achieved from starting point must be larger than max from <forces> array)
-        keep = (forces_max >= np.max(forces))
-        # starting guesses for displacement at peak
-        displacement_guesses = displacements[keep]
-        # find displacement at peaks, for each of the starting guesses, using root solving
-        unit = displacement_guesses.units
-        fun = lambda x: self.force(x * unit, total = True, deriv = 0, sign = -1.0).magnitude
-        jac = lambda x: self.force(x * unit, total = True, deriv = 1, sign = -1.0).magnitude
-        hes = lambda x: self.force(x * unit, total = True, deriv = 2, sign = -1.0).magnitude
+        displacement_peak_unique = (
+            np.sort(np.unique(displacement_peak_all.magnitude)) 
+            * displacement_peak_all.units
+            )
+        forces = self.calc_force(displacement_peak_unique, total = True).magnitude
+        gradients = self.calc_force(displacement_peak_unique, total = True, deriv = 1).magnitude
+        displacement_interval = np.diff(displacement_peak_unique.magnitude)
+        forces_next_point = np.append(forces[:-1] + displacement_interval * gradients[:-1], 0.0)
+        forces_max = np.maximum(forces, forces_next_point)
+        displacement_guesses = displacement_peak_unique[forces_max >= np.max(forces)]
         displacement_options = np.concatenate([
             minimize(
-                fun = fun,
+                fun = lambda x: self.calc_force(
+                    x * displacement_guesses.units, 
+                    total = True, 
+                    deriv = 0, 
+                    sign = -1.0
+                    ).magnitude,
                 x0 = i.magnitude,
-                jac = jac,
-                hess = hes,
+                jac = lambda x: self.calc_force(
+                    x * displacement_guesses.units, 
+                    total = True, 
+                    deriv = 1, 
+                    sign = -1.0
+                    ).magnitude,
+                hess = lambda x: self.calc_force(
+                    x * displacement_guesses.units, 
+                    total = True, 
+                    deriv = 2, 
+                    sign = -1.0
+                    ).magnitude,
                 method = method
             ).x
             for i in displacement_guesses
-        ]) * unit
-        # calculate forces at each displacement option (local peaks)
-        peak_force_options = self.force(displacement_options, total = True)
-        index = np.argmax(peak_force_options.magnitude)
-        # return 
+        ]) * displacement_guesses.units
+        peak_force_options = self.calc_force(displacement_options, total = True)
+        guess_index = np.argmax(peak_force_options.magnitude)
         return({
-            'force': peak_force_options[index],
-            'displacement': displacement_options[index] 
+            'force': peak_force_options[guess_index],
+            'displacement': displacement_options[guess_index] 
         })
 
-    # reinforcement
-    def peak_reinforcement(
+    def calc_peak_reinforcement(
             self, 
             failure_surface: FailureSurface,
-            k: float = 1.0
+            k: int | float = 1.0
             ) -> dict:
         """
         Calculate peak reinforcement (largest soil reinforcement at any point)
@@ -793,7 +764,7 @@ class Rbmw():
             Instance of "FailureSurface" class. Must contain the attribute 
             "cross_sectional_area" that contains the cross-sectinonal area of the
             failure surface
-        k : float, optional
+        k : int | float, optional
             Wu/Waldron reinforcement orientation factor. The default is 1.0.
 
         Returns
@@ -803,23 +774,19 @@ class Rbmw():
             containing the Quantity of the displacement and reinforcement at 
             peak.            
         """
-        # check cross-sectional area correctly defined
         if not isinstance(failure_surface, FailureSurface):
             raise TypeError('failure_surface must be intance of FailureSurface class')
         if not hasattr(failure_surface, 'cross_sectional_area'):
             raise AttributeError('failure_surface must contain attribute "cross_sectional_area"')
-        # check k-value
         if not(isinstance(k, int) | isinstance(k, float)):
             raise TypeError('k must be scalar integer or float')
-        # peak force
-        peak = self.peak_force()
+        peak = self.calc_peak_force()
         return({
             'reinforcement': k * peak['force'] / failure_surface.cross_sectional_area,
             'displacement': peak['displacement']
         })    
     
-    # reduction factor
-    def reduction_factor(
+    def calc_reduction_factor(
             self
             ) -> float:
         """RBMw reduction factor, compared to WWM
@@ -833,11 +800,14 @@ class Rbmw():
         float
             reduction factor.
         """
-        force_rbmw = self.peak_force()['force']
+        force_rbmw = self.calc_peak_force()['force']
         force_root = np.sum(self.roots.xsection * self.roots.tensile_strength)
-        return((force_rbmw / force_root).magnitude)
+        ratio = force_rbmw / force_root
+        if isinstance(ratio, Quantity):
+            return(ratio.magnitude)
+        else:
+            return(ratio)
     
-    # plot RBMw force as function of pullout displacement
     def plot(
             self,
             n: int = 251,
