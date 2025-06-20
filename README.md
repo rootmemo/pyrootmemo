@@ -5,7 +5,7 @@
 ![GitHub Repo stars](https://img.shields.io/github/stars/rootmemo/pyrootmemo)
 
 ![PyPI - Version](https://img.shields.io/pypi/v/pyrootmemo)
-![Pepy Total Downloads](https://img.shields.io/pepy/dt/psimpy)
+![Pepy Total Downloads](https://img.shields.io/pepy/dt/pyrootmemo)
 
 ![Read the Docs](https://img.shields.io/readthedocs/pyrootmemo)
 
