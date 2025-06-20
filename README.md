@@ -7,11 +7,9 @@
 ![PyPI - Version](https://img.shields.io/pypi/v/pyrootmemo)
 ![Pepy Total Downloads](https://img.shields.io/pepy/dt/pyrootmemo)
 
-![Read the Docs](https://img.shields.io/readthedocs/pyrootmemo)
-
 # pyrootmemo
 
-A Python package to modelling and measuring the effects of roots on slope stability
+A Python package for modelling and measuring the effects of roots on slope stability
 
 ## Installation
 
