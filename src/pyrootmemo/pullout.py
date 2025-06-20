@@ -7,315 +7,98 @@ from pyrootmemo.materials import MultipleRoots, Interface
 from pint import Quantity
 
 
-# DATA
-BEHAVIOUR_NAMES = np.array([
-    'Not in tension',
-    'Anchored, elastic',
-    'Slipping, elastic',
-    'Full pullout',      # (when behaviour is elastic)
-    'Anchored, plastic',   
-    'Slipping, plastic', # (stress above yield stress)
-    'Slipping, plastic', # (stress below yield stress)
-    'Full pullout'       # (when behaviour is plastic)
-])
+def solve_quadratic(
+        a: Quantity, 
+        b: Quantity, 
+        c: Quantity,
+        ) -> Quantity:
+    """Calculate largest root of a quadratic equation
 
-def solve_linear(a, b):
-    return(-b / a)
+    Calculate the largest root of a quadratic equation in the form:
+    a * x**2 + b * x + c == 0 
 
-def solve_quadratic(a, b, c):
-    # solve equations a*x^2 + b*x^2 + c = 0 in DRAM/Pullout
-    # function always returns the largest root
+    Parameters
+    ----------
+    a : Quantity
+        second-order polynomial coefficient(s)
+    b : Quantity
+        first-order polynomial coefficient(s)
+    c : Quantity
+        zero-order polynomial coefficient(s)
+
+    Returns
+    -------
+    Quantity | np.ndarray | float
+        Largest root of the quadratic equation
+    """
     discriminant = b**2 - 4.0 * a * c
     x = (-b + np.sign(a) * np.sqrt(discriminant)) / (2.0 * a)
     return(x)
 
-def solve_cubic(a, b, c, d):
-    # solve equations a*x^3 + b*x^2 + c*x + d = 0 in DRAM/Pullout
-    # a = always positive in DRAM/Pullout equations
-    # function returns largest positive root
-    # 
-    # construct empty output vector
-    x = np.zeros(a.shape) * units('N')
-    # new parameters - so that: x^3 + e*x^2 + f*x + g = 0
+
+def solve_cubic(
+        a: Quantity, 
+        b: Quantity, 
+        c: Quantity, 
+        d: Quantity
+        ) -> Quantity:
+    """Calculate largest real root of a cubic equation
+
+    Calculate the largest root of a cubic equation in the form:
+    a * x**3 + b * x**2 + c * x + d == 0 
+
+    The function assumes all values of the third-order coefficient <a> are
+    not equal to zero. If so, a quadratic solver is more appropriate.
+
+    The function follows the methodology detailed on Wikipedia
+    (https://en.wikipedia.org/wiki/Cubic_equation):
+  
+    Parameters
+    ----------
+    a : Quantity
+        third-order polynomial coefficient(s). All values must not be equal 
+        to zero for the function to work.
+    b : Quantity
+        second-order polynomial coefficient(s)
+    c : Quantity
+        first-order polynomial coefficient(s)
+    d : Quantity
+        zero-order polynomial coefficient(s)
+
+    Returns
+    -------
+    Quantity
+        Largest real root of the cubic equation
+    """
+    x = np.zeros(a.shape) * d.units / c.units
     e = b / a
     f = c / a
     g = d / a
-    # temporary values
     Q = (e**2 - 3.0 * f) / 9.0
     R = (2.0 * e**3 - 9.0 * e * f + 27.0 * g) / 54.0
-    mask = (R**2) < (Q**3) # if true, 3 real roots exist, if false, only one real root exists
-    # three real roots - calculate largest value
-    theta = np.arccos(R[mask] / np.sqrt(Q[mask]**3))
-    x[mask] = -2.0 * np.sqrt(Q[mask]) * np.cos((theta + 2.0*np.pi) / 3.0) - e[mask] / 3.0
-    # one real root
-    A = -np.sign(R[~mask]) * (np.abs(R[~mask]) + np.sqrt(R[~mask]**2 - Q[~mask]**3)) ** (1.0 / 3.0)
-    B = Q[~mask] / A
-    x[~mask] = (A + B) - e[~mask] / 3.0
-    # x = 0 solution (when d == 0)
-    x[np.isclose(d.magnitude, 0.0)] = 0.0 * units('N')
-    # return array of solutions
+    flag_3roots = (R**2) < (Q**3) # if true, 3 real roots exist, if false, only one real root exists
+    theta = np.arccos(R[flag_3roots] / np.sqrt(Q[flag_3roots]**3))
+    x[flag_3roots] = (
+        -2.0 
+        * np.sqrt(Q[flag_3roots]) 
+        * np.cos((theta + 2.0 * np.pi) / 3.0) 
+        - e[flag_3roots] 
+        / 3.0
+        )
+    flag_1root = not flag_3roots
+    A = (
+        -np.sign(R[flag_1root]) 
+        * (
+            np.abs(R[flag_1root]) 
+            + np.sqrt(R[flag_3roots]**2 - Q[flag_1root]**3)
+            ) ** (1.0 / 3.0)
+        )
+    B = Q[flag_1root] / A
+    x[flag_1root] = (A + B) - e[flag_1root] / 3.0
+    flag_zero = np.isclose(d.magnitude, 0.0)
+    x[flag_zero] = 0.0 *d.units / c.units
     return(x)
-
-def solve_polynomial(*args):
-    n = len(args[0])
-    sol = np.zeros(n)
-    if len(args) == 4:
-        mask4 = ~np.isclose(args[0], 0.0)
-    else:
-        mask4 = np.
-
-    # linear
-    # quadratic
-    # polynomial
-    
-
-def _calc_nroots(roots):
-    return(len(roots.xsection))
-
-def _calc_coeffs_embedded_notintension(roots):
-    nroots = _calc_nroots(roots)
-    c2 = np.zeros(nroots) * units['m/N^2']
-    c1 = np.zeros(nroots) * units['m/N']
-    c0 = np.zeros(nroots) * units['m']
-    return(c2, c1, c0)
-
-def _calc_coeffs_embedded_anchored_elastic(roots, interface):
-    nroots = _calc_nroots(roots)
-    c2 = (1.0 / (2.0 * roots.elastic_modulus * roots.xsection 
-                 * roots.circumference * interface.shear_strength))
-    c1 = np.zeros(nroots) * units['m/N']
-    c0 = np.zeros(nroots) * units['m']
-    return(c2, c1, c0)
-
-def _calc_coeffs_embedded_anchored_plastic(roots, interface):
-    c2 = (
-        1.0 / (2.0 * roots.plastic_modulus * roots.xsection 
-               * roots.circumference * interface.shear_strength)
-        )
-    c1 = (
-        roots.yield_strength 
-        / (roots.elastic_modulus * roots.circumference * interface.shear_strength)
-        - roots.yield_strength 
-        / (roots.plastic_modulus * roots.circumference * interface.shear_strength)
-        )
-    c0 = (
-        -roots.yield_strength**2 * roots.xsection 
-        / (2.0 * roots.elastic_modulus * roots.circumference * interface.shear_strength)
-        + roots.yield_strength**2 * roots.xsection 
-        / (2.0 * roots.plastic_modulus * roots.circumference * interface.shear_strength)
-        )
-    return(c2, c1, c0)
-
-def _calc_coeffs_embedded_slipping(roots):
-    nroots = _calc_nroots(roots)
-    c2 = np.zeros(nroots) * units['m/N^2']
-    c1 = np.zeros(nroots) * units['m/N']
-    c0 = np.inf * np.ones(nroots) * units['m']
-    return(c2, c1, c0)
-
-def _calc_displimits_notintension(roots):
-    nroots = _calc_nroots(roots)
-    return(np.zeros(nroots) * units['m'])
-
-def _calc_displimits_embedded_slipping_elastic(roots, interface):
-    force = roots.length * roots.circumference * interface.shear_strength
-    c2, _, _ = _calc_coeffs_embedded_anchored_elastic(roots, interface)
-    return(c2 * force**2)
-
-def _calc_displimits_embedded_anchored_yield(roots, interface):
-    force = roots.yield_strength * roots.xsection
-    c2, _, _ = _calc_coeffs_embedded_anchored_elastic()
-    return(c2 * force**2)
-
-def _calc_displimits_embedded_slipping_plastic(roots, interface):
-    force = roots.length * roots.circumference * interface.shear_strength
-    c2, c1, c0 = _calc_coeffs_embedded_anchored_plastic()
-    return(c2 * force**2 + c1 * force + c0)
-
-def _calc_coeffs_surface_notintension(roots):
-    nroots = _calc_nroots(roots)
-    c3 = np.zeros(nroots) * units['m/N^3']
-    c2 = np.zeros(nroots) * units['m/N^2']
-    c1 = np.zeros(nroots) * units['m/N']
-    c0 = np.zeros(nroots) * units['m']
-    return(c3, c2, c1, c0)
-
-def _calc_coeffs_surface_anchored_elastic(roots, interface):
-    nroots = _calc_nroots(roots)
-    c3 = 1.0 / (2.0 * (roots.elastic_modulus * roots.xsection)**2
-                * roots.circumference * interface.shear_strength)
-    c2 = 1.0 / (2.0 * roots.elastic_modulus * roots.xsection
-                * roots.circumference * interface.shear_strength)
-    c1 = roots.length_surface / (roots.elastic_modulus * roots.xsection)
-    c0 = np.zeros(nroots) * units['m']
-    return(c3, c2, c1, c0)
-
-def _calc_coeffs_surface_slipping_elastic(roots, interface):
-    nroots = _calc_nroots(roots)
-    c3 = np.zeros(nroots) * units['m/N^3']
-    c2 = -1.0 / (roots.elastic_modulus * roots.xsection
-                 * roots.circumference * interface.shear_strength)
-    c1 = (roots.length / (roots.elastic_modulus * roots.xsection)
-            - 1.0 / (roots.circumference * interface.shear_strength))
-    c0 = roots.length - roots.length_surface
-    return(c3, c2, c1, c0)
-
-def _calc_coeffs_surface_anchored_plastic(roots, interface):
-    c3 = (
-        1.0 
-        / (2.0 * (roots.plastic_modulus * roots.xsection)**2 
-            * roots.circumference * interface.shear_strength)
-        )
-    c2 = (
-        1.0 
-        / (2.0 * roots.plastic_modulus * roots.xsection 
-            * roots.circumference * interface.shear_strength)
-        * (1.0
-            + 3.0 * roots.yield_strength / roots.elastic_modulus
-            - 3.0 * roots.yield_strength / roots.plastic_modulus) 
-        )
-    c1 = (
-        roots.yield_strength
-        / (2.0 * roots.elastic_modulus * roots.plastic_modulus
-            * roots.circumference * interface.shear_strength)
-        * (
-            roots.yield_strength 
-            * (3.0 * roots.elastic_modulus / roots.plastic_modulus
-                + 2.0 * roots.plastic_modulus / roots.elastic_modulus
-                - 5.0)
-            - 2.0 * roots.elastic_modulus
-            + 2.0 * roots.plastic_modulus
-        )
-        + roots.length_surface / (roots.plastic_modulus * roots.xsection)
-        )
-    c0 = (
-        roots.yield_strength 
-        * (roots.elastic_modulus - roots.plastic_modulus)
-        / (2.0 * roots.elastic_modulus * roots.plastic_modulus
-            * roots.circumference * interface.shear_strength)
-        * (
-            roots.yield_strength * roots.xsection
-            - roots.yield_strength**2 * roots.xsection 
-            * (1.0 / roots.plastic_modulus - 1.0 / roots.elastic_modulus)
-            - 2.0 * roots.circumference * interface.shear_strength * roots.length_surface
-            )
-        )
-    return(c3, c2, c1, c0)
-
-def _calc_coeffs_surface_slipping_plastic_aboveyield(roots, interface):
-    peak_force = _calc_peakforce_surface_slipping_plastic(roots, interface)
-    nroots = _calc_nroots(roots)
-    c3 = np.zeros(nroots) * units('m/N^3')
-    c2 = (
-        -1.0
-        / (2.0 * roots.xsection * roots.circumference * interface.shear_strength)
-        * (1.0 / roots.plastic_modulus + 1.0 / roots.unload_modulus)
-        )
-    c1 = (
-        roots.length / (roots.unload_modulus * roots.xsection)
-        - 1.0 
-        / (roots.circumference * interface.shear_strength)
-        * (
-            1.0
-            + roots.yield_strength / roots.elastic_modulus
-            - roots.yield_strength / roots.plastic_modulus
-            )
-        )
-    c0 = (
-        roots.length 
-        - roots.length_surface
-        + roots.yield_strength * roots.length
-        * (1.0 / roots.elastic_modulus - 1.0 / roots.plastic_modulus)
-        + peak_force / roots.xsection
-        * (roots.length - peak_force / (2.0 * roots.circumference * interface.shear_strength))
-        * (1.0 / roots.plastic_modulus - 1.0 / roots.unload_modulus)
-        )
-    return(c3, c2, c1, c0)
-
-def _calc_coeffs_surface_slipping_plastic_belowyield(roots, interface):
-    peak_force = _calc_peakforce_surface_slipping_plastic(roots, interface)
-    nroots = _calc_nroots(roots)
-    c3 = np.zeros(nroots) * units('m/N^3')
-    c2 = (
-        -1.0
-        / (roots.elastic_modulus * roots.xsection
-            * roots.circumference * interface.shear_strength)
-        )
-    c1 = (
-        roots.length / (roots.unload_modulus * roots.xsection)
-        - 1.0 / (roots.circumference * interface.shear_strength)
-        * (1.0 
-            - roots.yield_strength / roots.unload_modulus 
-            + roots.yield_strength / roots.elastic_modulus)
-        )
-    c0 = (
-        roots.length 
-        - roots.length_surface
-        + 1.0 / (2.0 * roots.xsection * roots.circumference * interface.shear_strength)
-        * (
-            peak_force**2 
-            * (1.0 / roots.unload_modulus - 1.0 / roots.plastic_modulus)
-            + (roots.yield_strength * roots.xsection)**2
-            * (1.0 / roots.unload_modulus + 1.0 / roots.plastic_modulus - 2.0 / roots.elastic_modulus)
-            )
-        - roots.length / roots.xsection
-        * (
-            peak_force
-            * (1.0 / roots.unload_modulus - 1.0 / roots.plastic_modulus)
-            + (roots.yield_strength * roots.xsection)
-            * (1.0 / roots.plastic_modulus - 1.0 / roots.elastic_modulus)
-            )
-        )
-    return(c3, c2, c1, c0)
-
-def _calc_displimits_surface_slipping_elastic(roots, interface):
-    force = solve_quadratic(
-        1.0 / (2.0 * roots.elastic_modulus * roots.xsection * roots.circumference * interface.shear_strength),
-        1.0 / (roots.circumference * interface.shear_strength),
-        roots.length_surface - roots.length
-        )            
-    c3, c2, c1, c0 = _calc_coeffs_surface_anchored_elastic(roots, interface)
-    return(c3 * force**3 + c2 * force**2 + c1 * force + c0)
-
-def _calc_displimits_surface_fullpullout_elastic(roots):
-    return(roots.length - roots.length_surface)
-
-def _calc_displimits_surface_anchored_yield(roots, interface):
-    force = roots.yield_strength * roots.xsection
-    c3, c2, c1, c0 = _calc_coeffs_surface_anchored_elastic(roots, interface)
-    return(c3 * force**3 + c2 * force**2 + c1 * force + c0)
-
-def _calc_peakforce_surface_slipping_plastic(roots, interface):
-    yield_force = roots.yield_strength * roots.xsection
-    return(solve_quadratic(
-        (1.0 
-         / (2.0 * roots.plastic_modulus * roots.xsection 
-            * roots.circumference * interface.shear_strength)),
-        (1.0
-         / (roots.circumference * interface.shear_strength)
-         * (1.0
-            + yield_force / (roots.elastic_modulus * roots.xsection)
-            - yield_force / (roots.plastic_modulus * roots.xsection))),
-        (roots.length_surface
-         + (yield_force**2 
-            / (2.0 * roots.xsection * roots.circumference * interface.shear_strength)
-            * (1.0 / roots.plastic_modulus - 1.0 / roots.elastic_modulus))
-         - roots.length)
-    ))
-
-def _calc_displimits_surface_slipping_plastic(roots, interface):
-    force = _calc_peakforce_surface_slipping_plastic(roots, interface)
-    c3, c2, c1, c0 = _calc_coeffs_surface_anchored_plastic(roots, interface)
-    return(c3 * force**3 + c2 * force**2 + c1*force + c0)
-
-def _calc_displimits_surface_slipping_plastic_yield(roots, interface):
-    force = roots.yield_strength * roots.xsection
-    c3, c2, c1, c0 = _calc_coeffs_surface_slipping_plastic_aboveyield(roots, interface)
-    return(c3 * force**3 + c2 * force**2 + c1 * force + c0)
-
-def _calc_displimits_surface_fullpullout_plastic(roots, interface):
-    _, _, _, c0 = _calc_coeffs_surface_slipping_plastic_belowyield(roots, interface)
-    return(c0)
+   
 
 class Pullout():
 
@@ -325,8 +108,9 @@ class Pullout():
             interface: Interface,
             surface: bool = False,
             breakage: bool = True,
-            slipping: bool = False,
-            elastoplastic: bool = False
+            slipping: bool = True,
+            elastoplastic: bool = False,
+            weibull_shape: None | int | float = None
             ):
         # set parameters
         roots_attributes_required = ['circumference', 'xsection', 'elastic_modulus']
@@ -351,1371 +135,364 @@ class Pullout():
             if not hasattr(interface, i):
                 raise AttributeError('interface must contain ' + str(i) + ' attribute')
         self.interface = interface
+        self.surface = surface
+        self.breakage = breakage
+        self.slipping = slipping
+        self.elastoplastic = elastoplastic
+        self.weibull_shape = weibull_shape
 
         # get polynomial coefficients, displacement limits and behaviour types
-        if surface is False:
-            behaviour_type = ['not in tension', 'anchored_elastic']
-            coefficients = [_calc_coeffs_embedded_notintension(),
-                            _calc_coeffs_embedded_anchored_elastic(roots, interface)]
-            displacement_limits = [_calc_displimits_notintension(roots)]
+        nroots = roots.xsection.shape
+        behaviour_types = np.array([
+            'Not in tension',
+            'Anchored, elastic',
+            'Slipping, elastic',
+            'Full pullout',      # (when behaviour is elastic)
+            'Anchored, plastic',   
+            'Slipping, plastic', # (stress above yield stress)
+            'Slipping, plastic', # (stress below yield stress)
+            'Full pullout'       # (when behaviour is plastic)
+        ])
+        coefficients = [
+            np.zeros((len(behaviour_types), *nroots)) * units('mm/N^3'),
+            np.zeros((len(behaviour_types), *nroots)) * units('mm/N^2'),
+            np.zeros((len(behaviour_types), *nroots)) * units('mm/N'),
+            np.zeros((len(behaviour_types), *nroots)) * units('mm')
+            ]
+        displacement_limits = np.zeros((len(behaviour_types) - 1, *nroots)) * units('mm')
+        force_limits = np.zeros((len(behaviour_types) - 1, *nroots)) * units('N')
+        if surface is True:
+            ## SURFACE ROOTS
+            # anchored, elastic [1]
+            coefficients[0][1, ...] = (
+                1.0 / (2.0 * (roots.elastic_modulus * roots.xsection)**2
+                       * roots.circumference * interface.shear_strength)
+                )
+            coefficients[1][1, ...] = (
+                1.0 / (2.0 * roots.elastic_modulus * roots.xsection
+                       * roots.circumference * interface.shear_strength)
+                )
+            coefficients[2][1, ...] = roots.length_surface / (roots.elastic_modulus * roots.xsection)
             if slipping is True:
-                behaviour_type.append('slipping_elastic')
-                coefficients.append(_calc_coeffs_embedded_slipping(roots))
-                displacement_limits.append(_calc_displimits_embedded_slipping_elastic(roots, interface))
+                # slipping, elastic [2]
+                coefficients[1][2, ...] = (
+                    -1.0 / (roots.elastic_modulus * roots.xsection
+                            * roots.circumference * interface.shear_strength)
+                    )
+                coefficients[2][2, ...] = (
+                     roots.length / (roots.elastic_modulus * roots.xsection)
+                     - 1.0 / (roots.circumference * interface.shear_strength)
+                     )
+                coefficients[3][2, ...] = roots.length - roots.length_surface
+                # displacement at start of slippage, elastic <1>
+                force_limits[1, :] = solve_quadratic(
+                    1.0 / (2.0 * roots.elastic_modulus * roots.xsection * roots.circumference * interface.shear_strength),
+                    1.0 / (roots.circumference * interface.shear_strength),
+                    roots.length_surface - roots.length
+                    )
+                displacement_limits[1, :] = (
+                    coefficients[0][1, ...] * force_limits[1, :]**3
+                    + coefficients[1][1, ...] * force_limits[1, :]**2
+                    + coefficients[2][1, ...] * force_limits[1, :]
+                    + coefficients[3][1, ...]
+                    )
+                # displacement until full pullout, elastic <2>
+                displacement_limits[2, :] = roots.length - roots.length_surface
             if elastoplastic is True:
-                behaviour_type.append('anchored_plastic')
-                behaviour_type.append('slipping_plastic')
-                coefficients.append(_calc_coeffs_embedded_anchored_plastic(roots, interface))
-                coefficients.append(_calc_coeffs_embedded_slipping(roots))
-                displacement_limits.append(_calc_displimits_embedded_anchored_yield(roots, interface))
-                displacement_limits.append(_calc_displimits_embedded_slipping_plastic(roots, interface))
-                # TODO: adjust coefficients in case of elastic or plastic slippage first
+                # force and displacement at yield <3>
+                force_limits[3, :] = roots.xsection * roots.yield_strength
+                displacement_limits[3, :] = (
+                    coefficients[0][1, ...] * force_limits[3, :]**3
+                    + coefficients[1][1, ...] * force_limits[3, :]**2
+                    + coefficients[2][1, ...] * force_limits[3, :]
+                    + coefficients[3][1, ...]
+                    )
+                # anchored, plastic [4]
+                coefficients[0][4, ...] = (
+                    1.0 / (2.0 * (roots.plastic_modulus * roots.xsection)**2 
+                           * roots.circumference * interface.shear_strength)
+                    )
+                coefficients[1][4, ...] = (
+                    1.0 
+                    / (2.0 * roots.plastic_modulus * roots.xsection 
+                       * roots.circumference * interface.shear_strength)
+                    * (1.0
+                       + 3.0 * roots.yield_strength / roots.elastic_modulus
+                       - 3.0 * roots.yield_strength / roots.plastic_modulus) 
+                    )
+                coefficients[2][4, ...] = (
+                    roots.yield_strength
+                    / (2.0 * roots.elastic_modulus * roots.plastic_modulus
+                        * roots.circumference * interface.shear_strength)
+                    * (
+                        roots.yield_strength 
+                        * (3.0 * roots.elastic_modulus / roots.plastic_modulus
+                            + 2.0 * roots.plastic_modulus / roots.elastic_modulus
+                            - 5.0)
+                        - 2.0 * roots.elastic_modulus
+                        + 2.0 * roots.plastic_modulus
+                    )
+                    + roots.length_surface / (roots.plastic_modulus * roots.xsection)
+                    )
+                coefficients[3][4, ...] = (
+                    roots.yield_strength 
+                    * (roots.elastic_modulus - roots.plastic_modulus)
+                    / (2.0 * roots.elastic_modulus * roots.plastic_modulus
+                       * roots.circumference * interface.shear_strength)
+                    * (
+                        roots.yield_strength * roots.xsection
+                        - roots.yield_strength**2 * roots.xsection 
+                        * (1.0 / roots.plastic_modulus - 1.0 / roots.elastic_modulus)
+                        - 2.0 * roots.circumference * interface.shear_strength * roots.length_surface
+                        )
+                    )
+                if slipping is True:
+                    # force and displacement at start of slipping, plastic <4>
+                    force_limits[4, :] = solve_quadratic(
+                        1.0 / (2.0 * roots.plastic_modulus * roots.xsection 
+                            * roots.circumference * interface.shear_strength),
+                        (1.0 
+                        / (roots.circumference * interface.shear_strength)
+                        * (1.0
+                            + force_limits[3, :] / (roots.elastic_modulus * roots.xsection)
+                            - force_limits[3, :] / (roots.plastic_modulus * roots.xsection))),
+                        (roots.length_surface
+                        + (force_limits[3, :]**2 
+                            / (2.0 * roots.xsection * roots.circumference * interface.shear_strength)
+                            * (1.0 / roots.plastic_modulus - 1.0 / roots.elastic_modulus))
+                        - roots.length)
+                        )
+                    displacement_limits[4, :] = (
+                        coefficients[0][4, ...] * force_limits[4, :]**3
+                        + coefficients[1][4, ...] * force_limits[4, :]**2
+                        + coefficients[2][4, ...] * force_limits[4, :]
+                        + coefficients[3][4, ...]
+                    )
+                    # slipping, plastic, above yield (5)
+                    coefficients[1][5, ...] = (
+                        -1.0
+                        / (2.0 * roots.xsection * roots.circumference * interface.shear_strength)
+                        * (1.0 / roots.plastic_modulus + 1.0 / roots.unload_modulus)
+                        )
+                    coefficients[2][5, ...] = (
+                        roots.length / (roots.unload_modulus * roots.xsection)
+                        - 1.0 
+                        / (roots.circumference * interface.shear_strength)
+                        * (
+                            1.0
+                            + roots.yield_strength / roots.elastic_modulus
+                            - roots.yield_strength / roots.plastic_modulus
+                            )
+                        )
+                    coefficients[3][5, ...] = (
+                        roots.length 
+                        - roots.length_surface
+                        + roots.yield_strength * roots.length
+                        * (1.0 / roots.elastic_modulus - 1.0 / roots.plastic_modulus)
+                        + force_limits[4, :] / roots.xsection
+                        * (roots.length - force_limits[4, :] / (2.0 * roots.circumference * interface.shear_strength))
+                        * (1.0 / roots.plastic_modulus - 1.0 / roots.unload_modulus)
+                        )
+                    # force and displacement to yield during plastic unloading <5>
+                    force_limits[5, :] = force_limits[3, :]
+                    displacement_limits[5, :] = (
+                        coefficients[0][5, ...] * force_limits[5, :]**3
+                        + coefficients[1][5, ...] * force_limits[5, :]**2
+                        + coefficients[2][5, ...] * force_limits[5, :]
+                        + coefficients[3][5, ...]
+                    )                    
+                    # slipping, plastic, below yield (6)
+                    coefficients[1][6, ...] = (
+                        -1.0
+                        / (roots.elastic_modulus * roots.xsection
+                        * roots.circumference * interface.shear_strength)
+                        )
+                    coefficients[2][6, ...] = (
+                        roots.length / (roots.unload_modulus * roots.xsection)
+                        - 1.0 / (roots.circumference * interface.shear_strength)
+                        * (1.0 
+                        - roots.yield_strength / roots.unload_modulus 
+                        + roots.yield_strength / roots.elastic_modulus)
+                        )
+                    coefficients[3][6, ...] = (
+                        roots.length 
+                        - roots.length_surface
+                        + 1.0 / (2.0 * roots.xsection * roots.circumference * interface.shear_strength)
+                        * (
+                            force_limits[4, :]**2 
+                            * (1.0 / roots.unload_modulus - 1.0 / roots.plastic_modulus)
+                            + (roots.yield_strength * roots.xsection)**2
+                            * (1.0 / roots.unload_modulus + 1.0 / roots.plastic_modulus - 2.0 / roots.elastic_modulus)
+                            )
+                        - roots.length / roots.xsection
+                        * (
+                            force_limits[4, :]
+                            * (1.0 / roots.unload_modulus - 1.0 / roots.plastic_modulus)
+                            + (roots.yield_strength * roots.xsection)
+                            * (1.0 / roots.plastic_modulus - 1.0 / roots.elastic_modulus)
+                            )
+                        )
+                    # displacement until full pull-out, plastic <6>
+                    displacement_limits[6, :] = coefficients[3][6, ...]
+                    # adjust displacement limits: slippage before yielding --> never plasticity
+                    slip_before_yield = (displacement_limits[1, ...] <= displacement_limits[3, ...])
+                    displacement_limits[3:7, slip_before_yield] = np.inf * units('mm')
+                    # adjust slippage after yielding --> never elastic slippage
+                    yield_before_slip = ~slip_before_yield
+                    displacement_limits[1:3, yield_before_slip] = displacement_limits[3, yield_before_slip]
+                    force_limits[1:3, yield_before_slip] = force_limits[3, yield_before_slip]
         else:
-        
-        # TODO: generate force_unbroken function
-
-        # TODO: generate survival function
-
-        # TODO: generate pullout function
-        
-        # TODO: merge all coefficients
-
-
-
-
-
-
-
-
-
-########################
-### EMBEDDED ELASTIC ###
-########################
-
-
-# EMBEDDED - ELASTIC
-class PulloutEmbeddedElastic():
-
-    def __init__(
-            self,
-            roots,
-            interface,
-            **kwargs
-            ):
-        # check input, then assign
-        self._check_input(roots, interface)
-        self.roots = roots
-        self.interface = interface
-        # set behaviour types, coefficients and limits
-        self._set_behaviour_types()
-        self._set_coefficients()
-        self._set_limits()
-        # set keyword arguments
-        for k, v in kwargs.items():
-            setattr(self, k, v)
-
-    def _check_contains_attributes(
-            self,
-            object, 
-            attributes
-            ):
-        missing = [a for a in attributes if not hasattr(object, a)]
-        if len(missing) > 0:
-            error_message = "Object of type {0} is missing attributes {1}".format(type(object), missing)
-            raise(TypeError(error_message))
-
-    def _check_input(
-            self,
-            roots,
-            interface
-    ):
-        self._check_contains_attributes(
-            roots, 
-            ['xsection', 'circumference', 
-             'elastic_modulus']
-            )
-        self._check_contains_attributes(interface, ['shear_strength'])
-
-    def _nroots(self):
-        return(len(self.roots.xsection))
-
-    def _set_behaviour_types(self):
-        self.behaviour_types = BEHAVIOUR_NAMES[[0, 1]]
-
-    def _get_coefficients_notintension(self):
-        nroots = self._nroots()
-        c2 = np.zeros(nroots) * units['m/N^2']
-        c1 = np.zeros(nroots) * units['m/N']
-        c0 = np.zeros(nroots) * units['m']
-        return(c2, c1, c0)
-
-    def _get_coefficients_anchored_elastic(self):
-        nroots = self._nroots()
-        c2 = (
-            1.0 
-            / (2.0 * self.roots.elastic_modulus * self.roots.xsection 
-               * self.roots.circumference * self.interface.shear_strength)
-            )
-        c1 = np.zeros(nroots) * units['m/N']
-        c0 = np.zeros(nroots) * units['m']
-        return(c2, c1, c0)
-
-    def _combine_coefficients(
-            self,
-            list
-            ):
-        return([np.column_stack(x) for x in zip(*list)])
-
-    def _set_coefficients(self):
-        self.coefficients = self._combine_coefficients([
-            self._get_coefficients_notintension(),
-            self._get_coefficients_anchored_elastic()
-            ])
-
-    def _get_limits_notintension(self):
-        nroots = self._nroots()
-        force = np.zeros(nroots) * units['N']
-        displacement = np.zeros(nroots) * units['m']
-        return(displacement, force)
-
-    def _set_limits(self):
-        self.limits = self._combine_coefficients([
-            self._get_limits_notintension()
-            ])
-        
-    def _get_behaviour_index(
-            self, 
-            displacement  # displacement per root!
-            ):
-        return((displacement[..., np.newaxis] > self.limits[0]).sum(axis = 1))
-
-    def _get_force_unbroken(
-            self, 
-            displacement,  # per root!
-            jac = False
-        ):
-        # initialise force vector and find behaviour indices
-        nroots = self._nroots()
-        force_unbroken = np.zeros(nroots) * units('N')
-        behaviour_index = self._get_behaviour_index(displacement)
-        # elastic behaviour
-        index1 = (behaviour_index == 1)
-        tmp1 = displacement / self.coefficients[0][..., 1]
-        force_unbroken[index1] = np.sqrt(tmp1[index1])
-        # derivative of force with respect to pullout displacement
-        if jac is False:
-            dforceunbroken_ddisplacement = None
-        else:
-            dforceunbroken_ddisplacement = np.zeros_like(force_unbroken) * units['N/m']
-            dforceunbroken_ddisplacement[index1] = (
-                1.0 
-                / (2.0 * force_unbroken[index1] * self.coefficients[0][index1, 1])
+            ## EMBEDDED ROOTS
+            # anchored, elastic [1]
+            coefficients[1][1, ...] = (
+                1.0 / (2.0 * roots.elastic_modulus * roots.xsection 
+                       * roots.circumference * interface.shear_strength)
                 )
-        # return
-        return(
-            force_unbroken, 
-            dforceunbroken_ddisplacement, 
-            behaviour_index
-            )
+            if slipping is True:
+                # slipping, elastic [2]
+                force_limits[1, :] = roots.length * roots.circumference * interface.shear_strength
+                # displacement at start of slippage, elastic <1>
+                displacement_limits[1, :] = coefficients[1][1, ...] * force_limits[1, :]**2
+            if elastoplastic is True:
+                # displacement at yield <3>
+                force_limits[3, :] = roots.xsection * roots.yield_strength
+                displacement_limits[3, :] = coefficients[1][1, ...] * force_limits[3, :]**2
+                # anchored, plastic [4]
+                coefficients[1][4, ...] = (
+                    1.0 / (2.0 * roots.plastic_modulus * roots.xsection 
+                           * roots.circumference * interface.shear_strength)
+                    )
+                coefficients[2][4, ...] = (
+                    roots.yield_strength 
+                    / (roots.elastic_modulus * roots.circumference * interface.shear_strength)
+                    - roots.yield_strength 
+                    / (roots.plastic_modulus * roots.circumference * interface.shear_strength)
+                    )
+                coefficients[3][4, ...] = (
+                    -roots.yield_strength**2 * roots.xsection 
+                    / (2.0 * roots.elastic_modulus * roots.circumference * interface.shear_strength)
+                    + roots.yield_strength**2 * roots.xsection 
+                    / (2.0 * roots.plastic_modulus * roots.circumference * interface.shear_strength)
+                    )
+                if slipping is True:
+                    # displacement at start of slippage, plastic <4>
+                    displacement_limits[4, :] = (
+                        coefficients[1][4, ...] * force_limits[1, :]**2
+                        + coefficients[2][4, ...] * force_limits[1, :]
+                        + coefficients[3][4, ...]
+                        )
+                    force_limits[4, :] = force_limits[1, :]
+                    # adjust displacement limits to ensure correct order of behaviours
+                    slip_before_yield = displacement_limits[1, ...] <= displacement_limits[3, ...]
+                    displacement_limits[3:5, slip_before_yield] = np.inf * units('mm')
+                    force_limits[3:5, slip_before_yield] = force_limits[1, slip_before_yield]
+                    yield_before_slip = ~slip_before_yield
+                    displacement_limits[1, yield_before_slip] = displacement_limits[3, yield_before_slip]
+                    force_limits[1, yield_before_slip] = force_limits[3, yield_before_slip]
 
-    def _get_survival(
-            self, 
-            force, 
-            behaviour_index,
-            jac = False,
-            ):
-        survival = np.ones_like(force)
-        if jac is False:
-            dsurvival_dforce = None
-        else:
-            dsurvival_dforce = np.zeros_like(survival) * units('1/N')
-        return(survival, dsurvival_dforce)
-    
-    def force(
+        # for displacement limits that are not needed, add dummy values based on 'next' displacement limit
+        mask = np.isclose(displacement_limits[-1, ...].magnitude, 0.0)
+        displacement_limits[-1, mask] = np.inf * units('mm')
+        for i in np.flip(np.arange(1, 6)):
+            mask = np.isclose(displacement_limits[i, ...].magnitude, 0.0)
+            displacement_limits[i, mask] = displacement_limits[i + 1, mask]
+            force_limits[i, mask] = force_limits[i + 1, mask]
+        # assign calculated values
+        self.coefficients = coefficients
+        self.behaviour_types = behaviour_types
+        self.displacement_limits = displacement_limits
+        self.force_limits = force_limits
+
+    def calc_force(
             self,
-            displacement,
-            jac = False
-    ):
-        force_unbroken, dforceunbroken_ddisplacement, behaviour_index = self._get_force_unbroken(
-            displacement, 
-            jac = jac
-            )
-        survival, dsurvival_dforceunbroken = self._get_survival(
-            force_unbroken, 
-            behaviour_index,
-            jac = jac
-            )
-        force = force_unbroken * survival
-        if jac is False:
-            dforce_ddisplacement = None
-        else:
-            dforce_ddisplacement = (
-                dforceunbroken_ddisplacement * survival
-                + force * dsurvival_dforceunbroken * dforceunbroken_ddisplacement
-            )
-        return(
-            force,
-            dforce_ddisplacement,
-            survival, 
-            behaviour_index
-        )
-
-    def _solve_quadratic(
-            self, 
-            a, 
-            b, 
-            c
+            displacement: Quantity
             ):
-        # solve equations a*x^2 + b*x^2 + c = 0 in DRAM/Pullout
-        # function always returns the largest root
-        discriminant = b**2 - 4.0 * a * c
-        x = (-b + np.sign(a) * np.sqrt(discriminant)) / (2.0 * a)
-        return(x)
-    
-
-# EMBEDDED - ELASTIC, SLIPPING
-class PulloutEmbeddedElasticSlipping(PulloutEmbeddedElastic):
-
-    def _check_input(
-            self,
-            roots,
-            interface
-    ):
-        self._check_contains_attributes(
-            roots, 
-            ['xsection', 'circumference', 
-             'elastic_modulus', 
-             'length']
-            )
-        self._check_contains_attributes(interface, ['shear_strength'])
-
-    def _set_behaviour_types(self):
-        self.behaviour_types = BEHAVIOUR_NAMES[[0, 1, 2]]
-
-    def _get_coefficients_slipping(self):
-        nroots = self._nroots()
-        c2 = np.zeros(nroots) * units['m/N^2']
-        c1 = np.zeros(nroots) * units['m/N']
-        c0 = np.inf * np.ones(nroots) * units['m']
-        return(c2, c1, c0)
-
-    def _set_coefficients(self):
-        self.coefficients = self._combine_coefficients([
-            self._get_coefficients_notintension(),
-            self._get_coefficients_anchored_elastic(),
-            self._get_coefficients_slipping()
-            ])
-
-    def _get_limits_elastic_slipping(self):
-        force = self.roots.length * self.roots.circumference * self.interface.shear_strength
-        c2, _, _ = self._get_coefficients_anchored_elastic()
-        displacement = c2 * force**2
-        return(displacement, force)
-
-    def _set_limits(self):
-        self.limits = self._combine_coefficients([
-            self._get_limits_notintension(),
-            self._get_limits_elastic_slipping()
-            ])
-        
-    def _get_force_unbroken(
-            self, 
-            displacement,
-            jac = False
-            ):
-        # initialise force vector and find behaviour indices
-        nroots = self._nroots()
-        force_unbroken = np.zeros(nroots) * units('N')
-        behaviour_index = self._get_behaviour_index(displacement)
-        # elastic behaviour
-        index1 = (behaviour_index == 1)
-        tmp1 = displacement / self.coefficients[0][..., 1]
-        force_unbroken[index1] = np.sqrt(tmp1[index1])
-        # slipping behaviour
-        index2 = (behaviour_index == 2)
-        force_unbroken[index2] = self.limits[1][index2, 1]
-        # derivatives
-        if jac is False:
-            dforceunbroken_ddisplacement = None
-        else:
-            dforceunbroken_ddisplacement = np.zeros_like(force_unbroken) * units['N/m']
-            dforceunbroken_ddisplacement[index1] = (
-                1.0 
-                / (2.0 * force_unbroken[index1] * self.coefficients[0][index1, 1])
+        nroots = self.roots.xsection.shape
+        behaviour_index = np.sum(displacement > self.displacement_limits, axis = 0).astype(int)
+        force_unbroken = np.zeros(*nroots) * units('N')
+        if self.surface is True:
+            ## SURFACE ROOTS
+            mask_el_anch = (behaviour_index == 1)
+            force_unbroken[mask_el_anch] = solve_cubic(
+                self.coefficients[0][1, mask_el_anch],
+                self.coefficients[1][1, mask_el_anch],
+                self.coefficients[2][1, mask_el_anch],
+                (self.coefficients[3][1, ...] - displacement)[mask_el_anch]
                 )
-        # return
-        return(
-            force_unbroken, 
-            dforceunbroken_ddisplacement,
-            behaviour_index,             
-            )
-    
+            if self.slipping is True:
+                mask_el_slip = (behaviour_index == 2)
+                force_unbroken[mask_el_slip] = solve_quadratic(
+                    self.coefficients[1][2, mask_el_slip],
+                    self.coefficients[2][2, mask_el_slip],
+                    (self.coefficients[3][2, ...] - displacement)[mask_el_slip]
+                )
+            if self.elastoplastic is True:
+                mask_pl_anch = (behaviour_index == 4)
+                force_unbroken[mask_pl_anch] = solve_cubic(
+                    self.coefficients[0][4, mask_pl_anch],
+                    self.coefficients[1][4, mask_pl_anch],
+                    self.coefficients[2][4, mask_pl_anch],
+                    (self.coefficients[3][4, ...] - displacement)[mask_pl_anch]
+                    )
+                if self.slipping is True:
+                    mask_pl_slip_aboveyield = (behaviour_index == 5)
+                    force_unbroken[mask_pl_slip_aboveyield] = solve_quadratic(
+                        self.coefficients[1][5, mask_pl_slip_aboveyield],
+                        self.coefficients[2][5, mask_pl_slip_aboveyield],
+                        (self.coefficients[3][5, ...] - displacement)[mask_pl_slip_aboveyield]
+                    )
+                    mask_pl_slip_belowyield = (behaviour_index == 6)
+                    force_unbroken[mask_pl_slip_belowyield] = solve_quadratic(
+                        self.coefficients[1][5, mask_pl_slip_belowyield],
+                        self.coefficients[2][5, mask_pl_slip_belowyield],
+                        (self.coefficients[3][5, ...] - displacement)[mask_pl_slip_belowyield]
+                    )
+            force_unbroken_cummax = force_unbroken
+            mask_el_reducing = behaviour_index in [2, 3]
+            force_unbroken_cummax[mask_el_reducing] = self.force_limits[1, mask_el_reducing]
+            mask_pl_reducing = behaviour_index in [5, 6, 7]
+            force_unbroken_cummax[mask_pl_reducing] = self.force_limits[4, mask_pl_reducing]
+        else:
+            ## EMBEDDED ROOTS
+            mask_el_anch = (behaviour_index == 1)
+            force_unbroken[mask_el_anch] = np.sqrt(
+                (displacement / self.coefficients[1][1, ...])[mask_el_anch]
+                )
+            if self.slipping is True:
+                mask_el_slip = (behaviour_index == 2)
+                force_unbroken[mask_el_slip] = (
+                    self.roots.length[mask_el_slip]
+                    * self.roots.circumference[mask_el_slip]
+                    * self.interface.shear_strength
+                    )
+            if self.elastoplastic is True:
+                mask_pl_anch = (behaviour_index == 4)
+                force_unbroken[mask_pl_anch] = solve_quadratic(
+                    self.coefficients[1][4, mask_pl_anch],
+                    self.coefficients[2][4, mask_pl_anch],
+                    (self.coefficients[3][4, ...] - displacement)[mask_pl_anch]
+                    )
+                if self.slipping is True:
+                    mask_pl_slip = (behaviour_index == 5)
+                    force_unbroken[mask_pl_slip] = (
+                        self.roots.length[mask_pl_slip]
+                        * self.roots.circumference[mask_pl_slip]
+                        * self.interface.shear_strength
+                        )
+            force_unbroken_cummax = force_unbroken
 
-# EMBEDDED - ELASTIC, BREAKAGE
-class PulloutEmbeddedElasticBreakage(PulloutEmbeddedElastic):
-
-    def _check_input(
-            self,
-            roots,
-            interface
-    ):
-        self._check_contains_attributes(
-            roots, 
-            ['xsection', 'circumference', 
-             'elastic_modulus', 
-             'tensile_strength']
-            )
-        self._check_contains_attributes(interface, ['shear_strength'])
-
-    def _get_survival(
-            self, 
-            force, 
-            behaviour_index,
-            jac = False
-            ):
-        stress = force / self.roots.xsection
-        if hasattr(self, 'weibull_shape') and self.weibull_shape is not None:
-            weibull_shape = self.weibull_shape
-            weibull_scale = self.roots.tensile_strength / gamma(1.0 + 1.0 / weibull_shape)
-            survival = np.exp(-(stress / weibull_scale)**weibull_shape)
-            if jac is False:
-                dsurvival_dforce = None
+        if self.breakage is True:
+            force_breakage = self.roots.xsection * self.roots.tensile_strength
+            if self.weibull_shape is None:
+                survival = (force_unbroken_cummax <= force_breakage).astype(float)
             else:
-                dstress_dforce = 1.0 / self.roots.xsection
-                dsurvival_dstress = (
-                    -weibull_shape / weibull_scale
-                    * (stress / weibull_scale) ** (weibull_shape - 1.0)
-                    * survival
-                )
-                dsurvival_dforce = dsurvival_dstress * dstress_dforce
+                y = (force_unbroken_cummax / force_breakage * gamma(1.0 + 1.0 / self.weibull_shape)).magnitude                   
+                survival = np.exp(-(y**self.weibull_shape))
         else:
-            survival = (stress <= self.roots.tensile_strength).astype('float')
-            if jac is False:
-                dsurvival_dforce = None
-            else:
-                dsurvival_dforce = np.zeros(self._nroots()) * units('1/N')
-        return(survival, dsurvival_dforce)
-
-
-# EMBEDDED - ELASTIC, BREAKAGE, SLIPPING
-class PulloutEmbeddedElasticBreakageSlipping(
-    PulloutEmbeddedElasticSlipping,
-    PulloutEmbeddedElasticBreakage
-    ):
-
-    def _check_input(
-            self,
-            roots,
-            interface
-    ):
-        self._check_contains_attributes(
-            roots, 
-            ['xsection', 'circumference', 
-             'elastic_modulus', 
-             'tensile_strength',
-             'length']
-            )
-        self._check_contains_attributes(interface, ['shear_strength'])
-
-
-###############################
-### EMBEDDED ELASTO_PLASTIC ###
-###############################
-
-# EMBEDDED, ELASTOPLASTIC
-class PulloutEmbeddedElastoplastic(PulloutEmbeddedElastic):
-
-    def _check_input(
-            self,
-            roots,
-            interface
-    ):
-        self._check_contains_attributes(
-            roots, 
-            ['xsection', 'circumference', 
-             'elastic_modulus', 'plastic_modulus',
-             'yield_strength']
-            )
-        self._check_contains_attributes(interface, ['shear_strength'])
-
-    def _set_behaviour_types(self):
-        self.behaviour_types = BEHAVIOUR_NAMES[[0, 1, 3]]
-
-    def _get_coefficients_anchored_plastic(self):
-        c2 = (
-            1.0 
-            / (2.0 * self.roots.plastic_modulus * self.roots.xsection 
-               * self.roots.circumference * self.interface.shear_strength)
-            )
-        c1 = (
-            self.roots.yield_strength 
-            / (self.roots.elastic_modulus * self.roots.circumference * self.interface.shear_strength)
-            - self.roots.yield_strength 
-            / (self.roots.plastic_modulus * self.roots.circumference * self.interface.shear_strength)
-            )
-        c0 = (
-            -self.roots.yield_strength**2 * self.roots.xsection 
-            / (2.0 * self.roots.elastic_modulus * self.roots.circumference * self.interface.shear_strength)
-            + self.roots.yield_strength**2 * self.roots.xsection 
-            / (2.0 * self.roots.plastic_modulus * self.roots.circumference * self.interface.shear_strength)
-            )
-        return(c2, c1, c0)
-    
-    def _set_coefficients(self):
-        self.coefficients = self._combine_coefficients([
-            self._get_coefficients_notintension(),
-            self._get_coefficients_anchored_elastic(),
-            self._get_coefficients_anchored_plastic()
-            ])
-
-    def _get_limits_yield_anchored(self):
-        force = self.roots.yield_strength * self.roots.xsection
-        c2, _, _ = self._get_coefficients_anchored_elastic()
-        displacement = c2 * force**2
-        return(displacement, force)
-    
-    def _set_limits(self):
-        self.limits = self._combine_coefficients([
-            self._get_limits_notintension(),
-            self._get_limits_yield_anchored()
-            ])
-
-    def _get_force_unbroken(
-            self, 
-            displacement,
-            jac = False
-            ):
-        # initialise force vector and find behaviour indices
-        nroots = self._nroots()
-        force_unbroken = np.zeros(nroots) * units('N')
-        behaviour_index = self._get_behaviour_index(displacement)
-        # elastic behaviour
-        index1 = (behaviour_index == 1)
-        tmp1 = displacement / self.coefficients[0][..., 1]
-        force_unbroken[index1] = np.sqrt(tmp1[index1])
-        # plastic behaviour
-        index2 = (behaviour_index == 2)
-        tmp2 = self.coefficients[2][..., 2] - displacement
-        force_unbroken[index2] = self._solve_quadratic(
-            self.coefficients[0][index2, 2],
-            self.coefficients[1][index2, 2],
-            tmp2[index2]
-        )
-        # derivative of force with respect to displacement
-        if jac is False:
-            dforceunbroken_ddisplacement = None
-        else:
-            dforceunbroken_ddisplacement = np.zeros(nroots) * units['N/m']
-            dforceunbroken_ddisplacement[index1] = (
-                1.0
-                / (2.0 * self.coefficients[0][index1, 1] * force_unbroken[index1])                
-            )
-            dforceunbroken_ddisplacement[index2] = (
-                1.0
-                / (2.0 * self.coefficients[0][index2, 2] * force_unbroken[index2]
-                   + self.coefficients[1][index2, 2])
-                )
-        # return
-        return(
-            force_unbroken,
-            dforceunbroken_ddisplacement,
-            behaviour_index
-        )
-    
-
-# EMBEDDED, ELASTOPLASTIC, SLIPPING
-class PulloutEmbeddedElastoplasticSlipping(
-    PulloutEmbeddedElastoplastic,
-    PulloutEmbeddedElasticSlipping
-    ):
-
-    def _check_input(
-        self,
-        roots,
-        interface
-    ):
-        self._check_contains_attributes(
-            roots, 
-            ['xsection', 'circumference', 
-             'elastic_modulus', 'plastic_modulus',
-             'yield_strength',
-             'length']
-            )
-        self._check_contains_attributes(interface, ['shear_strength'])
-
-    def _set_behaviour_types(self):
-        self.behaviour_types = BEHAVIOUR_NAMES[[0, 1, 2, 4, 5]]
-
-    def _set_coefficients(self):
-        self.coefficients = self._combine_coefficients([
-            self._get_coefficients_notintension(),
-            self._get_coefficients_anchored_elastic(),
-            self._get_coefficients_slipping(),
-            self._get_coefficients_anchored_plastic(),
-            self._get_coefficients_slipping()
-            ])
-
-    def _get_limits_plastic_slipping(self):
-        force = self.roots.length * self.roots.circumference * self.interface.shear_strength
-        c2, c1, c0 = self._get_coefficients_anchored_plastic()
-        displacement = c2 * force**2 + c1 * force + c0
-        return(displacement, force)
-    
-    def _set_limits(self):
-        # calculate limits
-        displacement_limits, force_limits = self._combine_coefficients([
-            self._get_limits_notintension(),
-            self._get_limits_elastic_slipping(),
-            self._get_limits_yield_anchored(),
-            self._get_limits_plastic_slipping()
-            ])
-        # adjust: slippage before yielding --> never plasticity
-        index = displacement_limits[:, 1] <= displacement_limits[:, 2]
-        displacement_limits[index, 2] = np.inf * units('mm')
-        displacement_limits[index, 3] = np.inf * units('mm')
-        # adjust slippage after yielding --> never elastic slippage
-        displacement_limits[~index, 1] = displacement_limits[~index, 2]
-        # set limits
-        self.limits = [displacement_limits, force_limits]
-    
-    def _get_force_unbroken(
-            self, 
-            displacement,
-            jac = False
-            ):
-        # initialise force vector and find behaviour indices
-        nroots = self._nroots()
-        force_unbroken = np.zeros(nroots) * units('N')
-        behaviour_index = self._get_behaviour_index(displacement)
-        # elastic anchored behaviour
-        index1 = (behaviour_index == 1)
-        tmp1 = displacement / self.coefficients[0][..., 1]
-        force_unbroken[index1] = np.sqrt(tmp1[index1])
-        # plastic anchored behaviour
-        index3 = (behaviour_index == 3)
-        tmp3 = self.coefficients[2][..., 3] - displacement
-        force_unbroken[index3] = self._solve_quadratic(
-            self.coefficients[0][index3, 3],
-            self.coefficients[1][index3, 3],
-            tmp3[index3]
-        )
-        # slipping behaviour
-        index24 = (behaviour_index == 2) | (behaviour_index == 4)
-        force_unbroken[index24] = self.limits[1][index24, 3]
-        # return
-        if jac is False:
-            dforceunbroken_ddisplacement = None
-        else:
-            dforceunbroken_ddisplacement = np.zeros(nroots) * units['N/m']
-            dforceunbroken_ddisplacement[index1] = (
-                1.0
-                / (2.0 * self.coefficients[0][index1, 1] * force_unbroken[index1])                
-            )
-            dforceunbroken_ddisplacement[index3] = (
-                1.0
-                / (2.0 * self.coefficients[0][index3, 3] * force_unbroken[index3]
-                   + self.coefficients[1][index3, 3])
-                )
-        # return
-        return(
-            force_unbroken,
-            dforceunbroken_ddisplacement,
-            behaviour_index            
-        )
-    
-
-# EMBEDDED, ELASTOPLASTIC, BREAKAGE
-class PulloutEmbeddedElastoplasticBreakage(
-    PulloutEmbeddedElastoplastic,
-    PulloutEmbeddedElasticBreakage
-    ):
-
-    def _check_input(
-        self,
-        roots,
-        interface
-    ):
-        self._check_contains_attributes(
-            roots, 
-            ['xsection', 'circumference', 
-             'elastic_modulus', 'plastic_modulus',
-             'yield_strength', 'tensile_strength']
-            )
-        self._check_contains_attributes(interface, ['shear_strength'])
-
-
-# EMBEDDED, ELASTOPLASTIC, BREAKAGE, SLIPPING
-class PulloutEmbeddedElastoplasticBreakageSlipping(
-    PulloutEmbeddedElastoplasticSlipping,
-    PulloutEmbeddedElastoplasticBreakage,
-    ):
-
-    def _check_input(
-        self,
-        roots,
-        interface
-    ):
-        self._check_contains_attributes(
-            roots, 
-            ['xsection', 'circumference', 
-             'elastic_modulus', 'plastic_modulus',
-             'yield_strength', 'tensile_strength', 
-             'length']
-            )
-        self._check_contains_attributes(interface, ['shear_strength'])
-
-
-
-
-
-
-
-#####################
-### SURFACE ROOTS ###
-#####################
-
-
-
-
-
-# SURFACE - ELASTIC
-class PulloutSurfaceElastic(PulloutEmbeddedElastic):
-
-    def _check_input(
-            self,
-            roots,
-            interface
-    ):
-        self._check_contains_attributes(
-            roots, 
-            ['xsection', 'circumference', 
-             'elastic_modulus', 
-             'length_surface']
-            )
-        self._check_contains_attributes(interface, ['shear_strength'])
-
-    def _set_behaviour_types(self):
-        self.behaviour_types = BEHAVIOUR_NAMES[[0, 1]]
-
-    def _get_coefficients_notintension(self):
-        nroots = self._nroots()
-        c3 = np.zeros(nroots) * units['m/N^3']
-        c2 = np.zeros(nroots) * units['m/N^2']
-        c1 = np.zeros(nroots) * units['m/N']
-        c0 = np.zeros(nroots) * units['m']
-        return(c3, c2, c1, c0)
-
-    def _get_coefficients_anchored_elastic(self):
-        nroots = self._nroots()
-        c3 = 1.0 / (2.0 * (self.roots.elastic_modulus * self.roots.xsection)**2
-                    * self.roots.circumference * self.interface.shear_strength)
-        c2 = 1.0 / (2.0 * self.roots.elastic_modulus * self.roots.xsection
-                    * self.roots.circumference * self.interface.shear_strength)
-        c1 = self.roots.length_surface / (self.roots.elastic_modulus * self.roots.xsection)
-        c0 = np.zeros(nroots) * units['m']
-        return(c3, c2, c1, c0)
-
-    def _solve_cubic(
-            self, 
-            a, 
-            b, 
-            c,
-            d
-            ):
-        # solve equations a*x^3 + b*x^2 + c*x + d = 0 in DRAM/Pullout
-        # a = always positive in DRAM/Pullout equations
-        # function returns largest positive root
-        # 
-        # construct empty output vector
-        x = np.zeros(a.shape) * units('N')
-        # new parameters - so that: x^3 + e*x^2 + f*x + g = 0
-        e = b / a
-        f = c / a
-        g = d / a
-        # temporary values
-        Q = (e**2 - 3.0 * f) / 9.0
-        R = (2.0 * e**3 - 9.0 * e * f + 27.0 * g) / 54.0
-        mask = (R**2) < (Q**3) # if true, 3 real roots exist, if false, only one real root exists
-        # three real roots - calculate largest value
-        theta = np.arccos(R[mask] / np.sqrt(Q[mask]**3))
-        x[mask] = -2.0 * np.sqrt(Q[mask]) * np.cos((theta + 2.0*np.pi) / 3.0) - e[mask] / 3.0
-        # one real root
-        A = -np.sign(R[~mask]) * (np.abs(R[~mask]) + np.sqrt(R[~mask]**2 - Q[~mask]**3)) ** (1.0 / 3.0)
-        B = Q[~mask] / A
-        x[~mask] = (A + B) - e[~mask] / 3.0
-        # x = 0 solution (when d == 0)
-        x[np.isclose(d.magnitude, 0.0)] = 0.0 * units('N')
-        # return array of solutions
-        return(x)
-
-    def _get_force_unbroken(
-            self, 
-            displacement, 
-            jac = False
-        ):
-        # initialise force vector and find behaviour indices
-        nroots = self._nroots()
-        force_unbroken = np.zeros(nroots) * units('N')
-        behaviour_index = self._get_behaviour_index(displacement)
-        # elastic behaviour
-        index1 = (behaviour_index == 1)
-        force_unbroken[index1] = self._solve_cubic(
-            self.coefficients[0][index1, 1],
-            self.coefficients[1][index1, 1],
-            self.coefficients[2][index1, 1],
-            self.coefficients[3][index1, 1] - displacement
-        )
-        # derivative of force with respect to pullout displacement
-        if jac is False:
-            dforceunbroken_ddisplacement = None
-        else:
-            dforceunbroken_ddisplacement = np.zeros_like(force_unbroken) * units['N/m']
-            dforceunbroken_ddisplacement[index1] = (1.0 / (
-                3.0 * self.coefficients[0][index1, 1] * force_unbroken[index1]**2
-                + 2.0 * self.coefficients[1][index1, 1] * force_unbroken[index1]
-                + self.coefficients[2][index1, 1]
-                ))
-        # return
-        return(
-            force_unbroken, 
-            dforceunbroken_ddisplacement, 
-            behaviour_index
-            )
-   
-class PulloutSurfaceElasticSlipping(PulloutSurfaceElastic):
-
-    def _check_input(
-        self,
-        roots,
-        interface
-    ):
-        self._check_contains_attributes(
-            roots, 
-            ['xsection', 'circumference', 
-             'elastic_modulus', 
-             'length', 'length_surface']
-            )
-        self._check_contains_attributes(interface, ['shear_strength'])
-
-    def _set_behaviour_types(self):
-        self.behaviour_types = BEHAVIOUR_NAMES[[0, 1, 2, 3]]
-
-    def _get_coefficients_slipping_elastic(self):
-        nroots = self._nroots()
-        c3 = np.zeros(nroots) * units['m/N^3']
-        c2 = -1.0 / (self.roots.elastic_modulus * self.roots.xsection
-                     * self.roots.circumference * self.interface.shear_strength)
-        c1 = (self.roots.length / (self.roots.elastic_modulus * self.roots.xsection)
-              - 1.0 / (self.roots.circumference * self.interface.shear_strength))
-        c0 = self.roots.length - self.roots.length_surface
-        return(c3, c2, c1, c0)
-
-    def _set_coefficients(self):
-        self.coefficients = self._combine_coefficients([
-            self._get_coefficients_notintension(),
-            self._get_coefficients_anchored_elastic(),
-            self._get_coefficients_slipping_elastic(),
-            self._get_coefficients_notintension()
-            ])
-
-    def _get_limits_elastic_slipping(self):
-        force = self._solve_quadratic(
-            1.0 / (2.0 * self.roots.elastic_modulus * self.roots.xsection * self.roots.circumference * self.interface.shear_strength),
-            1.0 / (self.roots.circumference * self.interface.shear_strength),
-            self.roots.length_surface - self.roots.length
-            )            
-        c3, c2, c1, c0 = self._get_coefficients_anchored_elastic()
-        displacement = c3 * force**3 + c2 * force**2 + c1 * force + c0
-        return(displacement, force)
-    
-    def _get_limits_elastic_fullpullout(self):
-        nroots = self._nroots()
-        force = np.zeros(nroots) * units('N')
-        displacement = self.roots.length - self.roots.length_surface
-        return(displacement, force)
-
-    def _set_limits(self):
-        self.limits = self._combine_coefficients([
-            self._get_limits_notintension(),
-            self._get_limits_elastic_slipping(),
-            self._get_limits_elastic_fullpullout()
-            ])
-        
-    def _get_force_unbroken(
-            self, 
-            displacement,
-            jac = False
-            ):
-        # initialise force vector and find behaviour indices
-        nroots = self._nroots()
-        force_unbroken = np.zeros(nroots) * units('N')
-        behaviour_index = self._get_behaviour_index(displacement)
-        # elastic behaviour
-        index1 = (behaviour_index == 1)
-        force_unbroken[index1] = self._solve_cubic(
-            self.coefficients[0][index1, 1],
-            self.coefficients[1][index1, 1],
-            self.coefficients[2][index1, 1],
-            self.coefficients[3][index1, 1] - displacement
-        )
-        # slipping behaviour
-        index2 = (behaviour_index == 2)
-        force_unbroken[index2] = self._solve_quadratic(
-            self.coefficients[1][index2, 2],
-            self.coefficients[2][index2, 2],
-            self.coefficients[3][index2, 2] - displacement
-            )
-        # derivatives
-        if jac is False:
-            dforceunbroken_ddisplacement = None
-        else:
-            dforceunbroken_ddisplacement = np.zeros_like(force_unbroken) * units['N/m']
-            dforceunbroken_ddisplacement[index1] = (1.0 / (
-                3.0 * self.coefficients[0][index1, 1] * force_unbroken[index1]**2
-                + 2.0 * self.coefficients[1][index1, 1] * force_unbroken[index1]
-                + self.coefficients[2][index1, 1]
-                ))
-            dforceunbroken_ddisplacement[index2] = (1.0 / (
-                + 2.0 * self.coefficients[1][index2, 2] * force_unbroken[index2]
-                + self.coefficients[2][index2, 2]
-                ))
-        # return
-        return(
-            force_unbroken, 
-            dforceunbroken_ddisplacement,
-            behaviour_index,             
-            )
-    
-# SURFACE - ELASTIC, BREAKAGE
-class PulloutSurfaceElasticBreakage(PulloutSurfaceElastic):
-
-    def _check_input(
-            self,
-            roots,
-            interface
-    ):
-        self._check_contains_attributes(
-            roots, 
-            ['xsection', 'circumference', 
-             'elastic_modulus', 
-             'tensile_strength',
-             'length_surface']
-            )
-        self._check_contains_attributes(interface, ['shear_strength'])
-
-    def _get_survival(
-            self, 
-            force, 
-            behaviour_index,
-            jac = False
-            ):
-        # generate mask - for when force has been higher during any previous displacement (e.g. during slipping)
-        behaviour_index_reducing_elastic = np.array([False, False, True, True])
-        mask_elastic = behaviour_index_reducing_elastic[behaviour_index]
-        force[mask_elastic] = self.limits[1][mask_elastic, 1]
-        # calculate survival
-        stress = force / self.roots.xsection
-        if hasattr(self, 'weibull_shape') and self.weibull_shape is not None:
-            weibull_shape = self.weibull_shape
-            weibull_scale = self.roots.tensile_strength / gamma(1.0 + 1.0 / weibull_shape)
-            survival = np.exp(-(stress / weibull_scale)**weibull_shape)
-            if jac is False:
-                dsurvival_dforce = None
-            else:
-                dstress_dforce = 1.0 / self.roots.xsection
-                dsurvival_dstress = (
-                    -weibull_shape / weibull_scale
-                    * (stress / weibull_scale) ** (weibull_shape - 1.0)
-                    * survival
-                )
-                dsurvival_dforce = dsurvival_dstress * dstress_dforce
-                # adjust for reducing points (survival function does not change once reducing force)
-                dsurvival_dforce[mask_elastic] = np.zeros(np.sum(mask_elastic)) * units('1/N')
-        else:
-            survival = (stress <= self.roots.tensile_strength).astype('float')
-            if jac is False:
-                dsurvival_dforce = None
-            else:
-                dsurvival_dforce = np.zeros(self._nroots()) * units('1/N')
-        return(survival, dsurvival_dforce)
-    
-
-# SURFACE - ELASTIC, BREAKAGE SLIPPAGE
-class PulloutSurfaceElasticBreakageSlipping(
-    PulloutSurfaceElasticBreakage,
-    PulloutSurfaceElasticSlipping  
-    ):
-
-    def _check_input(
-            self,
-            roots,
-            interface
-    ):
-        self._check_contains_attributes(
-            roots, 
-            ['xsection', 'circumference', 
-             'elastic_modulus', 
-             'tensile_strength',
-             'length', 'length_surface']
-            )
-        self._check_contains_attributes(interface, ['shear_strength'])
-
-
-###########################
-# SURFACE - ELASTOPLASTIC #
-###########################
-
-class PulloutSurfaceElastoplastic(PulloutSurfaceElastic):
-
-    def _check_input(
-            self,
-            roots,
-            interface
-    ):
-        self._check_contains_attributes(
-            roots, 
-            ['xsection', 'circumference', 
-             'elastic_modulus', 'plastic_modulus',
-             'yield_strength',
-             'length_surface']
-            )
-        self._check_contains_attributes(interface, ['shear_strength'])
-
-    def _set_behaviour_types(self):
-        self.behaviour_types = BEHAVIOUR_NAMES[[0, 1, 4]]
-
-    def _get_coefficients_anchored_plastic(self):
-        c3 = (
-            1.0 
-            / (2.0 * (self.roots.plastic_modulus * self.roots.xsection)**2 
-               * self.roots.circumference * self.interface.shear_strength)
-            )
-        c2 = (
-            1.0 
-            / (2.0 * self.roots.plastic_modulus * self.roots.xsection 
-               * self.roots.circumference * self.interface.shear_strength)
-            * (1.0
-               + 3.0 * self.roots.yield_strength / self.roots.elastic_modulus
-               - 3.0 * self.roots.yield_strength / self.roots.plastic_modulus) 
-            )
-        c1 = (
-            self.roots.yield_strength
-            / (2.0 * self.roots.elastic_modulus * self.roots.plastic_modulus
-               * self.roots.circumference * self.interface.shear_strength)
-            * (
-                self.roots.yield_strength 
-                * (3.0 * self.roots.elastic_modulus / self.roots.plastic_modulus
-                   + 2.0 * self.roots.plastic_modulus / self.roots.elastic_modulus
-                   - 5.0)
-                - 2.0 * self.roots.elastic_modulus
-                + 2.0 * self.roots.plastic_modulus
-            )
-            + self.roots.length_surface / (self.roots.plastic_modulus * self.roots.xsection)
-            )
-        c0 = (
-            self.roots.yield_strength 
-            * (self.roots.elastic_modulus - self.roots.plastic_modulus)
-            / (2.0 * self.roots.elastic_modulus * self.roots.plastic_modulus
-               * self.roots.circumference * self.interface.shear_strength)
-            * (
-                self.roots.yield_strength * self.roots.xsection
-                - self.roots.yield_strength**2 * self.roots.xsection 
-                * (1.0 / self.roots.plastic_modulus - 1.0 / self.roots.elastic_modulus)
-                - 2.0 * self.roots.circumference * self.interface.shear_strength * self.roots.length_surface
-                )
-            )
-        return(c3, c2, c1, c0)
-    
-    def _set_coefficients(self):
-        self.coefficients = self._combine_coefficients([
-            self._get_coefficients_notintension(),
-            self._get_coefficients_anchored_elastic(),
-            self._get_coefficients_anchored_plastic()
-            ])
-
-    def _get_limits_yield_anchored(self):
-        force = self.roots.yield_strength * self.roots.xsection
-        c3, c2, c1, c0 = self._get_coefficients_anchored_elastic()
-        displacement = c3 * force**3 + c2 * force**2 + c1 * force + c0
-        return(displacement, force)
-    
-    def _set_limits(self):
-        self.limits = self._combine_coefficients([
-            self._get_limits_notintension(),
-            self._get_limits_yield_anchored()
-            ])
-
-    def _get_force_unbroken(
-            self, 
-            displacement,
-            jac = False
-            ):
-        # initialise force vector and find behaviour indices
-        nroots = self._nroots()
-        force_unbroken = np.zeros(nroots) * units('N')
-        behaviour_index = self._get_behaviour_index(displacement)
-        # elastic behaviour
-        index1 = (behaviour_index == 1)
-        force_unbroken[index1] = self._solve_cubic(
-            self.coefficients[0][index1, 1],
-            self.coefficients[1][index1, 1],
-            self.coefficients[2][index1, 1],
-            self.coefficients[3][index1, 1] - displacement
-        )
-        # plastic behaviour
-        index2 = (behaviour_index == 2)
-        force_unbroken[index2] = self._solve_cubic(
-            self.coefficients[0][index2, 2],
-            self.coefficients[1][index2, 2],
-            self.coefficients[2][index2, 2],
-            self.coefficients[3][index2, 2] - displacement
-            )
-        # derivative of force with respect to displacement
-        if jac is False:
-            dforceunbroken_ddisplacement = None
-        else:
-            dforceunbroken_ddisplacement = np.zeros(nroots) * units['N/m']
-            dforceunbroken_ddisplacement[index1] = (1.0 / (
-                3.0 * self.coefficients[0][index1, 1] * force_unbroken[index1]**2
-                + 2.0 * self.coefficients[1][index1, 1] * force_unbroken[index1]
-                + self.coefficients[2][index1, 1]
-                ))
-            dforceunbroken_ddisplacement[index2] = (1.0 / (
-                3.0 * self.coefficients[0][index2, 2] * force_unbroken[index2]**2
-                + 2.0 * self.coefficients[1][index2, 2] * force_unbroken[index2]
-                + self.coefficients[2][index2, 2]
-                ))
-        # return
-        return(
-            force_unbroken,
-            dforceunbroken_ddisplacement,
-            behaviour_index
-        )   
-    
-# SURFACE - ELASTOPLASTIC
-class PulloutSurfaceElastoplasticSlipping(
-    PulloutSurfaceElastoplastic,
-    PulloutSurfaceElasticSlipping
-    ):
-
-    def _check_input(
-            self,
-            roots,
-            interface
-    ):
-        self._check_contains_attributes(
-            roots, 
-            ['xsection', 'circumference', 
-             'elastic_modulus', 'plastic_modulus', 'unload_modulus', 
-             'yield_strength',
-             'length', 'length_surface']
-            )
-        self._check_contains_attributes(interface, ['shear_strength'])
-
-    def _set_behaviour_types(self):
-        self.behaviour_types = BEHAVIOUR_NAMES[[0, 1, 2, 3, 4, 5, 6, 7]]
-
-    def _get_coefficients_slipping_plastic_aboveyield(self):
-        _, Tps = self._get_limits_plastic_slipping_start()
-        nroots = self._nroots()
-        c3 = np.zeros(nroots) * units('m/N^3')
-        c2 = (
-            -1.0
-            / (2.0 * self.roots.xsection * self.roots.circumference * self.interface.shear_strength)
-            * (1.0 / self.roots.plastic_modulus + 1.0 / self.roots.unload_modulus)
-            )
-        c1 = (
-            self.roots.length / (self.roots.unload_modulus * self.roots.xsection)
-            - 1.0 
-            / (self.roots.circumference * self.interface.shear_strength)
-            * (
-                1.0
-                + self.roots.yield_strength / self.roots.elastic_modulus
-                - self.roots.yield_strength / self.roots.plastic_modulus
-                )
-            )
-        c0 = (
-            self.roots.length 
-            - self.roots.length_surface
-            + self.roots.yield_strength * self.roots.length
-            * (1.0 / self.roots.elastic_modulus - 1.0 / self.roots.plastic_modulus)
-            + Tps / self.roots.xsection
-            * (self.roots.length - Tps / (2.0 * self.roots.circumference * self.interface.shear_strength))
-            * (1.0 / self.roots.plastic_modulus - 1.0 / self.roots.unload_modulus)
-            )
-        return(c3, c2, c1, c0)
-
-    def _get_coefficients_slipping_plastic_belowyield(self):
-        _, Tps = self._get_limits_plastic_slipping_start()
-        nroots = self._nroots()
-        c3 = np.zeros(nroots) * units('m/N^3')
-        c2 = (
-            -1.0
-            / (self.roots.elastic_modulus * self.roots.xsection
-               * self.roots.circumference * self.interface.shear_strength)
-            )
-        c1 = (
-            self.roots.length / (self.roots.unload_modulus * self.roots.xsection)
-            - 1.0 / (self.roots.circumference * self.interface.shear_strength)
-            * (1.0 
-               - self.roots.yield_strength / self.roots.unload_modulus 
-               + self.roots.yield_strength / self.roots.elastic_modulus)
-            )
-        c0 = (
-            self.roots.length 
-            - self.roots.length_surface
-            + 1.0 / (2.0 * self.roots.xsection * self.roots.circumference * self.interface.shear_strength)
-            * (
-                Tps**2 
-                * (1.0 / self.roots.unload_modulus - 1.0 / self.roots.plastic_modulus)
-                + (self.roots.yield_strength * self.roots.xsection)**2
-                * (1.0 / self.roots.unload_modulus + 1.0 / self.roots.plastic_modulus - 2.0 / self.roots.elastic_modulus)
-                )
-            - self.roots.length / self.roots.xsection
-            * (
-                Tps
-                * (1.0 / self.roots.unload_modulus - 1.0 / self.roots.plastic_modulus)
-                + (self.roots.yield_strength * self.roots.xsection)
-                * (1.0 / self.roots.plastic_modulus - 1.0 / self.roots.elastic_modulus)
-                )
-            )
-        return(c3, c2, c1, c0)
-
-    def _set_coefficients(self):
-        self.coefficients = self._combine_coefficients([
-            self._get_coefficients_notintension(),
-            self._get_coefficients_anchored_elastic(),
-            self._get_coefficients_slipping_elastic(),
-            self._get_coefficients_notintension(),
-            self._get_coefficients_anchored_plastic(),
-            self._get_coefficients_slipping_plastic_aboveyield(),
-            self._get_coefficients_slipping_plastic_belowyield(),
-            self._get_coefficients_notintension()
-            ])
-        
-    def _get_limits_plastic_slipping_start(self):
-        Try = self.roots.yield_strength * self.roots.xsection
-        force = self._solve_quadratic(
-            (
-                1.0 
-                / (2.0 * self.roots.plastic_modulus * self.roots.xsection 
-                   * self.roots.circumference * self.interface.shear_strength)
-            ),
-            (
-                1.0
-                / (self.roots.circumference * self.interface.shear_strength)
-                * (
-                    1.0
-                    + Try / (self.roots.elastic_modulus * self.roots.xsection)
-                    - Try / (self.roots.plastic_modulus * self.roots.xsection)
-                )
-            ),
-            (
-                self.roots.length_surface
-                + (
-                    Try**2 
-                    / (2.0 * self.roots.xsection * self.roots.circumference * self.interface.shear_strength)
-                    * (1.0 / self.roots.plastic_modulus - 1.0 / self.roots.elastic_modulus)
-                )
-                - self.roots.length
-            )
-        )
-        c3a, c2a, c1a, c0a = self._get_coefficients_anchored_plastic()
-        displacement = c3a * force**3 + c2a * force**2 + c1a*force + c0a
-        return(displacement, force)
-
-    def _get_limits_plastic_slipping_yield(self):
-        force = self.roots.yield_strength * self.roots.xsection
-        c3, c2, c1, c0 = self._get_coefficients_slipping_plastic_aboveyield()
-        displacement = c3 * force**3 + c2 * force**2 + c1 * force + c0
-        return(displacement, force)
-
-    def _get_limits_plastic_fullpullout(self):
-        nroots = self._nroots()
-        force = np.zeros(nroots) * units['N']
-        _, _, _, displacement = self._get_coefficients_slipping_plastic_belowyield()
-        return(displacement, force)
-
-    def _set_limits(self):
-        displacement_limits, force_limits = self._combine_coefficients([
-            self._get_limits_notintension(),
-            self._get_limits_elastic_slipping(),
-            self._get_limits_elastic_fullpullout(),
-            self._get_limits_yield_anchored(),
-            self._get_limits_plastic_slipping_start(),
-            self._get_limits_plastic_slipping_yield(),
-            self._get_limits_plastic_fullpullout()
-            ])
-        # adjust: slippage before yielding --> never plasticity
-        index = (displacement_limits[:, 1] <= displacement_limits[:, 3])
-        displacement_limits[index, 3] = np.inf * units('mm')
-        displacement_limits[index, 4] = np.inf * units('mm')
-        displacement_limits[index, 5] = np.inf * units('mm')
-        displacement_limits[index, 6] = np.inf * units('mm')
-        # adjust slippage after yielding --> never elastic slippage
-        displacement_limits[~index, 1] = displacement_limits[~index, 3]
-        displacement_limits[~index, 2] = displacement_limits[~index, 3]
-        # set limits
-        self.limits = [displacement_limits, force_limits]
-
-    def _get_force_unbroken(
-            self, 
-            displacement,
-            jac = False
-            ):
-        # initialise force vector and find behaviour indices
-        nroots = self._nroots()
-        force_unbroken = np.zeros(nroots) * units('N')
-        behaviour_index = self._get_behaviour_index(displacement)
-        # elastic anchored behaviour
-        index1 = (behaviour_index == 1)
-        force_unbroken[index1] = self._solve_cubic(
-            self.coefficients[0][index1, 1],
-            self.coefficients[1][index1, 1],
-            self.coefficients[2][index1, 1],
-            self.coefficients[3][index1, 1] - displacement
-        )
-        # elastic slipping behaviour
-        index2 = (behaviour_index == 2)
-        force_unbroken[index2] = self._solve_quadratic(
-            self.coefficients[1][index2, 2],
-            self.coefficients[2][index2, 2],
-            self.coefficients[3][index2, 2] - displacement
-            )
-        # plastic anchored behaviour
-        index4 = (behaviour_index == 4)
-        force_unbroken[index4] = self._solve_cubic(
-            self.coefficients[0][index4, 4],
-            self.coefficients[1][index4, 4],
-            self.coefficients[2][index4, 4],
-            self.coefficients[3][index4, 4] - displacement
-            )
-        # plastic slipping behaviour - above yield
-        index5 = (behaviour_index == 5)
-        force_unbroken[index5] = self._solve_quadratic(
-            self.coefficients[1][index5, 5],
-            self.coefficients[2][index5, 5],
-            self.coefficients[3][index5, 5] - displacement
-            )
-        # plastic slipping behaviour - below yield
-        index6 = (behaviour_index == 6)
-        force_unbroken[index6] = self._solve_quadratic(
-            self.coefficients[1][index6, 6],
-            self.coefficients[2][index6, 6],
-            self.coefficients[3][index6, 6] - displacement
-            )
-        # derivative of force with respect to displacement
-        if jac is False:
-            dforceunbroken_ddisplacement = None
-        else:
-            dforceunbroken_ddisplacement = np.zeros(nroots) * units['N/m']
-            dforceunbroken_ddisplacement[index1] = (1.0 / (
-                3.0 * self.coefficients[0][index1, 1] * force_unbroken[index1]**2
-                + 2.0 * self.coefficients[1][index1, 1] * force_unbroken[index1]
-                + self.coefficients[2][index1, 1]
-                ))
-            dforceunbroken_ddisplacement[index2] = (1.0 / (
-                + 2.0 * self.coefficients[1][index2, 2] * force_unbroken[index2]
-                + self.coefficients[2][index2, 2]
-                ))
-            dforceunbroken_ddisplacement[index4] = (1.0 / (
-                3.0 * self.coefficients[0][index4, 4] * force_unbroken[index4]**2
-                + 2.0 * self.coefficients[1][index4, 4] * force_unbroken[index4]
-                + self.coefficients[2][index4, 4]
-                ))
-            dforceunbroken_ddisplacement[index5] = (1.0 / (
-                2.0 * self.coefficients[1][index5, 5] * force_unbroken[index5]
-                + self.coefficients[2][index5, 5]
-                ))
-            dforceunbroken_ddisplacement[index6] = (1.0 / (
-                2.0 * self.coefficients[1][index6, 6] * force_unbroken[index6]
-                + self.coefficients[2][index6, 6]
-                ))
-        # return
-        return(
-            force_unbroken,
-            dforceunbroken_ddisplacement,
-            behaviour_index
-        )       
-
-
-# SURFACE - ELASTOPLASTIC - BREAKAGE
-class PulloutSurfaceElastoplasticBreakage(
-    PulloutSurfaceElastoplastic,
-    PulloutSurfaceElasticBreakage,
-    ):
-
-    def _check_input(
-            self,
-            roots,
-            interface
-    ):
-        self._check_contains_attributes(
-            roots, 
-            ['xsection', 'circumference', 
-             'elastic_modulus', 'plastic_modulus', 'unload_modulus', 
-             'yield_strength', 'tensile_strength',
-             'length_surface']
-            )
-        self._check_contains_attributes(interface, ['shear_strength'])
-
-
-# SURFACE - ELASTOPLASTIC - BREAKAGE - SLIPPING
-class PulloutSurfaceElastoplasticBreakageSlipping(
-    PulloutSurfaceElastoplasticSlipping #,
-    #PulloutSurfaceElastoplasticBreakage,    
-    ):
-
-    def _check_input(
-            self,
-            roots,
-            interface
-    ):
-        self._check_contains_attributes(
-            roots, 
-            ['xsection', 'circumference', 
-             'elastic_modulus', 'plastic_modulus', 'unload_modulus', 
-             'yield_strength', 'tensile_strength',
-             'length', 'length_surface']
-            )
-        self._check_contains_attributes(interface, ['shear_strength'])
-
-    def _get_survival(
-            self, 
-            force, 
-            behaviour_index,
-            jac = False
-            ):
-        # generate mask - for when force has been higher during any previous displacement (e.g. during slipping)
-        behaviour_index_reducing_elastic = np.array([False, False, True, True, False, False, False, False])
-        mask_elastic = behaviour_index_reducing_elastic[behaviour_index]
-        force[mask_elastic] = self.limits[1][mask_elastic, 1]
-        behaviour_index_reducing_plastic = np.array([False, False, False, False, False, True, True, True])
-        mask_plastic = behaviour_index_reducing_plastic[behaviour_index]
-        force[mask_plastic] = self.limits[1][mask_plastic, 4]
-        # calculate survival
-        stress = force / self.roots.xsection
-        if hasattr(self, 'weibull_shape') and self.weibull_shape is not None:
-            weibull_shape = self.weibull_shape
-            weibull_scale = self.roots.tensile_strength / gamma(1.0 + 1.0 / weibull_shape)
-            survival = np.exp(-(stress / weibull_scale)**weibull_shape)
-            if jac is False:
-                dsurvival_dforce = None
-            else:
-                dstress_dforce = 1.0 / self.roots.xsection
-                dsurvival_dstress = (
-                    -weibull_shape / weibull_scale
-                    * (stress / weibull_scale) ** (weibull_shape - 1.0)
-                    * survival
-                )
-                dsurvival_dforce = dsurvival_dstress * dstress_dforce
-                # adjust for reducing points (survival function does not change once reducing force)
-                dsurvival_dforce[mask_elastic] = np.zeros(np.sum(mask_elastic)) * units('1/N')
-                dsurvival_dforce[mask_plastic] = np.zeros(np.sum(mask_plastic)) * units('1/N')
-        else:
-            survival = (stress <= self.roots.tensile_strength).astype('float')
-            if jac is False:
-                dsurvival_dforce = None
-            else:
-                dsurvival_dforce = np.zeros(self._nroots()) * units('1/N')
-        return(survival, dsurvival_dforce)
+            survival = np.ones(nroots).astype(float)            
+
+        return({
+            'force': force_unbroken * survival,
+            'behaviour_index': behaviour_index,
+            'survival_fraction': survival
+        })  
