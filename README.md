@@ -1,10 +1,13 @@
 
+![GitHub License](https://img.shields.io/github/license/rootmemo/pyrootmemo)
 ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/rootmemo/pyrootmemo)
 ![GitHub Release Date](https://img.shields.io/github/release-date/rootmemo/pyrootmemo)
-![GitHub License](https://img.shields.io/github/license/rootmemo/pyrootmemo)
 ![GitHub Repo stars](https://img.shields.io/github/stars/rootmemo/pyrootmemo)
-![Read the Docs](https://img.shields.io/readthedocs/pyrootmemo)
 
+![PyPI - Version](https://img.shields.io/pypi/v/pyrootmemo)
+![Pepy Total Downloads](https://img.shields.io/pepy/dt/psimpy)
+
+![Read the Docs](https://img.shields.io/readthedocs/pyrootmemo)
 
 # pyrootmemo
 
@@ -14,34 +17,23 @@ A Python package to modelling and measuring the effects of roots on slope stabil
 
 We strongly recommend to work in a virtual environment, and we suggest to use a [Conda](https://docs.conda.io/en/latest/) environment. Follow the instructions below to install `pyrootmemo` in a Conda environment.
 
-1. Clone the repository hosted on Github [https://github.com/rootmemo/pyrootmemo](https://github.com/rootmemo/pyrootmemo)
-2. If you have not already installed, download your preferred installation of Conda. You can try [Miniforge](https://conda-forge.org/download/)
+1. If you have not already installed, download your preferred installation of Conda. You can try [Miniforge](https://conda-forge.org/download/)
 3. Create a virtual environment with Python
 
     ```bash
     conda create -n rrmm python
     ```
 
-4. Once the installation is complete, activate the environment
+3. Once the installation is complete, activate the environment
 
     ```bash
     conda activate rrmm
     ```
 
-### Alternative 1
-
-5. Navigate to the cloned repository and install `pyrootmemo` using the following command:
+4. Install `pyrootmemo` using `pip`
 
     ```bash
-    pip install -e .
-    ```
-
-### Alternative 2
-
-5. Navigate to the cloned repository and install `pyrootmemo` using the following command:
-
-    ```bash
-    poetry install
+    pip install pyrootmemo
     ```
 
 ## Usage
@@ -50,7 +42,7 @@ Check out Jupyter Notebooks in `tests/*.ipynb` for a comprehensive tutorials on 
 
 ## Documentation
 
-- TODO
+- Visit [pyrootmemo.readthedocs.io](https://pyrootmemo.readthedocs.io/latest/) to see detailed documentation of our package
 
 ## Contributing
 
