@@ -2,40 +2,44 @@ import numpy as np
 from pyrootmemo.tools.checks import is_namedtuple
 from pint import DimensionalityError
 from collections import namedtuple
-from pyrootmemo.helpers import units
+from pyrootmemo.helpers import units, limit_check
 
 Parameter = namedtuple("parameter", "value unit")
 
+
+#TODO: Check for non-negativeness and positivity of parameters
+
 #: A dictionary that maps root parameter names to their types and units.
 ROOT_PARAMETERS = {
-    "elastic_modulus": {"type": (float | int), "unit": units("MPa")},
-    "diameter": {"type": (float | int), "unit": units("m")},
-    "tensile_strength": {"type": (float | int), "unit": units("MPa")},
-    "yield_strength": {"type": (float | int), "unit": units("MPa")},
-    "plastic_modulus": {"type": (float | int), "unit": units("MPa")},
-    "unload_modulus": {"type": (float | int), "unit": units("MPa")},
-    "length": {"type": (float | int), "unit": units("m")},
-    "length_surface": {"type": (float | int), "unit": units("m")},
-    "azimuth_angle": {"type": (float | int), "unit": units("degrees")},
-    "elevation_angle": {"type": (float | int), "unit": units("degrees")},
+    "elastic_modulus": {"type": (float | int), "unit": units("MPa"), "limit_check": "positive_only"},
+    "diameter": {"type": (float | int), "unit": units("m"), "limit_check": "positive_only"},
+    "tensile_strength": {"type": (float | int), "unit": units("MPa"), "limit_check": "positive_only"},
+    "yield_strength": {"type": (float | int), "unit": units("MPa"), "limit_check": "positive_only"},
+    "plastic_modulus": {"type": (float | int), "unit": units("MPa"), "limit_check": "positive_only"},
+    "unload_modulus": {"type": (float | int), "unit": units("MPa"), "limit_check": "positive_only"},
+    "length": {"type": (float | int), "unit": units("m"), "limit_check": "positive_only"},
+    "length_surface": {"type": (float | int), "unit": units("m"), "limit_check": "non-negative"},
+    "azimuth_angle": {"type": (float | int), "unit": units("degrees"), "limit_check": "any"},
+    "elevation_angle": {"type": (float | int), "unit": units("degrees"), "limit_check": "any"},
 }
 
+#TODO: Implement unit_weight_saturated > unit_weight_bulk > unit_weight_dry
 #: A dictionary that maps soil parameter names to their types and units.
 SOIL_PARAMETERS = {
-    "cohesion": {"type": (float | int), "unit": units("kPa")},
-    "friction_angle": {"type": (float | int), "unit": units("degrees")},
-    "unit_weight_bulk": {"type": (float | int), "unit": units("kN/m^3")},
-    "unit_weight_dry": {"type": (float | int), "unit": units("kN/m^3")},
-    "unit_weight_saturated": {"type": (float | int), "unit": units("kN/m^3")},
-    "water_content": {"type": (float | int), "unit": units("").to("percent")}
+    "cohesion": {"type": (float | int), "unit": units("kPa"), "limit_check": "non-negative"},
+    "friction_angle": {"type": (float | int), "unit": units("degrees"), "limit_check": "non-negative"},
+    "unit_weight_bulk": {"type": (float | int), "unit": units("kN/m^3"), "limit_check": "positive_only"},
+    "unit_weight_dry": {"type": (float | int), "unit": units("kN/m^3"), "limit_check": "positive_only"},
+    "unit_weight_saturated": {"type": (float | int), "unit": units("kN/m^3"), "limit_check": "positive_only"},
+    "water_content": {"type": (float | int), "unit": units("").to("percent"), "limit_check": "non-negative"},
 }
 
 #: A dictionary that maps root-soil interface parameter names to their types and units.
 ROOT_SOIL_INTERFACE_PARAMETERS = {
-    "shear_strength": {"type": (float | int), "unit": units("kPa")},
-    "adhesion": {"type": (float | int), "unit": units("kPa")},
-    "friction_angle": {"type": (float | int), "unit": units("degrees")},
-    "effective_stress": {"type": (float | int), "unit": units("kPa")}    
+    "shear_strength": {"type": (float | int), "unit": units("kPa"), "limit_check": "positive_only"},
+    "adhesion": {"type": (float | int), "unit": units("kPa"), "limit_check": "non-negative"},
+    "friction_angle": {"type": (float | int), "unit": units("degrees"), "limit_check": "positive_only"},
+    "effective_stress": {"type": (float | int), "unit": units("kPa"), "limit_check": "positive_only"},    
 }
 
 class Roots:
@@ -168,12 +172,17 @@ class Roots:
                     raise TypeError(
                         f"{k} should only be of type {ROOT_PARAMETERS[k]['type']} in a list"
                     )
-
+                [limit_check(entry, k, ROOT_PARAMETERS[k]['limit_check']) for entry in v.value]
+            else:
+                limit_check(v.value, k, ROOT_PARAMETERS[k]['limit_check'])
+            #TODO: check if all values in the list are positive or non-negative
+            
             setattr(self, k, v.value * units(v.unit))
 
         if hasattr(self, "diameter"):
             self.xsection = np.pi * (self.diameter / 2)**2
             self.circumference = np.pi * self.diameter
+            #TODO: total circumference and total cross-sectional area for multiple roots
         else:
             raise AttributeError("Diameter is needed to calculate cross-sectional area and circumference")
             
@@ -378,6 +387,9 @@ class Soil:
                     raise TypeError(
                         f"{k} should only be of type {SOIL_PARAMETERS[k]['type']} in a list"
                     )
+                [limit_check(entry, k, SOIL_PARAMETERS[k]['limit_check']) for entry in v.value]
+            else:
+                limit_check(v.value, k, SOIL_PARAMETERS[k]['limit_check'])
 
             setattr(self, k, v.value * units(v.unit))
 
@@ -424,5 +436,8 @@ class Interface:
                     raise TypeError(
                         f"{k} should only be of type {ROOT_SOIL_INTERFACE_PARAMETERS[k]['type']} in a list"
                     )
+                [limit_check(entry, k, ROOT_SOIL_INTERFACE_PARAMETERS[k]['limit_check']) for entry in v.value]
+            else:
+                limit_check(v.value, k, ROOT_SOIL_INTERFACE_PARAMETERS[k]['limit_check'])
 
             setattr(self, k, v.value * units(v.unit))

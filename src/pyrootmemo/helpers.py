@@ -3,6 +3,15 @@ from pint import UnitRegistry
 from collections import namedtuple
 units = UnitRegistry()
 
+def limit_check(value: float | int, key:str, limit_type:str):
+    match limit_type:
+        case "non-negative":
+            if value < 0:
+                raise ValueError(f"{value} is not allowed. {key} must be non-negative")
+        case "positive_only":
+            if value <= 0:
+                raise ValueError(f"{value} is not allowed. {key} must be positive")
+
 #: Parameter is a named tuple that holds a value and its unit
 #: It is used to store physical quantities with their respective units
 #: This allows for better organization and readability of code
