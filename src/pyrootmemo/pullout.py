@@ -77,26 +77,28 @@ def solve_cubic(
     Q = (e**2 - 3.0 * f) / 9.0
     R = (2.0 * e**3 - 9.0 * e * f + 27.0 * g) / 54.0
     flag_3roots = (R**2) < (Q**3) # if true, 3 real roots exist, if false, only one real root exists
-    theta = np.arccos(R[flag_3roots] / np.sqrt(Q[flag_3roots]**3))
-    x[flag_3roots] = (
-        -2.0 
-        * np.sqrt(Q[flag_3roots]) 
-        * np.cos((theta + 2.0 * np.pi) / 3.0) 
-        - e[flag_3roots] 
-        / 3.0
-        )
-    flag_1root = not flag_3roots
-    A = (
-        -np.sign(R[flag_1root]) 
-        * (
-            np.abs(R[flag_1root]) 
-            + np.sqrt(R[flag_3roots]**2 - Q[flag_1root]**3)
-            ) ** (1.0 / 3.0)
-        )
-    B = Q[flag_1root] / A
-    x[flag_1root] = (A + B) - e[flag_1root] / 3.0
+    if any(flag_3roots):
+        theta = np.arccos(R[flag_3roots] / np.sqrt(Q[flag_3roots]**3))
+        x[flag_3roots] = (
+            -2.0 
+            * np.sqrt(Q[flag_3roots]) 
+            * np.cos((theta + 2.0 * np.pi) / 3.0) 
+            - e[flag_3roots] 
+            / 3.0
+            )
+    flag_1root = ~flag_3roots
+    if any(flag_1root):
+        A = (
+            -np.sign(R[flag_1root]) 
+            * (
+                np.abs(R[flag_1root]) 
+                + np.sqrt(R[flag_1root]**2 - Q[flag_1root]**3)
+                ) ** (1.0 / 3.0)
+            )
+        B = Q[flag_1root] / A
+        x[flag_1root] = (A + B) - e[flag_1root] / 3.0
     flag_zero = np.isclose(d.magnitude, 0.0)
-    x[flag_zero] = 0.0 *d.units / c.units
+    x[flag_zero] = 0.0 * d.units / c.units
     return(x)
    
 
@@ -161,6 +163,7 @@ class Pullout():
             ]
         displacement_limits = np.zeros((len(behaviour_types) - 1, *nroots)) * units('mm')
         force_limits = np.zeros((len(behaviour_types) - 1, *nroots)) * units('N')
+        
         if surface is True:
             ## SURFACE ROOTS
             # anchored, elastic [1]
@@ -409,45 +412,52 @@ class Pullout():
             ):
         nroots = self.roots.xsection.shape
         behaviour_index = np.sum(displacement > self.displacement_limits, axis = 0).astype(int)
+        
+        # force in unbroken root
         force_unbroken = np.zeros(*nroots) * units('N')
         if self.surface is True:
             ## SURFACE ROOTS
             mask_el_anch = (behaviour_index == 1)
-            force_unbroken[mask_el_anch] = solve_cubic(
-                self.coefficients[0][1, mask_el_anch],
-                self.coefficients[1][1, mask_el_anch],
-                self.coefficients[2][1, mask_el_anch],
-                (self.coefficients[3][1, ...] - displacement)[mask_el_anch]
-                )
+            if any(mask_el_anch):
+                force_unbroken[mask_el_anch] = solve_cubic(
+                    self.coefficients[0][1, mask_el_anch],
+                    self.coefficients[1][1, mask_el_anch],
+                    self.coefficients[2][1, mask_el_anch],
+                    (self.coefficients[3][1, ...] - displacement)[mask_el_anch]
+                    )
             if self.slipping is True:
                 mask_el_slip = (behaviour_index == 2)
-                force_unbroken[mask_el_slip] = solve_quadratic(
-                    self.coefficients[1][2, mask_el_slip],
-                    self.coefficients[2][2, mask_el_slip],
-                    (self.coefficients[3][2, ...] - displacement)[mask_el_slip]
-                )
+                if any(mask_el_slip):
+                    force_unbroken[mask_el_slip] = solve_quadratic(
+                        self.coefficients[1][2, mask_el_slip],
+                        self.coefficients[2][2, mask_el_slip],
+                        (self.coefficients[3][2, ...] - displacement)[mask_el_slip]
+                    )
             if self.elastoplastic is True:
                 mask_pl_anch = (behaviour_index == 4)
-                force_unbroken[mask_pl_anch] = solve_cubic(
-                    self.coefficients[0][4, mask_pl_anch],
-                    self.coefficients[1][4, mask_pl_anch],
-                    self.coefficients[2][4, mask_pl_anch],
-                    (self.coefficients[3][4, ...] - displacement)[mask_pl_anch]
-                    )
+                if any(mask_pl_anch):
+                    force_unbroken[mask_pl_anch] = solve_cubic(
+                        self.coefficients[0][4, mask_pl_anch],
+                        self.coefficients[1][4, mask_pl_anch],
+                        self.coefficients[2][4, mask_pl_anch],
+                        (self.coefficients[3][4, ...] - displacement)[mask_pl_anch]
+                        )
                 if self.slipping is True:
                     mask_pl_slip_aboveyield = (behaviour_index == 5)
-                    force_unbroken[mask_pl_slip_aboveyield] = solve_quadratic(
-                        self.coefficients[1][5, mask_pl_slip_aboveyield],
-                        self.coefficients[2][5, mask_pl_slip_aboveyield],
-                        (self.coefficients[3][5, ...] - displacement)[mask_pl_slip_aboveyield]
-                    )
+                    if any(mask_pl_slip_aboveyield):
+                        force_unbroken[mask_pl_slip_aboveyield] = solve_quadratic(
+                            self.coefficients[1][5, mask_pl_slip_aboveyield],
+                            self.coefficients[2][5, mask_pl_slip_aboveyield],
+                            (self.coefficients[3][5, ...] - displacement)[mask_pl_slip_aboveyield]
+                            )
                     mask_pl_slip_belowyield = (behaviour_index == 6)
-                    force_unbroken[mask_pl_slip_belowyield] = solve_quadratic(
-                        self.coefficients[1][5, mask_pl_slip_belowyield],
-                        self.coefficients[2][5, mask_pl_slip_belowyield],
-                        (self.coefficients[3][5, ...] - displacement)[mask_pl_slip_belowyield]
-                    )
-            force_unbroken_cummax = force_unbroken
+                    if any(mask_pl_slip_belowyield):
+                        force_unbroken[mask_pl_slip_belowyield] = solve_quadratic(
+                            self.coefficients[1][6, mask_pl_slip_belowyield],
+                            self.coefficients[2][6, mask_pl_slip_belowyield],
+                            (self.coefficients[3][6, ...] - displacement)[mask_pl_slip_belowyield]
+                            )
+            force_unbroken_cummax = force_unbroken.copy()
             mask_el_reducing = behaviour_index in [2, 3]
             force_unbroken_cummax[mask_el_reducing] = self.force_limits[1, mask_el_reducing]
             mask_pl_reducing = behaviour_index in [5, 6, 7]
@@ -455,31 +465,35 @@ class Pullout():
         else:
             ## EMBEDDED ROOTS
             mask_el_anch = (behaviour_index == 1)
-            force_unbroken[mask_el_anch] = np.sqrt(
-                (displacement / self.coefficients[1][1, ...])[mask_el_anch]
-                )
+            if any(mask_el_anch):
+                force_unbroken[mask_el_anch] = np.sqrt(
+                    (displacement / self.coefficients[1][1, ...])[mask_el_anch]
+                    )
             if self.slipping is True:
                 mask_el_slip = (behaviour_index == 2)
-                force_unbroken[mask_el_slip] = (
-                    self.roots.length[mask_el_slip]
-                    * self.roots.circumference[mask_el_slip]
-                    * self.interface.shear_strength
-                    )
-            if self.elastoplastic is True:
-                mask_pl_anch = (behaviour_index == 4)
-                force_unbroken[mask_pl_anch] = solve_quadratic(
-                    self.coefficients[1][4, mask_pl_anch],
-                    self.coefficients[2][4, mask_pl_anch],
-                    (self.coefficients[3][4, ...] - displacement)[mask_pl_anch]
-                    )
-                if self.slipping is True:
-                    mask_pl_slip = (behaviour_index == 5)
-                    force_unbroken[mask_pl_slip] = (
-                        self.roots.length[mask_pl_slip]
-                        * self.roots.circumference[mask_pl_slip]
+                if any(mask_el_slip):
+                    force_unbroken[mask_el_slip] = (
+                        self.roots.length[mask_el_slip]
+                        * self.roots.circumference[mask_el_slip]
                         * self.interface.shear_strength
                         )
-            force_unbroken_cummax = force_unbroken
+            if self.elastoplastic is True:
+                mask_pl_anch = (behaviour_index == 4)
+                if any(mask_pl_anch):
+                    force_unbroken[mask_pl_anch] = solve_quadratic(
+                        self.coefficients[1][4, mask_pl_anch],
+                        self.coefficients[2][4, mask_pl_anch],
+                        (self.coefficients[3][4, ...] - displacement)[mask_pl_anch]
+                        )
+                if self.slipping is True:
+                    mask_pl_slip = (behaviour_index == 5)
+                    if any(mask_pl_slip):
+                        force_unbroken[mask_pl_slip] = (
+                            self.roots.length[mask_pl_slip]
+                            * self.roots.circumference[mask_pl_slip]
+                            * self.interface.shear_strength
+                            )
+            force_unbroken_cummax = force_unbroken.copy()
 
         if self.breakage is True:
             force_breakage = self.roots.xsection * self.roots.tensile_strength
@@ -496,3 +510,52 @@ class Pullout():
             'behaviour_index': behaviour_index,
             'survival_fraction': survival
         })  
+    
+
+    def calc_displacement_to_peak(self) -> Quantity:
+        """Calculate the displacement to peak, for in each root
+
+        Calculates the displacement required for the each each in the 
+        MultipleRoots object to reach the largest force it will even reach
+        as function of *any* displacement level.
+
+        The function does (currently) not take the survival function into 
+        account, i.e. it looks at the *average* root for each root in the 
+        MultipleRoots object. 
+
+        Returns
+        -------
+        Quantity
+            Displacement to peak for each root
+        """
+        if self.slipping is True:
+            if self.elastoplastic is True:
+                displacement_slipping = self.displacement_limits[4, ...]
+                slip_before_yield = np.isinf(self.displacement_limits[4, ...].magnitude)
+                displacement_slipping[slip_before_yield] = self.displacement_limits[1, slip_before_yield]
+            else:
+                displacement_slipping = self.displacement_limits[1, ...]
+        else:
+            displacement_slipping = np.full(self.roots.xsection.shape, np.inf) * units('mm')
+        if self.breakage is True:
+            force_breakage = self.roots.xsection * self.roots.tensile_strength
+            if self.elastoplastic is True:
+                behaviour_index = 4
+            else:
+                behaviour_index = 1
+            if self.surface is True:
+                displacement_breakage = (
+                    self.coefficients[0][behaviour_index, ...] * force_breakage**3
+                    + self.coefficients[1][behaviour_index, ...] * force_breakage**2
+                    + self.coefficients[2][behaviour_index, ...] * force_breakage
+                    + self.coefficients[3][behaviour_index, ...]
+                )
+            else:
+                displacement_breakage = (
+                    self.coefficients[1][behaviour_index, ...] * force_breakage**2
+                    + self.coefficients[2][behaviour_index, ...] * force_breakage
+                    + self.coefficients[3][behaviour_index, ...]
+                )
+        else:
+            displacement_breakage = np.full(self.roots.xsection.shape, np.inf) * units('mm')
+        return(np.minimum(displacement_slipping, displacement_breakage))
