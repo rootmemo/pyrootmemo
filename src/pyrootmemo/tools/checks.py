@@ -45,3 +45,5 @@ def check_kwargs(arguments: dict, parameters: dict):
 
 def is_namedtuple(v):
     return isinstance(v, tuple) and hasattr(v, "_fields")
+
+
