@@ -4,10 +4,8 @@ import matplotlib as mpl
 from scipy.special import gamma
 from scipy.optimize import minimize, differential_evolution
 from pyrootmemo.helpers import units, Parameter, create_quantity, solve_quadratic, solve_cubic
-from pyrootmemo.tools.checks import check_kwargs
 from pyrootmemo.geometry import SoilProfile, FailureSurface
 from pyrootmemo.materials import MultipleRoots, Interface
-from pyrootmemo.pullout_old import PulloutEmbeddedElastic, PulloutEmbeddedElasticSlipping, PulloutEmbeddedElasticBreakage, PulloutEmbeddedElasticBreakageSlipping, PulloutEmbeddedElastoplastic, PulloutEmbeddedElastoplasticSlipping, PulloutEmbeddedElastoplasticBreakage, PulloutEmbeddedElastoplasticBreakageSlipping
 from pyrootmemo.tools.utils_rotation import axisangle_rotate
 from pyrootmemo.tools.utils_plot import round_range
 from pint import Quantity
@@ -1391,7 +1389,8 @@ class AxialPullout():
 
     def calc_force(
             self,
-            displacement: Quantity
+            displacement: Quantity,
+            jacobian: bool = False
             ) -> dict:
         """Calculate force in each root, as function of given displacement
 
@@ -1402,6 +1401,9 @@ class AxialPullout():
             is the applied displacement to each root. If inputted as an 
             array, this is the array of displacements applied to individual
             roots (must have same length as number of roots).
+        jacobian : bool
+            If True, also calculate and return the derivative of pull-out force(s) with
+            respect to the applied pull-out displacement. By default False.
 
         Returns
         -------
@@ -1411,15 +1413,21 @@ class AxialPullout():
             - 'behaviour_index': array with the index of the behaviour type
               of each roots. see class attribute 'behaviour_type' for a full
               list of behaviour type names
-            - 'survival': array with survival fraction for each root
+            - 'survival_fraction': array with survival fraction for each root
+            - 'dforce_ddisplacement': derivative of pullout forces with respect 
+              to displacement. Only returned when 'jacobian = True'. 
         """
         displacement = create_quantity(displacement, check_unit = 'mm')
         nroots = self.roots.xsection.shape
-        if not (np.isscalar(displacement.magnitude) | (displacement.shape == nroots)):
-            raise ValueError('displacement must be a scalar or an array with seperate displacements for each individual root')
+        if not np.isscalar(displacement.magnitude):
+            if not displacement.shape == nroots:
+                raise ValueError('displacement must be a scalar or an array with seperate displacements for each individual root')
         behaviour_index = np.sum(displacement > self.displacement_limits, axis = 0).astype(int)
        
         force_unbroken = np.zeros(*nroots) * units('N')
+        if jacobian is True:
+            dforceunbroken_ddisplacement = np.zeros(*nroots) * units('N/mm')
+
         if self.surface is True:
             mask_el_anch = (behaviour_index == 1)
             if any(mask_el_anch):
@@ -1429,6 +1437,12 @@ class AxialPullout():
                     self.coefficients[2][1, mask_el_anch],
                     (self.coefficients[3][1, ...] - displacement)[mask_el_anch]
                     )
+                if jacobian is True:
+                    dforceunbroken_ddisplacement[mask_el_anch] = (1.0 / (
+                        3.0 * self.coefficients[0][1, mask_el_anch] * force_unbroken[mask_el_anch]**2
+                        + 2.0 * self.coefficients[1][1, mask_el_anch] * force_unbroken[mask_el_anch]
+                        + self.coefficients[2][1, mask_el_anch]
+                    ))
             if self.slipping is True:
                 mask_el_slip = (behaviour_index == 2)
                 if any(mask_el_slip):
@@ -1437,6 +1451,11 @@ class AxialPullout():
                         self.coefficients[2][2, mask_el_slip],
                         (self.coefficients[3][2, ...] - displacement)[mask_el_slip]
                     )
+                    if jacobian is True:
+                        dforceunbroken_ddisplacement[mask_el_slip] = (1.0 / (
+                            2.0 * self.coefficients[1][2, mask_el_slip] * force_unbroken[mask_el_slip]
+                            + self.coefficients[2][2, mask_el_slip]
+                        ))
             if self.elastoplastic is True:
                 mask_pl_anch = (behaviour_index == 4)
                 if any(mask_pl_anch):
@@ -1446,6 +1465,12 @@ class AxialPullout():
                         self.coefficients[2][4, mask_pl_anch],
                         (self.coefficients[3][4, ...] - displacement)[mask_pl_anch]
                         )
+                    if jacobian is True:
+                        dforceunbroken_ddisplacement[mask_pl_anch] = (1.0 / (
+                            3.0 * self.coefficients[0][4, mask_pl_anch] * force_unbroken[mask_pl_anch]**2
+                            + 2.0 * self.coefficients[1][4, mask_pl_anch] * force_unbroken[mask_pl_anch]
+                            + self.coefficients[2][4, mask_pl_anch]
+                        ))
                 if self.slipping is True:
                     mask_pl_slip_aboveyield = (behaviour_index == 5)
                     if any(mask_pl_slip_aboveyield):
@@ -1454,6 +1479,11 @@ class AxialPullout():
                             self.coefficients[2][5, mask_pl_slip_aboveyield],
                             (self.coefficients[3][5, ...] - displacement)[mask_pl_slip_aboveyield]
                             )
+                        if jacobian is True:
+                            dforceunbroken_ddisplacement[mask_pl_slip_aboveyield] = (1.0 / (
+                                2.0 * self.coefficients[1][5, mask_pl_slip_aboveyield] * force_unbroken[mask_pl_slip_aboveyield]
+                                + self.coefficients[2][5, mask_pl_slip_aboveyield]
+                            ))
                     mask_pl_slip_belowyield = (behaviour_index == 6)
                     if any(mask_pl_slip_belowyield):
                         force_unbroken[mask_pl_slip_belowyield] = solve_quadratic(
@@ -1461,17 +1491,30 @@ class AxialPullout():
                             self.coefficients[2][6, mask_pl_slip_belowyield],
                             (self.coefficients[3][6, ...] - displacement)[mask_pl_slip_belowyield]
                             )
+                        if jacobian is True:
+                            dforceunbroken_ddisplacement[mask_pl_slip_belowyield] = (1.0 / (
+                                2.0 * self.coefficients[1][6, mask_pl_slip_belowyield] * force_unbroken[mask_pl_slip_belowyield]
+                                + self.coefficients[2][6, mask_pl_slip_belowyield]
+                            ))
             force_unbroken_cummax = force_unbroken.copy()
             mask_el_reducing = np.isin(behaviour_index, [2, 3])
             force_unbroken_cummax[mask_el_reducing] = self.force_limits[1, mask_el_reducing]
             mask_pl_reducing = np.isin(behaviour_index, [5, 6, 7])
             force_unbroken_cummax[mask_pl_reducing] = self.force_limits[4, mask_pl_reducing]
+            if jacobian is True:
+                dforceunbrokencummax_ddisplacement = dforceunbroken_ddisplacement.copy()
+                dforceunbrokencummax_ddisplacement[mask_el_reducing] = 0.0 * units('N/mm')
+                dforceunbrokencummax_ddisplacement[mask_pl_reducing] = 0.0 * units('N/mm')
         else:
             mask_el_anch = (behaviour_index == 1)
             if any(mask_el_anch):
                 force_unbroken[mask_el_anch] = np.sqrt(
                     (displacement / self.coefficients[1][1, ...])[mask_el_anch]
                     )
+                if jacobian is True:
+                    dforceunbroken_ddisplacement[mask_el_anch] = (1.0 / (
+                        2.0 * self.coefficients[1][1, mask_el_anch] * force_unbroken[mask_el_anch]
+                        ))
             if self.slipping is True:
                 mask_el_slip = (behaviour_index == 2)
                 if any(mask_el_slip):
@@ -1488,6 +1531,11 @@ class AxialPullout():
                         self.coefficients[2][4, mask_pl_anch],
                         (self.coefficients[3][4, ...] - displacement)[mask_pl_anch]
                         )
+                    if jacobian is True:
+                        dforceunbroken_ddisplacement[mask_pl_anch] = (1.0 / (
+                            2.0 * self.coefficients[1][4, mask_pl_anch] * force_unbroken[mask_pl_anch]
+                            + self.coefficients[2][4, mask_pl_anch]
+                            ))
                 if self.slipping is True:
                     mask_pl_slip = (behaviour_index == 5)
                     if any(mask_pl_slip):
@@ -1497,22 +1545,38 @@ class AxialPullout():
                             * self.interface.shear_strength
                             )
             force_unbroken_cummax = force_unbroken.copy()
+            if jacobian is True:
+                dforceunbrokencummax_ddisplacement = dforceunbroken_ddisplacement.copy()
 
         if self.breakage is True:
             force_breakage = self.roots.xsection * self.roots.tensile_strength
             if self.weibull_shape is None:
                 survival = (force_unbroken_cummax <= force_breakage).astype(float)
+                if jacobian is True:
+                    dsurvival_ddisplacement = np.zeros(*nroots) * units('1/mm')
             else:
-                y = (force_unbroken_cummax / force_breakage * gamma(1.0 + 1.0 / self.weibull_shape)).magnitude                   
+                y = (gamma(1.0 + 1.0 / self.weibull_shape) * force_unbroken_cummax / force_breakage).magnitude                   
                 survival = np.exp(-(y**self.weibull_shape))
+                if jacobian is True:
+                    dy_dforceunbrokencummax = gamma(1.0 + 1.0 / self.weibull_shape) / force_breakage
+                    dsurvival_dy = -self.weibull_shape * y**(self.weibull_shape - 1.0) * survival
+                    dsurvival_ddisplacement = dsurvival_dy * dy_dforceunbrokencummax * dforceunbrokencummax_ddisplacement
         else:
-            survival = np.ones(nroots).astype(float)            
+            survival = np.ones(*nroots).astype(float)
+            if jacobian is True:
+                dsurvival_ddisplacement = np.zeros(*nroots) * units('1/mm')         
 
-        return({
+        dict_return = {
             'force': force_unbroken * survival,
             'behaviour_index': behaviour_index,
             'survival_fraction': survival
-        })  
+        }
+        if jacobian is True:
+            dict_return['dforce_ddisplacement'] = (
+                dforceunbroken_ddisplacement * survival
+                + force_unbroken * dsurvival_ddisplacement
+            )
+        return(dict_return)
     
 
     def calc_displacement_to_peak(self) -> Quantity:
@@ -1601,6 +1665,7 @@ class _DirectShear():
 
     Methods
     -------
+    TODO: update methods
     __init__(roots, interface, soil_profile, failure_surface, distribution_factor, **kwargs)
         Constructor
     get_initial_root_orientations()
@@ -1609,7 +1674,6 @@ class _DirectShear():
         Calculate root elongations in shear zone and k-factors 
     """
 
-    # initisaliser
     def __init__(
             self,
             roots: MultipleRoots,
@@ -1641,7 +1705,6 @@ class _DirectShear():
         TypeError
             _description_
         """
-        # check instances are of the correct class
         if not isinstance(roots, MultipleRoots):
             raise TypeError('roots must be instance of class MultipleRoots')
         self.roots = roots
@@ -1665,7 +1728,6 @@ class _DirectShear():
             .to('rad')
             )
     
-    # set root orientations as unit vectors, relative to direction of shearing
     def calc_initial_root_orientations(
             self
             ) -> np.ndarray:
@@ -1733,6 +1795,77 @@ class _DirectShear():
                 axisangle = np.array([0.0, 0.0, 0.0])
             # rotate and return
             return(axisangle_rotate(root_orientation_global, axisangle))
+
+
+    def calc_pullout_displacement(
+            self,
+            shear_displacement: Quantity,
+            shear_zone_thickness: Quantity,
+            distribution_factor: int | float = 0.5,
+            jacobian: bool = False
+            ) -> dict:
+        if np.isclose(shear_zone_thickness.magnitude, 0.0):
+            ones = np.ones(*self.roots.xsection.shape)
+            dict_out = {'pullout_displacement': distribution_factor * shear_displacement * ones}
+        else:
+            length_initial = shear_zone_thickness / self.roots.orientation[..., 2]
+            length_x = shear_zone_thickness * self.roots.orientation[..., 0] / self.roots.orientation[..., 2] + shear_displacement
+            length_y = shear_zone_thickness * self.roots.orientation[..., 1] / self.roots.orientation[..., 2]
+            length_z = shear_zone_thickness
+            length = np.sqrt(length_x**2 + length_y**2 + length_z**2)
+            dict_out = {'pullout_displacement': distribution_factor * (length - length_initial)}
+        if jacobian is True:
+            if np.isclose(shear_zone_thickness.magnitude, 0.0):
+                dict_out['dpullout_displacement_dshear_displacement'] = distribution_factor * ones * units('mm/mm')
+                dict_out['dpullout_displacement_dshear_zone_thickness'] = 0.0 * ones * units('mm/mm')
+            else:
+                dict_out['dpullout_displacement_dshear_displacement'] = distribution_factor * length_x / length
+                dict_out['dpullout_displacement_dshear_zone_thickness'] = distribution_factor * length / shear_zone_thickness
+        return(dict_out)
+
+
+    def calc_orientation_factor(
+            self,
+            shear_displacement: Quantity,
+            shear_zone_thickness: Quantity,
+            jacobian: bool = False
+            ) -> dict:
+        if np.isclose(shear_zone_thickness.magnitude, 0.0):
+            ones = np.ones(*self.roots.xsection.shape)
+            dict_out = {'k': ones}
+        else:
+            length_x = shear_zone_thickness * self.roots.orientation[..., 0] / self.roots.orientation[..., 2] + shear_displacement
+            length_y = shear_zone_thickness * self.roots.orientation[..., 1] / self.roots.orientation[..., 2]
+            length_z = shear_zone_thickness
+            length = np.sqrt(length_x**2 + length_y**2 + length_z**2)
+            dict_out = {'k': (length_x + length_z * self.failure_surface.tanphi) / length}
+        if jacobian is True:
+            if np.isclose(shear_zone_thickness.magnitude, 0.0):
+                dict_out['dk_dshear_displacement'] = 0.0 * ones / shear_displacement.units
+                if np.isclose(shear_displacement.magnitude, 0.0):
+                    dict_out['dk_dshear_zone_thickness'] = 0.0 * ones / shear_zone_thickness.units
+                else:
+                    dict_out['dk_dshear_zone_thickness'] = -np.inf * ones / shear_zone_thickness.units
+            else:
+                dict_out['dk_dshear_displacement'] = 1.0 / length - dict_out['k'] * length_x / length**2
+                dict_out['dk_dshear_zone_thickness'] = -shear_displacement / (shear_zone_thickness * length)
+        return(dict_out)
+
+
+    def calc_shear_from_pullout_displacement(
+            self,
+            pullout_displacement: Quantity,
+            shear_zone_thickness: Quantity,
+            distribution_factor: int | float = 0.5
+            ) -> Quantity:
+        elongation = pullout_displacement / distribution_factor
+        length_initial = shear_zone_thickness / self.roots.orientation[..., 2]
+        length = length_initial + elongation                        
+        length_y = shear_zone_thickness * self.roots.orientation[..., 1] / self.roots.orientation[..., 2]
+        length_z = shear_zone_thickness
+        length_x = np.sqrt(length**2 - length_y**2 - length_z**2)
+        return(length_x - shear_zone_thickness * self.roots.orientation[..., 0] / self.roots.orientation[..., 2])
+
 
     def calc_orientation_parameters(
             self,
@@ -1996,7 +2129,8 @@ class Waldron(_DirectShear):
             self,
             shear_displacement: Quantity | Parameter,
             total: bool = True,
-            jac: bool = False,
+            jacobian: bool = False,
+            squeeze: bool = True,
             sign: int | float = 1.0
             ) -> dict:
         """Calculate root reinforcement at current level of displacement
@@ -2005,14 +2139,16 @@ class Waldron(_DirectShear):
         ----------
         shear_displacement : Quantity | Parameter
             soil shear displacement. If not set as a Quantity (with dimension
-            length), EDIT
+            length), TODO: UPDATE TEXT HERE
         total : bool, optional
             if True, returns total reinforcement by all roots. If False, return
-            reinforcement for each root seperately as a 2-D matrix (axis 0 = 
-            roots, axis 1 = displacement steps). By default True
-        jac : bool, optional
+            reinforcement for each root seperately.
+        jacobian : bool, optional
             additionally return the derivative of reinforcement with respect 
             to shear displacement. By default False
+        squeeze : bool, optional
+            If True, strip all dimensions with length '1' out of the various
+            results arrays. By default True
         sign : int, float, optional
             Multiplication factor for all result returned by the function. 
             This is used to be able to use minimisation algorithms in order
@@ -2024,81 +2160,110 @@ class Waldron(_DirectShear):
         dict
             Dictionary with reinforcement results. Has keys:
             
-            'reinforcement': 
-                shear reinforcement
-            'behaviour_type':
-                list of root behaviour type names
-            'behaviour_fraction': 
+            'reinforcement' : Quantity
+                shear reinforcements. Has shape (n*m) where n is the number of displacement steps
+                and m the number of roots. If total is True, m = 1
+            'behaviour_types' : np.ndarray
+                list of root behaviour type names. 
+            'behaviour_fraction' : np.ndarray
                 fraction of total root cross-sectional area that behaves
-                according to each of the types in 'behaviour_type'
-            'derivative': 
+                according to each of the types in 'behaviour_types'. Has shape (n*p*m) where
+                n is the number of dispalcement steps, p the number of behaviour types, and 
+                m the number of roots. If total = True, m = 1
+            'dreinforcement_ddisplacement': Quantity
                 derivative of reinforcement output with respect to the shear 
-                displacement. Only returned when jac = True
+                displacement. Only returned when jacobian = True. Has shape (n*m) where
+                n is the number of displacement stes and m the number of roots. If total
+                = True, m = 1.
 
         """
         shear_displacement = create_quantity(shear_displacement, check_unit = 'mm')
-        # loop through all displacement steps
-        cr_per_step = []
-        xsection_fractions_per_step = []
-        if jac is True:
-            dcr_dus_all = []
-        for us in shear_displacement:
-            # pullout displacement (up) and orientation factors (k)
-            res = self.get_orientation_parameters(
+        if np.isscalar(shear_displacement.magnitude):
+            shear_displacement = np.array([shear_displacement.magnitude]) * shear_displacement.units
+        ndisplacement = len(shear_displacement)
+        nbehaviour = len(self.pullout.behaviour_types)
+        nroots = self.roots.xsection.shape
+        cr = np.zeros((ndisplacement, *nroots)) * units('kPa')
+        xsection_fractions = np.zeros((ndisplacement, nbehaviour, *nroots))
+        if jacobian is True:
+            dcr_dus = np.zeros((ndisplacement, *nroots)) * units('kPa/mm')
+    
+        for us, i in zip(shear_displacement, np.arange(ndisplacement)):
+            res_up = self.calc_pullout_displacement(
                 us,
                 self.failure_surface.shear_zone_thickness,
-                jac = jac
+                jacobian = jacobian
             )
-            # pullout force (Tp), survival fraction (S) and behaviour type index (b)
-            Tp, dTp_dup, S, b = self.pullout.calc_force(
-                res['pullout_displacement'], 
-                jac = jac
+            res_Tp = self.pullout.calc_force(
+                res_up['pullout_displacement'], 
+                jacobian = jacobian
                 )
-            # reinforcement
-            cr = sign * res['k'] * Tp / self.failure_surface.cross_sectional_area
-            if total is True:
-                cr = np.sum(cr)
-            cr_per_step.append(cr)
-            # fraction of root cross-sectional area for each behaviour types
-            xsection_fractions = np.bincount(
-                b, 
-                weights = S * self.roots.xsection.magnitude / np.sum(self.roots.xsection.magnitude),
-                minlength = len(self.pullout.behaviour_types)
+            res_k = self.calc_orientation_factor(
+                us,
+                self.failure_surface.shear_zone_thickness,
+                jacobian = jacobian
                 )
-            xsection_fractions_per_step.append(xsection_fractions)
-            # return jacobian if requested
-            if jac is True:
-                dcr_dus = sign * (
-                    (res['dk_dus'] * Tp + res['k'] * dTp_dup * res['dup_dus']) 
-                    / self.failure_surface.cross_sectional_area
+            cr[i, ...] = sign * res_k['k'] * res_Tp['force'] / self.failure_surface.cross_sectional_area
+            xsection_fractions[i, ...] = np.bincount(
+                res_Tp['behaviour_index'], 
+                weights = (
+                    res_Tp['survival_fraction'] 
+                    * self.roots.xsection.magnitude 
+                    / np.sum(self.roots.xsection.magnitude)
+                    ),
+                minlength = nbehaviour
+                )
+            if jacobian is True:
+                dcr_dus[i, ...] = sign / self.failure_surface.cross_sectional_area * (
+                    res_k['dk_dshear_displacement'] * res_Tp['force']
+                     + res_k['k'] * res_Tp['dforce_ddisplacement'] * res_up['dpullout_displacement_dshear_displacement']
                     )
-                if total is True:
-                    dcr_dus = np.sum(dcr_dus)
-                dcr_dus_all.append(dcr_dus)
-        # create output
-        cr_out = np.array([i.magnitude for i in cr_per_step]).transpose().squeeze() * cr_per_step[0].units
-        xsection_fractions_out = np.array(xsection_fractions_per_step).transpose().squeeze()
-        out = {
-            'reinforcement': cr_out, 
-            'behaviour_type': self.pullout.behaviour_types,
-            'behaviour_fraction': xsection_fractions_out
-            }
-        # add derivative of reinforcement with respect to shear displacement
-        if jac is True:
-            out['derivative'] = (
-                np.array([i.magnitude for i in dcr_dus_all]).transpose().squeeze 
-                * dcr_dus_all[0].units
-                )
-        # return
-        return(out)    
+
+        dict_out = {'behaviour_types': self.pullout.behaviour_types}
+        if total is True:
+            dict_out['reinforcement'] = cr.sum(axis = -1)
+            dict_out['behaviour_fraction'] = xsection_fractions.sum(axis = -1)
+        else:
+            dict_out['reinforcement'] = cr
+            dict_out['behaviour_fraction'] = xsection_fractions
+        if jacobian is True:
+            if total is True:
+                dict_out['dreinforcement_ddisplacement'] = dcr_dus.sum(axis = -1)
+            else:
+                dict_out['dreinforcement_ddisplacement'] = dcr_dus
+        if squeeze is True:
+            dict_out['reinforcement'] = dict_out['reinforcement'].squeeze()
+            dict_out['behaviour_fraction'] = dict_out['behaviour_fraction'].squeeze()
+            if jacobian is True:
+                dict_out['dreinforcement_ddisplacement'] = dict_out['dreinforcement_ddisplacement'].squeeze()
+        return(dict_out)    
+
+    def calc_peak_reinforcement(self) -> dict:
+        # it is possible that at root breakage, force is not max, due to rotation of forces
+
+        # algorithm:
+        # - find shear displacements to peak for each root
+        # - calculate forces and derivatives
+        # - get candidate options 
+        #   (may need to offset displacement ever so slightly, in order to not get
+        #    into floating precision issues, i.e. roots *just* broken even though they shouldn't)
+        # - maximise using gradient search,
+        #   if weibull=False, only needed if gradient = negative
+        #   if weibull=True, need to account for direction  
+        # - 
+        # - 
+
+        # root displacements to peak
+        None
+
 
     # find soil shear displacement at peak force of each root
-    def _get_displacement_root_peak(self) -> Quantity:
+    def _get_displacement_root_peak_old(self) -> Quantity:
         """Estimate shear displacement at which each root reaches peak
 
         The 'peak' is defined as either the point of sudden breakage (
         tensile strength is exceeded) and/or the point at which the root 
-        starts to slip.
+        starts to slip (whichever happens first).
 
         Returns
         -------
@@ -2147,7 +2312,7 @@ class Waldron(_DirectShear):
         return(shear_displacement)
 
     # find peak reinforcement
-    def calc_peak_reinforcement(self) -> dict:
+    def calc_peak_reinforcement_old(self) -> dict:
         """Find peak reinforcement in Waldron's model
 
         Function first estimates a feasible range of shear displacements, 
