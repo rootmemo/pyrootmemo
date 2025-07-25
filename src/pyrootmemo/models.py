@@ -2044,9 +2044,9 @@ class Waldron(_DirectShear):
 
     Methods
     -------
-    reinforcement(shear_displacement, ...)
+    calc_reinforcement(shear_displacement, ...)
         calculate reinforcement at given level(s) of shear displacement
-    peak_reinforcement()
+    calc_peak_reinforcement()
         calculate peak reinforcement
     plot(...)
         show how reinforcement mobilises with shear displacement
@@ -2091,15 +2091,6 @@ class Waldron(_DirectShear):
             breakage = True). By default None. If 'None', all roots are 
             assumed to break instantly (like in the original Waldron-type 
             models).
-
-        Raises
-        ------
-        ValueError
-            _description_
-        ValueError
-            _description_
-        TypeError
-            _description_
         """
         super().__init__(roots, interface, soil_profile, failure_surface)
         if isinstance(weibull_shape, int) | isinstance(weibull_shape, float):
@@ -2124,7 +2115,6 @@ class Waldron(_DirectShear):
             weibull_shape = weibull_shape
             )
         
-    # calculate root reinforcement at given displacement step
     def calc_reinforcement(
             self,
             shear_displacement: Quantity | Parameter,
@@ -2133,13 +2123,12 @@ class Waldron(_DirectShear):
             squeeze: bool = True,
             sign: int | float = 1.0
             ) -> dict:
-        """Calculate root reinforcement at current level of displacement
+        """Calculate root reinforcement given level(s) of displacement
 
         Parameters
         ----------
         shear_displacement : Quantity | Parameter
-            soil shear displacement. If not set as a Quantity (with dimension
-            length), TODO: UPDATE TEXT HERE
+            soil shear displacement.
         total : bool, optional
             if True, returns total reinforcement by all roots. If False, return
             reinforcement for each root seperately.
@@ -2238,135 +2227,89 @@ class Waldron(_DirectShear):
                 dict_out['dreinforcement_ddisplacement'] = dict_out['dreinforcement_ddisplacement'].squeeze()
         return(dict_out)    
 
-    def calc_peak_reinforcement(self) -> dict:
-        # it is possible that at root breakage, force is not max, due to rotation of forces
+    def calc_displacement_to_rootpeak(self) -> Quantity:
+        """Calculate shear displacement at peak reinforcements of individual roots
 
-        # algorithm:
-        # - find shear displacements to peak for each root
-        # - calculate forces and derivatives
-        # - get candidate options 
-        #   (may need to offset displacement ever so slightly, in order to not get
-        #    into floating precision issues, i.e. roots *just* broken even though they shouldn't)
-        # - maximise using gradient search,
-        #   if weibull=False, only needed if gradient = negative
-        #   if weibull=True, need to account for direction  
-        # - 
-        # - 
-
-        # root displacements to peak
-        None
-
-
-    # find soil shear displacement at peak force of each root
-    def _get_displacement_root_peak_old(self) -> Quantity:
-        """Estimate shear displacement at which each root reaches peak
-
-        The 'peak' is defined as either the point of sudden breakage (
-        tensile strength is exceeded) and/or the point at which the root 
-        starts to slip (whichever happens first).
+        Calculate the shear displacement associated with each root reaching its
+        maximum tensile force, i.e. at the point of breakage or at the onset
+        of slippage. The associated pull-out displacement is calculated, and 
+        this is then converter back to shear displacements
 
         Returns
         -------
         Quantity
-            shear displacement at which each root reaches its peak
+            Array with shear displacements
         """
-
-        # get force at failure in each root
-        if self.breakage is True:
-            force_breakage = self.roots.xsection * self.roots.tensile_strength
-        if self.slipping is True:
-            force_slipping = self.roots.length * self.roots.circumference * self.interface.shear_strength
-        # select limiting case
-        if self.breakage is True:
-            if self.slipping is True:
-                force = np.minimum(force_breakage, force_slipping)
-            else:
-                force = force_breakage
-        else:
-            if self.slipping is True:
-                force = force_slipping
-            else:
-                return(None)
-        # get index of correct behaviour
-        if self.elastoplastic is False:
-            i = np.flatnonzero(self.pullout.behaviour_types == 'Anchored, elastic')[0]
-            pullout_displacement = (
-                self.pullout.coefficients[0][..., i] * force**2
-                + self.pullout.coefficients[1][..., i] * force
-                + self.pullout.coefficients[2][..., i]
-                )
-        else:
-            i = np.flatnonzero(self.pullout.behaviour_types == 'Anchored, plastic')[0]
-            print('Not yet implemented')
-        # calculate shear displacement at failure
+        shear_zone_thickness = self.failure_surface.shear_zone_thickness
+        pullout_displacement = self.pullout.calc_displacement_to_peak()
         elongation = pullout_displacement / self.distribution_factor
-        vx = self.roots.orientation[..., 0]
-        vy = self.roots.orientation[..., 1]
-        vz = self.roots.orientation[..., 2]
-        h = self.failure_surface.shear_zone_thickness
-        shear_displacement = (
-            np.sqrt((elongation + h / vz)**2 - h**2 * (1.0 + vy**2 / vz**2))
-            - h * vx / vz
-        )
-        # return
-        return(shear_displacement)
+        if (shear_zone_thickness.magnitude <= 0.0):
+            return(elongation)
+        else:
+            length_initial =  shear_zone_thickness / self.roots.orientation[..., 2]
+            length_x0 = shear_zone_thickness * self.roots.orientation[..., 0] / self.roots.orientation[..., 2]
+            length_y0 = shear_zone_thickness * self.roots.orientation[..., 1] / self.roots.orientation[..., 2]
+            length_z0 = shear_zone_thickness
+            length = length_initial + elongation
+            length_x = np.sqrt(length**2 - length_y0**2 - length_z0**2)
+            return(length_x - length_x0)
 
-    # find peak reinforcement
-    def calc_peak_reinforcement_old(self) -> dict:
-        """Find peak reinforcement in Waldron's model
+    def calc_peak_reinforcement(
+            self, 
+            factor: int | float = 1.15
+            ) -> dict:
+        """Calculate the magnitude and displacement at maximum root reinforcement
 
-        Function first estimates a feasible range of shear displacements, 
-        based on when roots start breaking and or slipping.
+        Calculate the maximum root reinforcement and associated shear 
+        displacement. 
 
-        Subsequently, a optimisation using Scipy's differential_evolution()
-        function is performed to find the peak.
+        An estimation of the shear displacement domain is made using the 
+        pull-out displacements at which each root reaches its maximum force,
+        either at the point of breakage or at the onset of root slippage. These
+        are then transformed to shear displacements using the function
+        'calc_displacement_to_rootpeak'. 
+
+        The maximum reinforcement is found by using scipy's evolutionary
+        optimiser (scipy.optimise.differential_evolution) on the domain from
+        zero to the largest value of shear displacement for any root peak.
+        
+        Parameters
+        ----------
+        factor : int | float, optional
+            Multiplier for shear displacement that is searched by the 
+            evolutionary solver (to make sure peak is within search domain),
+            by default 1.15
 
         Returns
         -------
         dict
-            Dictionary with peak force results. Has keys:
-
-            'displacement'
-                Shear displacement at peak reinforcement
-            'reinforcement'
-                Peak reinforcement
-
+            Dictionary with peak reinforcement results. Has keys:
+            
+            'reinforcement' : Quantity
+                maximum value of the root reinforcement at any shear 
+                displacement
+            'displacement' : Quantity
+                the value of the shear displacement at which the peak 
+                reinforcement is mobilised
         """
-        # no root breakage or slipping -> infinite reinforcement
-        if self.breakage is False and self.slipping is False:
-            warnings.warn('No breakage or slipping - peak reinforcement is infinite!')
-            return({
-                'displacement': np.inf * units('m'),
-                'reinforcement': np.inf * units('kPa')
-                })
-        # get range of displacements, and get reinforcement for each
-        margin = 0.1  # add little bit of extra to range, just to be sure :-)
-        us_all = self._get_displacement_root_peak()
-        us_start_unit = 'mm'
-        us_min = (1.0 - margin) * np.min(us_all).to(us_start_unit).magnitude
-        us_max = (1.0 + margin) * np.max(us_all).to(us_start_unit).magnitude
-        # function to optimise
-        def fun(x):
-            return(self.reinforcement(
-                x * units(us_start_unit),
-                jac = False,
+        shear_displacement_max = factor * np.max(self.calc_displacement_to_rootpeak())
+        shear_displacement_units = shear_displacement_max.units
+        def fun_to_optimize(x):
+            return(self.calc_reinforcement(
+                x * shear_displacement_units,
+                jacobian = False,
                 sign = -1.0
                 )['reinforcement'].magnitude)
-        # optimise
         sol = differential_evolution(
-            fun,
-            bounds = [(us_min, us_max)]
+            fun_to_optimize,
+            bounds = [(0.0, shear_displacement_max.magnitude)]
             )
-        # extract 
-        us_peak = sol.x[0] * units(us_start_unit)
-        cr_peak = self.reinforcement(us_peak, jac = False)['reinforcement']
-        # return dictionary with results
+        displacement_peak = sol.x[0] * shear_displacement_max.units
         return({
-            'displacement': us_peak, 
-            'reinforcement': cr_peak
+            'displacement': displacement_peak,
+            'reinforcement': self.calc_reinforcement(displacement_peak, jacobian = False)['reinforcement']
             })
 
-    # plot shear displacement versus reinforcement 
     def plot(
             self,
             n: int = 251,
@@ -2420,29 +2363,26 @@ class Waldron(_DirectShear):
         tuple
             tuple containing Matplotlib figure and axis objects
         """
-        # no root breakage or slipping -> infinite reinforcement
         if self.breakage is False and self.slipping is False:
-            us_peak = 100.0 * units('mm')
+            shear_displacement_max = 100.0 * units('mm')
         else:
-            us_peak_all = self._get_displacement_root_peak()
-            us_peak = np.max(us_peak_all)
-        us = np.linspace(0.0 * us_peak, us_peak * (1.0 + margin_axis), n)
-        # total reinforcement, per root, for each displacement step
-        res = self.reinforcement(us, jac = False, total = False)
-        cr_total = np.sum(res['reinforcement'], axis = 0).to(yunit).magnitude
-        # plot trace
+            shear_displacement_rootpeak = self.calc_displacement_to_rootpeak()
+            shear_displacement_max = np.max(shear_displacement_rootpeak)
+        shear_displacement = np.linspace(0.0 * shear_displacement_max, shear_displacement_max * (1.0 + margin_axis), n)
+        results = self.calc_reinforcement(shear_displacement, jacobian = False, total = False)
+        total_reinforcement_magnitude = np.sum(results['reinforcement'], axis = 1).to(yunit).magnitude
+
         fig, ax  = plt.subplots()
-        us_plot = us.to(xunit).magnitude
+        shear_displacement_magnitude = shear_displacement.to(xunit).magnitude
         ax.plot(
-            us_plot,
-            cr_total,
+            shear_displacement_magnitude,
+            total_reinforcement_magnitude,
             c = 'black'
             )
-        # stack plot
+
         if stack is True:
-            cr = res['reinforcement'].to(yunit).magnitude
-            ax.stackplot(us_plot, cr)
-            # labels
+            reinforcement_perroot_magnitude = results['reinforcement'].to(yunit).magnitude
+            ax.stackplot(shear_displacement, reinforcement_perroot_magnitude)
             nroots = len(self.roots.diameter)
             if labels is True:
                 labels = list(range(1, nroots + 1))
@@ -2454,21 +2394,18 @@ class Waldron(_DirectShear):
                     plot_labels = False
             else:
                 plot_labels = False
-            # add labels to plot
             if plot_labels is True:
-                # label x-positions 
                 if (self.slipping is False) and (self.breakage is False):
-                    labels_x = us[int((1.0 - margin_label) * n)]
-                    labels_y_tmp = self.reinforcement(labels_x, total = False)['reinforcement'].to(yunit).magnitude
+                    labels_x = shear_displacement[int((1.0 - margin_label) * n)]
+                    labels_y_tmp = self.calc_reinforcement(labels_x, total = False)['reinforcement'].to(yunit).magnitude
                     labels_y = np.cumsum(labels_y_tmp) - 0.5 * labels_y_tmp
                     labels_x = np.full(len(labels_y), labels_x)
                 else:
-                    labels_x = us_peak_all - margin_label * np.max(us_peak_all)
-                    labels_y_tmp = self.reinforcement(labels_x, total = False)['reinforcement'].to(yunit).magnitude
+                    labels_x = shear_displacement_rootpeak - margin_label * np.max(shear_displacement_rootpeak)
+                    labels_y_tmp = self.calc_reinforcement(labels_x, total = False)['reinforcement'].to(yunit).magnitude
                     labels_x = labels_x.to(xunit).magnitude
                     labels_y_tmp = np.triu(labels_y_tmp)
                     labels_y = np.sum(labels_y_tmp, axis = 0) - 0.5 * np.diag(labels_y_tmp)
-                # add labels to plot
                 for xi, yi, li in zip(labels_x, labels_y, labels):
                     ax.annotate(
                         li, 
@@ -2478,16 +2415,16 @@ class Waldron(_DirectShear):
                         bbox = dict(boxstyle = 'round', fc = 'white', alpha = 0.5),
                         fontsize = 'small'
                         )
-        # plot peak
+
         if peak is True:
-            peak = self.peak_reinforcement()
-            plt.scatter(
-                peak['displacement'].to(xunit).magnitude,
-                peak['reinforcement'].to(yunit).magnitude,
-                c = 'black'
-                )
-        # set labels
+            if self.breakage is True or self.slipping is True:
+                peak_results = self.calc_peak_reinforcement()
+                plt.scatter(
+                    peak_results['displacement'].to(xunit).magnitude,
+                    peak_results['reinforcement'].to(yunit).magnitude,
+                    c = 'black'
+                    )
+
         ax.set_xlabel(xlabel + ' [' + str(xunit) + ']')
         ax.set_ylabel(ylabel + ' [' + str(yunit) + ']')
-        # return
         return(fig, ax)
