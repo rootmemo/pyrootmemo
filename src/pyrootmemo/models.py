@@ -2193,15 +2193,21 @@ class Waldron(_DirectShear):
                 jacobian = jacobian
                 )
             cr[i, ...] = sign * res_k['k'] * res_Tp['force'] / self.failure_surface.cross_sectional_area
-            xsection_fractions[i, ...] = np.bincount(
-                res_Tp['behaviour_index'], 
-                weights = (
-                    res_Tp['survival_fraction'] 
-                    * self.roots.xsection.magnitude 
-                    / np.sum(self.roots.xsection.magnitude)
-                    ),
-                minlength = nbehaviour
-                )
+            if nroots == (1, ):
+                xsection_fractions[i, res_Tp['behaviour_index'], ...] = 1.0
+            else:
+                # TODO: 28/07/2025 - GJM
+                # This bincount only works when there are more than 1 root - 
+                # made quickfix in order to write ICSMGE paper
+                xsection_fractions[i, ...] = np.bincount(
+                    res_Tp['behaviour_index'], 
+                    weights = (
+                        res_Tp['survival_fraction'] 
+                        * self.roots.xsection.magnitude 
+                        / np.sum(self.roots.xsection.magnitude)
+                        ),
+                    minlength = nbehaviour
+                    )
             if jacobian is True:
                 dcr_dus[i, ...] = sign / self.failure_surface.cross_sectional_area * (
                     res_k['dk_dshear_displacement'] * res_Tp['force']
@@ -2370,7 +2376,10 @@ class Waldron(_DirectShear):
             shear_displacement_max = np.max(shear_displacement_rootpeak)
         shear_displacement = np.linspace(0.0 * shear_displacement_max, shear_displacement_max * (1.0 + margin_axis), n)
         results = self.calc_reinforcement(shear_displacement, jacobian = False, total = False)
-        total_reinforcement_magnitude = np.sum(results['reinforcement'], axis = 1).to(yunit).magnitude
+        if self.roots.xsection.shape == (1, ):
+            total_reinforcement_magnitude = results['reinforcement'].to(yunit).magnitude
+        else:
+            total_reinforcement_magnitude = np.sum(results['reinforcement'], axis = 1).to(yunit).magnitude
 
         fig, ax  = plt.subplots()
         shear_displacement_magnitude = shear_displacement.to(xunit).magnitude
