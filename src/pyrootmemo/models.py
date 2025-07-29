@@ -2171,11 +2171,11 @@ class Waldron(_DirectShear):
             shear_displacement = np.array([shear_displacement.magnitude]) * shear_displacement.units
         ndisplacement = len(shear_displacement)
         nbehaviour = len(self.pullout.behaviour_types)
-        nroots = self.roots.xsection.shape
-        cr = np.zeros((ndisplacement, *nroots)) * units('kPa')
-        xsection_fractions = np.zeros((ndisplacement, nbehaviour, *nroots))
+        nroots = len(self.roots.xsection)
+        cr = np.zeros((ndisplacement, nroots)) * units('kPa')
+        xsection_fractions = np.zeros((ndisplacement, nbehaviour, nroots))
         if jacobian is True:
-            dcr_dus = np.zeros((ndisplacement, *nroots)) * units('kPa/mm')
+            dcr_dus = np.zeros((ndisplacement, nroots)) * units('kPa/mm')
     
         for us, i in zip(shear_displacement, np.arange(ndisplacement)):
             res_up = self.calc_pullout_displacement(
@@ -2193,21 +2193,11 @@ class Waldron(_DirectShear):
                 jacobian = jacobian
                 )
             cr[i, ...] = sign * res_k['k'] * res_Tp['force'] / self.failure_surface.cross_sectional_area
-            if nroots == (1, ):
-                xsection_fractions[i, res_Tp['behaviour_index'], ...] = 1.0
-            else:
-                # TODO: 28/07/2025 - GJM
-                # This bincount only works when there are more than 1 root - 
-                # made quickfix in order to write ICSMGE paper
-                xsection_fractions[i, ...] = np.bincount(
-                    res_Tp['behaviour_index'], 
-                    weights = (
-                        res_Tp['survival_fraction'] 
-                        * self.roots.xsection.magnitude 
-                        / np.sum(self.roots.xsection.magnitude)
-                        ),
-                    minlength = nbehaviour
-                    )
+            xsection_fractions[i, res_Tp['behaviour_index'], np.arange(nroots)] = (
+                res_Tp['survival_fraction'] 
+                * self.roots.xsection.magnitude 
+                / np.sum(self.roots.xsection.magnitude)
+                )
             if jacobian is True:
                 dcr_dus[i, ...] = sign / self.failure_surface.cross_sectional_area * (
                     res_k['dk_dshear_displacement'] * res_Tp['force']
@@ -2304,6 +2294,7 @@ class Waldron(_DirectShear):
             return(self.calc_reinforcement(
                 x * shear_displacement_units,
                 jacobian = False,
+                total = True,
                 sign = -1.0
                 )['reinforcement'].magnitude)
         sol = differential_evolution(
