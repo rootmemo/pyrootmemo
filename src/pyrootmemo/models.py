@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from matplotlib.figure import Figure
+from matplotlib.axes import Axes
 from scipy.special import gamma
 from scipy.optimize import minimize, differential_evolution
 from pyrootmemo.helpers import units, Parameter, create_quantity, solve_quadratic, solve_cubic
@@ -9,7 +11,7 @@ from pyrootmemo.materials import MultipleRoots, Interface
 from pyrootmemo.tools.utils_rotation import axisangle_rotate
 from pyrootmemo.tools.utils_plot import round_range
 from pint import Quantity
-import warnings
+
 
 
 class Wwm():
@@ -32,9 +34,9 @@ class Wwm():
     -------
     __init__(roots)
         Constructor
-    peak_force()
+    calc_peak_force()
         Calculate peak force in the bundle
-    peak_reinforcement(failure_surface, k)
+    calc_peak_reinforcement(failure_surface, k)
         Calculate peak reinforcement by the bundle
     """
     
@@ -59,7 +61,7 @@ class Wwm():
                 raise AttributeError('roots object must contain ' + str(i) + ' attribute')
         self.roots = roots
 
-    def peak_force(self) -> np.ndarray:
+    def calc_peak_force(self) -> np.ndarray:
         """
         Calculates WWM peak force.
 
@@ -74,7 +76,7 @@ class Wwm():
         self.peak_force = np.sum(self.roots.xsection * self.roots.tensile_strength)
         return self.peak_force
 
-    def peak_reinforcement(
+    def calc_peak_reinforcement(
             self, 
             failure_surface: FailureSurface,
             k: int | float = 1.2
@@ -103,7 +105,7 @@ class Wwm():
             raise AttributeError('failure_surface must contain attribute "cross_sectional_area"')
         if not (isinstance(k, int) | isinstance(k, float)):
             raise TypeError('k must be an scalar integer or float')
-        return(k * self.peak_force() / failure_surface.cross_sectional_area)
+        return(k * self.calc_peak_force() / failure_surface.cross_sectional_area)
 
 
 class Fbm():
@@ -292,8 +294,10 @@ class Fbm():
     
     def plot(
             self,
+            fig: Figure = None,
+            ax: Axes = None,
             unit: str = 'N',
-            reference_diameter: Quantity | Parameter = (1.0, 'mm'),
+            reference_diameter: Quantity | Parameter = Parameter(1.0, 'mm'),
             stack: bool = False,
             peak: bool = True,
             labels: list | bool = False, 
@@ -320,10 +324,16 @@ class Fbm():
 
         Parameters
         ----------
+        fig : matplotlib.figure.Figure, optional
+            matplotlib figure object. If not defined, a new figure is created. By 
+            default None
+        ax : matplotlib.axes.Axes, optional
+            matplotlib axis object to plot on. If not defined, a new axis is 
+            created. By default None
         unit : str, optional
             unit used for plotting forces, by default 'N'
         reference_diameter : Quantity | Parameter(float | int, str), optional
-            value of the reference diameter, by default 1.0 mm
+            value of the reference diameter, by default Pameter(1.0, 'mm')
         stack : bool, optional
             show contributions of each individual root by means of a 
             stackplot, by default False
@@ -357,7 +367,8 @@ class Fbm():
         force_total_before = np.sum(matrix, axis = 0)
         force_total_after = force_total_before - np.diag(matrix)
         force_total_all = np.append(0.0, np.stack((force_total_before, force_total_after)).ravel(order = 'F'))
-        fig, ax = plt.subplots()
+        if fig is None and ax is None:
+            fig, ax = plt.subplots()
 
         if stack is True:
             force_individual_before = matrix
@@ -766,6 +777,8 @@ class Rbmw():
     
     def plot(
             self,
+            fig = None,
+            ax = None,
             n: int = 251,
             stack: bool = False,
             peak: bool = True,
@@ -792,6 +805,12 @@ class Rbmw():
         
         Parameters
         ----------
+        fig : matplotlib.figure.Figure, optional
+            matplotlib figure object. If not defined, a new figure is created. By 
+            default None
+        ax : matplotlib.axes.Axes, optional
+            matplotlib axis object to plot on. If not defined, a new axis is 
+            created. By default None
         n : int, optional
             number of displacement positions to plot, by default 251
         stack : bool, optional
@@ -826,7 +845,7 @@ class Rbmw():
         tuple
             tuple containing Matplotlib figure and axis objects
         """
-        peak_results = self.peak_force()
+        peak_results = self.calc_peak_force()
         failure_displacement_per_root = (
             self.roots.tensile_strength 
             / self.roots.elastic_modulus 
@@ -838,13 +857,14 @@ class Rbmw():
             * (-np.log(1.0 - fraction)) ** (1.0 / self.weibull_shape)
             )
         displacement = np.linspace(0, displacement_max, n)
-        force = self.force(displacement, total = True)
+        force = self.calc_force(displacement, total = True)
         
-        fig, ax = plt.subplots()
+        if fig is None and ax is None:
+            fig, ax = plt.subplots()
         if stack is True:
             ax.stackplot(
                 displacement.to(xunit).magnitude, 
-                self.force(displacement, total = False).to(yunit).magnitude
+                self.calc_force(displacement, total = False).to(yunit).magnitude
                 )
         ax.plot(
             displacement.to(xunit).magnitude, 
@@ -878,7 +898,7 @@ class Rbmw():
                 * self.roots.length
                 )
             labels_x = labels_x_dimensional.to(xunit).magnitude
-            labels_y_dimensional_all = self.force(labels_x_dimensional, total = False)
+            labels_y_dimensional_all = self.calc_force(labels_x_dimensional, total = False)
             labels_y_all = np.triu(labels_y_dimensional_all.to(yunit).magnitude)
             labels_y = np.sum(labels_y_all, axis = 0) -  0.5 * np.diag(labels_y_all)
             for xi, yi, li in zip(labels_x, labels_y, labels):
@@ -2309,6 +2329,8 @@ class Waldron(_DirectShear):
 
     def plot(
             self,
+            fig = None,
+            ax = None,
             n: int = 251,
             stack = False,
             peak: bool = True,
@@ -2324,6 +2346,12 @@ class Waldron(_DirectShear):
 
         Parameters
         ----------
+        fig : matplotlib.figure.Figure, optional
+            matplotlib figure object. If not defined, a new figure is created. By 
+            default None
+        ax : matplotlib.axes.Axes, optional
+            matplotlib axis object to plot on. If not defined, a new axis is 
+            created. By default None
         n : int, optional
             number of displacement positions to plot, by default 251
         stack : bool, optional
@@ -2371,8 +2399,9 @@ class Waldron(_DirectShear):
             total_reinforcement_magnitude = results['reinforcement'].to(yunit).magnitude
         else:
             total_reinforcement_magnitude = np.sum(results['reinforcement'], axis = 1).to(yunit).magnitude
-
-        fig, ax  = plt.subplots()
+        
+        if fig is None and ax is None:
+            fig, ax  = plt.subplots()
         shear_displacement_magnitude = shear_displacement.to(xunit).magnitude
         ax.plot(
             shear_displacement_magnitude,
@@ -2382,7 +2411,7 @@ class Waldron(_DirectShear):
 
         if stack is True:
             reinforcement_perroot_magnitude = results['reinforcement'].to(yunit).magnitude
-            ax.stackplot(shear_displacement, reinforcement_perroot_magnitude)
+            ax.stackplot(shear_displacement_magnitude, reinforcement_perroot_magnitude.transpose())
             nroots = len(self.roots.diameter)
             if labels is True:
                 labels = list(range(1, nroots + 1))
@@ -2398,15 +2427,15 @@ class Waldron(_DirectShear):
                 if (self.slipping is False) and (self.breakage is False):
                     labels_x = shear_displacement[int((1.0 - margin_label) * n)]
                     labels_y_tmp = self.calc_reinforcement(labels_x, total = False)['reinforcement'].to(yunit).magnitude
-                    labels_y = np.cumsum(labels_y_tmp) - 0.5 * labels_y_tmp
-                    labels_x = np.full(len(labels_y), labels_x)
+                    labels_y_magnitude = np.cumsum(labels_y_tmp, axis = 1) - 0.5 * labels_y_tmp
+                    labels_x_magnitude = np.full(len(labels_y_magnitude), labels_x.to(xunit).magnitude)
                 else:
-                    labels_x = shear_displacement_rootpeak - margin_label * np.max(shear_displacement_rootpeak)
-                    labels_y_tmp = self.calc_reinforcement(labels_x, total = False)['reinforcement'].to(yunit).magnitude
-                    labels_x = labels_x.to(xunit).magnitude
-                    labels_y_tmp = np.triu(labels_y_tmp)
-                    labels_y = np.sum(labels_y_tmp, axis = 0) - 0.5 * np.diag(labels_y_tmp)
-                for xi, yi, li in zip(labels_x, labels_y, labels):
+                    labels_x_tmp = shear_displacement_rootpeak - margin_label * np.max(shear_displacement_rootpeak)
+                    labels_y_tmp = self.calc_reinforcement(labels_x_tmp, total = False)['reinforcement'].to(yunit).magnitude
+                    labels_x_magnitude = labels_x_tmp.to(xunit).magnitude
+                    labels_y_tmp2 = np.tril(labels_y_tmp)
+                    labels_y_magnitude = np.sum(labels_y_tmp2, axis = 1) - 0.5 * np.diag(labels_y_tmp2)
+                for xi, yi, li in zip(labels_x_magnitude, labels_y_magnitude, labels):
                     ax.annotate(
                         li, 
                         xy = (xi, yi), 
@@ -2419,7 +2448,7 @@ class Waldron(_DirectShear):
         if peak is True:
             if self.breakage is True or self.slipping is True:
                 peak_results = self.calc_peak_reinforcement()
-                plt.scatter(
+                ax.scatter(
                     peak_results['displacement'].to(xunit).magnitude,
                     peak_results['reinforcement'].to(yunit).magnitude,
                     c = 'black'
