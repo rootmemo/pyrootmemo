@@ -16,11 +16,29 @@ def create_quantity(
         x: Parameter | np.ndarray | Quantity | list | tuple | int | float,
         scalar_output: bool = False
         ) -> np.ndarray | Quantity | int | float:
+    """Convert input data
+
+    Converts input data into a standardised form. If input data is a 
+    Parameter or Quantity object, a Quantity is returned. Lists and tuples 
+    are converted into numpy arrays. Scalars remain scalars.
+
+    Parameters
+    ----------
+    x : Parameter | np.ndarray | Quantity | list | tuple | int | float
+        input data
+    scalar_output : bool, optional
+        check if output is a scalar value, by default False
+
+    Returns
+    -------
+    np.ndarray | Quantity | int | float
+        output data
+    """
     if isinstance(x, Parameter):
         if np.isscalar(x[0]):
-            xout = x[0] * units(x[1])
+            xout = x.value * units(x.unit)
         else:
-            xout = np.array(x[0]) * units(x[1])
+            xout = np.array(x.value) * units(x.unit)
     elif isinstance(x, list) | isinstance(x, tuple):
         xout = np.array(x)
     elif isinstance(x, np.ndarray) | isinstance(x, Quantity) | isinstance(x, int) | isinstance(x, float):
@@ -207,7 +225,8 @@ def nondimensionalise(
     """Convert dimensional data array to nondimensional form
 
     Converts an array with data to a non-dimensional form, by dividing the 
-    input data by a reference value x0.
+    input data by a reference value x0. This cancels out any units, so the
+    function returns a nondimensional array of data.
 
     Parameters
     ----------
@@ -217,7 +236,9 @@ def nondimensionalise(
         reference value (scalar), by default None
 
     Returns
-
+    -------
+    np.ndarray
+        nondimensionalised data array
     """
     if isinstance(x, Quantity):
         if x0 is None:
@@ -240,8 +261,8 @@ def nondimensionalise(
 def redimensionalise(
         x: np.ndarray, 
         x0: int | float | Quantity = 1.0
-        ):
-    """Convert data to dimensional data
+        ) -> np.ndarray | Quantity:
+    """Convert data to dimensional data, using the reference value
 
     Parameters
     ----------
@@ -250,6 +271,11 @@ def redimensionalise(
     x0 : int | float | Quantity, optional
         reference value for the inverse operation, i.e. <nondimensional data = 
         dimensional data / reference value>, by default 1.0
+
+    Returns
+    -------
+    np.ndarray | Quantity
+        redimensionalised data
     """
     return(x * x0)
 
@@ -973,49 +999,75 @@ class BaseFit2D:
             ) -> tuple:
         """Plot powerlaw fitting results
 
+        This method generates a matplotlib plot that can show:
+        1) data used to generate the fit
+        2) the best power law fit
+        3) confidence interval of the fit
+        4) prediction interval of the fit
+
         Parameters
         ----------
         x_unit : str | None, optional
-            _description_, by default None
+            unit for x-axis, by default None. If None, the unit of the x-data
+            used to generate the fit is used.
         y_unit : str | None, optional
-            _description_, by default None
+            unit for y-axis, by default None. If None, the unit of the y-data
+            used to generate the fit is used.
         x_label : str, optional
-            _description_, by default 'x'
+            label for x-axis, by default 'x'. Units are automatically added (in
+            square brackets)
         y_label : str, optional
-            _description_, by default 'y'
+            label for y-axis, by default 'y'. Units are automatically added (in
+            square brackets)
         show_data : bool, optional
-            _description_, by default True
+            plot the data used to generate the fit, by default True
         show_fit : bool, optional
-            _description_, by default True
+            plot the powerlaw fit, by default True
         show_confidence : bool, optional
-            _description_, by default False
+            show confidence intervals of the fit, by default False
         confidence_level : float, optional
-            _description_, by default 0.95
+            confidence level used to calculate the confidence interval, 
+            by default 0.95
         covariance_method : str, optional
-            _description_, by default 'fisher'
+            method used to calculate the covariance matrix of fitting 
+            parameters, required to calculate confidence interals. Can be
+            'fisher' (based in Fisher information criterion) or 'bootstrap' 
+            (numerical approximation), by default 'fisher'. See class method
+            `calc_covariance_matrix()` for more info
         show_prediction : bool, optional
-            _description_, by default False
+            show prediction interval, by default False
         prediction_level : float, optional
-            _description_, by default 0.95
+            confidence level used to calculate the prediction interval, 
+            by default 0.95
         show_legend : bool, optional
-            _description_, by default False
+            show a plot legend, by default False
         legend_location : str, optional
-            _description_, by default 'best'
+            matplotlib string to determine legend location, by default 'best'
         n : int, optional
-            _description_, by default 101
+            number of equally-spaced x-points to use for plotting the fit, the
+            confidence interval and/or the prediction interval, by default 101
         axis_expand : float, optional
-            _description_, by default 0.05
+            scalar multiplier to add a little extra space to each axis, 
+            by default 0.05. Axis limits are automatically rounded to 'nice'
+            values regardless
         x_limits : list, optional
-            _description_, by default [0.0, None]
+            user defined lower and upper limit for the x-axis, by default 
+            [0.0, None]. If any of these are None, they are determined
+            automatically. The units of these values are assuemd as 'x_unit',
+            or in the absence of this, the units of x-data used to generate
+            the plot
         y_limits : list, optional
-            _description_, by default [0.0, None]
+            user defined lower and upper limit for the y-axis, by default 
+            [0.0, None]. If any of these are None, they are determined
+            automatically. The units of these values are assuemd as 'y_unit',
+            or in the absence of this, the units of y-data used to generate
+            the plot
 
         Returns
         -------
         tuple
             tuple containing matplotlib figure and axis objects.
-        """
-        
+        """        
         if isinstance(x_unit, str):
             x_multiplier = (1.0 * self.x0.units).to(x_unit).magnitude
             x_unit_label = format(units(x_unit).units, '~')
@@ -1083,7 +1135,7 @@ class BaseFit2D:
                     x_fit, 
                     level = confidence_level, 
                     n = n,
-                    covariance_method = covariance_method
+                    method = covariance_method
                     )
                 y_lower_nondimensional = nondimensionalise(y_lower, self.y0)
                 y_upper_nondimensional = nondimensionalise(y_upper, self.y0)
@@ -1119,7 +1171,53 @@ class BaseFit2D:
          
 
 class LinearFit(BaseFit2D):
-    
+    """Linear fitting class
+
+    Fit a power-law function to a set of (x, y) data. The fit is defined as:
+
+        `y_fit = intercept + x * gradient`
+
+    where the intercept and the gradient are to be fitted. Parameters are
+    found by solving the (weighted) linear least-squares regression problem.
+    i.e. will minimise:
+
+        `sum(weights * (y_fit * y) ** 2)`
+        
+    where 'weights' is the individual weighting for each (x, y) observation.
+
+    This class is able to deal with x and/or y data that has dimensions, e.g.
+    millimetres or megapascals. Fitted values will be automatically assigned
+    the correct units.
+
+    Attributes
+    ----------
+    x : np.ndarray | Quantity
+        One-dimensional array with x-data
+    y : np.ndarray | Quantity
+        One-dimensional array with y-data
+    weights : np.ndarray
+        Array with (dimensionless) weighting for each (x, y) observation.
+    x0 : float | int | Quantity
+        Reference value for x-values
+    y0 : float | int | Quantity
+        Reference value for y-values
+    intercept : float | Quantity
+        Fitted intercept (fitted value of y at x = 0)
+    gradient : float | Quantity
+        Fitted gradient
+    sd : float | Quantity
+        Standard deviation of the fit (biased estimation, without Bessel 
+        correction)
+
+    Methods
+    -------
+    __init__(x, y, weights, x0, y0)
+        Constructor
+    predict(x)
+        Predict the average value of y (y_fit) for each given x, using the 
+        linear fit
+    """
+
     def __init__(
             self,
             x: np.ndarray | Quantity | Parameter,
@@ -1128,6 +1226,29 @@ class LinearFit(BaseFit2D):
             x0: float | int | Quantity | Parameter | None = None,
             y0: float | int | Quantity | Parameter | None = None,
             ):
+        """Initiate linear fitting object
+
+        Initialisation sets data and will create the best fit.
+
+        Parameters
+        ----------
+        x : np.ndarray | Quantity | Parameter
+            array with x-data. Can either be defined as a (dimensionless)
+            numpy array, a pint.Quantity object (array with units) or a 
+            Parameter tuple (value array, unit string).
+        y : np.ndarray | Quantity | Parameter
+            array with y-data. Can either be defined as a (dimensionless)
+            numpy array, a pint.Quantity object (array with units) or a 
+            Parameter tuple (value array, unit string).
+        weights : int | float | np.ndarray | None
+            weighting for each (x, y) observation, by default None. If None,
+            a weight of 1 is assumed for each observation. If defined as a 
+            scalar value, this weight is assumed to each observation.
+        x0 : float | int | Quantity | Parameter | None, optional
+            the reference value for x, by default None
+        y0 : float | int | Quantity | Parameter | None, optional
+            the reference value for y, by default None
+        """
         self.x0 = create_reference_value(x, x0)
         self.y0 = create_reference_value(y, y0)
         self.x = create_array(x, finite = True)
@@ -1143,13 +1264,32 @@ class LinearFit(BaseFit2D):
 
         self.intercept = (cx2 * cy - cx * cxy) / determinant
         self.gradient = (-cx * cy + c * cxy) / determinant
-
+        self.sd = np.sqrt(
+            np.sum(self.weights * (self.predict() - self.y)**2)
+            / np.sum(self.weights)
+            )
     
     def predict(
             self,
-            x: int | float | np.ndarray | Quantity | None = None
-            ):
-        x = self.x if x is None else x
+            x: int | float | np.ndarray | Quantity | Parameter | None = None
+            ) -> np.ndarray | Quantity:
+        """Predict fitted values of y, given known x-data
+
+        Parameters
+        ----------
+        x : int | float | np.ndarray | Quantity | Parameter | None, optional
+            x-data at which to predict y, by default None. If None, the x-data
+            used to create the fit is used instead.
+
+        Returns
+        -------
+        np.ndarray | Quantity
+            fitted values of y, at each x
+        """
+        if x is None:
+            x = self.x
+        else:
+            x = create_array(x)
         return(self.intercept + self.gradient * x)
 
 
@@ -1310,7 +1450,7 @@ class PowerlawFit(BaseFit2D):
             ):
         """Initiate powerlaw fitting object
 
-        Initiasation sets parameter and will create the best fit.
+        Initialisation sets input data and will create the best fit.
 
         Parameters
         ----------
@@ -1347,7 +1487,7 @@ class PowerlawFit(BaseFit2D):
         self.y0 = create_reference_value(y, y0)
         self.x = create_array(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
         self.y = create_array(y, finite = True, xmin = 0.0 * self.y0, xmin_include = False)
-        self.weights = create_weights(x, weights)
+        self.weights = create_weights(self.x, weights)
         self.model = model.lower()
         if sd_exponent is not None:
             if isinstance(sd_exponent, int) | isinstance(sd_exponent, float):
@@ -1658,7 +1798,7 @@ class PowerlawFit(BaseFit2D):
 
     def calc_confidence_interval(
             self, 
-            x: np.ndarray | Quantity | None = None, 
+            x: np.ndarray | Quantity | Parameter | None = None, 
             level: float = 0.95, 
             n: int = 101,
             method: str = 'fisher'
@@ -1672,7 +1812,7 @@ class PowerlawFit(BaseFit2D):
 
         Parameters
         ----------
-        x : np.ndarray | Quantity | None, optional
+        x : np.ndarray | Quantity | Parameter | None, optional
             x-values to predict the confidence interval at, by default None.
             If None, a range using `n` equally-spaced point is selected on the 
             range `min(x)` to `max(x)`, where `x` is the data used to create
@@ -1692,7 +1832,10 @@ class PowerlawFit(BaseFit2D):
             y-values of the lower and upper boundaries of the confidence 
             interval, respectively
         """
-        x = np.linspace(self.x.min(), self.x.max(), n) if x is None else x
+        if x is None:
+            x = np.linspace(self.x.min(), self.x.max(), n)
+        else:
+            x = create_array(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
         y_fit = self.predict(x)
         if self.zero_variance is True:
             y_lower = y_fit
@@ -1813,8 +1956,8 @@ class PowerlawFit(BaseFit2D):
 
     def calc_density(
             self,
-            x: np.ndarray | Quantity | None = None,
-            y: np.ndarray | Quantity | None = None,
+            x: np.ndarray | Quantity | Parameter | None = None,
+            y: np.ndarray | Quantity | Parameter | None = None,
             cumulative: bool = False
             ) -> Quantity | np.ndarray:
         """Calculate (cumulative) probability densities.
@@ -1824,10 +1967,10 @@ class PowerlawFit(BaseFit2D):
 
         Parameters
         ----------
-        x : np.ndarray | Quantity | None, optional
+        x : np.ndarray | Quantity | Parameter | None, optional
             x-data, by default None. If None, the x-data that was used to 
             generate the fit is used.
-        y : np.ndarray | Quantity | None, optional
+        y : np.ndarray | Quantity | Parameter | None, optional
             y-data, by default None. If None, the y-data that was used to 
             generate the fit is used.
         cumulative : bool, optional
@@ -1839,8 +1982,14 @@ class PowerlawFit(BaseFit2D):
         np.ndarray | Quantity
             An array of (cumulative) probability densities.
         """
-        x = self.x if x is None else x
-        y = self.y if y is None else y
+        if x is None:
+            x = self.x
+        else:
+            x = create_array(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
+        if y is None:
+            y = self.y
+        else:
+            y = create_array(y, finite = True, xmin = 0.0 * self.y0, xmin_include = False)
         x_nondimensional = nondimensionalise(x, self.x0)
         y_nondimensional = nondimensionalise(y, self.y0)
         y_fit_nondimensional = nondimensionalise(self.predict(x), self.y0)
@@ -2504,7 +2653,7 @@ class PowerlawFit(BaseFit2D):
 
     def calc_prediction_interval(
             self, 
-            x: np.ndarray | Quantity | None = None, 
+            x: np.ndarray | Quantity | Parameter | None = None, 
             level: float = 0.95, 
             n: int = 251
             ) -> tuple:
@@ -2515,7 +2664,7 @@ class PowerlawFit(BaseFit2D):
 
         Parameters
         ----------
-        x : np.ndarray | Quantity | None, optional
+        x : np.ndarray | Quantity | Parameter | None, optional
             x-values to predict the confidence interval at, by default None.
             If None, a range using `n` equally-spaced point is selected on the 
             range `min(x)` to `max(x)`, where `x` is the data used to create
@@ -2534,6 +2683,8 @@ class PowerlawFit(BaseFit2D):
         """
         if x is None:
             x = np.linspace(self.x.min(), self.x.max(), n)
+        else:
+            x = create_array(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
         if self.zero_variance is True:
             y_fit = self.predict(x)
             return(x, y_fit, y_fit)
@@ -2546,7 +2697,7 @@ class PowerlawFit(BaseFit2D):
         
     def calc_quantile(
             self,
-            x: np.ndarray | Quantity,
+            x: np.ndarray | Quantity | Parameter | None,
             quantile: int | float
             ) -> np.ndarray | Quantity:
         """Calculate y-values at known quantiles
@@ -2556,8 +2707,10 @@ class PowerlawFit(BaseFit2D):
 
         Parameters
         ----------
-        x : np.ndarray | Quantity
-            x-values at which to predict y-values at chosen quantile
+        x : np.ndarray | Quantity | Parameter | None, optional
+            x-values at which to predict y-values at chosen quantile, by 
+            default None, in which case the x-data used to generate the fit
+            is used
         quantile : int | float
             Cumulative density quantile
 
@@ -2566,6 +2719,10 @@ class PowerlawFit(BaseFit2D):
         np.ndarray | Quantity
             y-values
         """
+        if x is None:
+            x = np.linspace(self.x.min(), self.x.max(), n)
+        else:
+            x = create_array(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
         if self.zero_variance is True:
             return(self.predict(x))
         else:
@@ -2604,13 +2761,13 @@ class PowerlawFit(BaseFit2D):
 
     def generate_random(
             self,
-            x: np.ndarray | Quantity
+            x: np.ndarray | Quantity | Parameter
             ) -> np.ndarray | Quantity:
         """Generate random y-values at known x-values
 
         Parameters
         ----------
-        x : np.ndarray | Quantity
+        x : np.ndarray | Quantity | Parameter
             Array with known x-values
 
         Returns
@@ -2618,7 +2775,10 @@ class PowerlawFit(BaseFit2D):
         np.ndarray | Quantity
             Array with random y-values
         """
-        x = self.x if x is None else x
+        if x is None:
+            x = self.x
+        else:
+            x = create_array(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
         return(self.calc_quantile(x, np.random.rand(*x.shape)))
 
     def predict(
@@ -2641,7 +2801,10 @@ class PowerlawFit(BaseFit2D):
         float | np.ndarray | Quantity
             average y-values at each of the specified x-values
         """
-        x = self.x if x is None else x
+        if x is None:
+            x = self.x
+        else:
+            x = create_array(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
         x_nondimensional = nondimensionalise(x, self.x0)
         return(self.multiplier * x_nondimensional**self.exponent)
 
