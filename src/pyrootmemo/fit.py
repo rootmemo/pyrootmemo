@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
 from pint import Quantity
 from pyrootmemo.helpers import Parameter, units
 from pyrootmemo.tools.utils_plot import round_range
@@ -299,7 +300,7 @@ class BaseFit1D:
             legend_location: str = 'best',
             n: int = 251,
             axis_expand = 0.05,
-            x_limits = [0.0, None]
+            x_limits = [1.0e-12, None]
             ) -> tuple:
 
         if isinstance(x_unit, str):
@@ -650,7 +651,7 @@ class PowerFit(BaseFit1D):
             lower: int | float | Quantity | Parameter | None = None,
             upper: int | float | Quantity | Parameter | None = None,
             exponent_guess: float | int | None = None,
-            root_method: str = 'newton'
+            root_method: str = 'halley'
             ):  
         self.x0 = create_reference_value(x, x0)
         self.x = create_array(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
@@ -685,14 +686,17 @@ class PowerFit(BaseFit1D):
                 upper = self.upper,
                 deriv = 2
                 ),
+            fprime2 = lambda b: self.calc_loglikelihood(
+                exponent = b, 
+                x = self.x, 
+                weights = self.weights, 
+                lower = self.lower, 
+                upper = self.upper,
+                deriv = 3
+                ),
             method = root_method,
             )
         self.exponent = fit.root
-        self.multiplier = redimensionalise(_power_fit_multiplier(
-            self.exponent,
-            lower = nondimensionalise(self.lower, self.x0),
-            upper = nondimensionalise(self.upper, self.x0)
-            ), 1.0 / self.x0)
 
     def generate_random(
             self, 
@@ -714,7 +718,14 @@ class PowerFit(BaseFit1D):
         ):
         x = self.x if x is None else x
         if cumulative is False:
-            y = self.multiplier * (x / self.x0)**self.exponent
+            if np.isclose(self.exponent, -1.0):
+                y = 1.0 / (x * np.log(self.upper / self.lower))
+            else:
+                y = (
+                    (self.exponent + 1.0) 
+                    * x ** self.exponent 
+                    / (self.upper**(self.exponent + 1.0) - self.lower**(self.exponent + 1.0))
+                    )
             y[x < self.lower] = 0.0 * y[x < self.lower]
             y[x > self.upper] = 0.0 * y[x > self.upper]
             return(y)
@@ -728,7 +739,7 @@ class PowerFit(BaseFit1D):
                     )
             y[x < self.lower] = 0.0 * y[x < self.lower]
             y[x > self.upper] = 1.0 * y[x > self.upper]
-            return(y)         
+            return(y)      
 
     def calc_loglikelihood(
             self, 
@@ -748,67 +759,72 @@ class PowerFit(BaseFit1D):
         x_nondimensional = nondimensionalise(x, self.x0)
         lower_nondimensional = nondimensionalise(lower, self.x0)
         upper_nondimensional = nondimensionalise(upper, self.x0)
-        multiplier_nondimensional = _power_fit_multiplier(exponent, lower_nondimensional, upper_nondimensional)
 
-        if deriv == 0:
-            logpi = np.log(multiplier_nondimensional) + exponent * np.log(x_nondimensional)
-            return(np.sum(weights * logpi))
-        elif deriv == 1:
-            dmultiplier_dexponent = _power_fit_multiplier(exponent, lower_nondimensional, upper_nondimensional, deriv = 1)
-            dlogpi_dexponent = dmultiplier_dexponent / multiplier_nondimensional + np.log(x_nondimensional)
-            return(np.sum(weights * dlogpi_dexponent))
-        elif deriv == 2:
-            dmultiplier_dexponent = _power_fit_multiplier(exponent, lower_nondimensional, upper_nondimensional, deriv = 1)
-            d2multiplier_dexponent2 = _power_fit_multiplier(exponent, lower_nondimensional, upper_nondimensional, deriv = 2)
-            d2logpi_dexponent2 = (
-                d2multiplier_dexponent2 / multiplier_nondimensional 
-                - (dmultiplier_dexponent / multiplier_nondimensional)**2
-                )
-            return(np.sum(weights * d2logpi_dexponent2))
-
-
-def _power_fit_multiplier(
-        exponent, 
-        lower,
-        upper,
-        deriv = 0
-        ):
-    if np.isclose(exponent, -1.0):
-        t = np.log(upper / lower)
-        if deriv == 0:
-            return(1.0 / t)
-        elif deriv == 1:
-            return(0.5 - np.log(upper) / t)
-        elif deriv == 2:
-            return(
-                (np.log(lower)**2 
-                + np.log(upper)**2 
-                + 4.0 * np.log(lower) * np.log(upper)) / (6.0 * t)
-                )
-    else:
-        t = upper**(exponent + 1.0) - lower**(exponent + 1.0)
-        if deriv == 0:
-            return((exponent + 1.0) / t)
-        elif deriv == 1:
-            dt = (
-                np.log(upper) * upper**(exponent + 1.0) 
-                - np.log(lower) * lower**(exponent + 1.0)
-            )
-            return(1.0 / t - (exponent + 1.0) * dt / t**2)
-        elif deriv == 2:
-            dt = (
-                np.log(upper) * upper**(exponent + 1.0) 
-                - np.log(lower) * lower**(exponent + 1.0)
-            )
-            ddt = (
-                np.log(upper)**2 * upper**(exponent + 1.0) 
-                - np.log(lower)**2 * lower**(exponent + 1.0)
-            )
-            return(
-                -2.0 * dt / t**2 
-                - (exponent + 1.0) * (ddt / t**2 - 2.0 * dt**2 / t**3)
-                )
+        c1 = np.sum(weights)
+        c2 = np.sum(weights * np.log(x_nondimensional))
+        if np.isclose(exponent, -1.0):
+            if deriv == 0:
+                return(-c2 - c1 * np.log(np.log(upper_nondimensional / lower_nondimensional)))
+            elif deriv == 1:
+                return(c2 + 0.5 * c1 * np.log(upper_nondimensional / lower_nondimensional))
+            elif deriv == 2:
+                return(-c1 / 12.0 * np.log(upper_nondimensional / lower_nondimensional)**2)
+            elif deriv == 3:
+                return(0.0)
+        else:
+            lp = lower_nondimensional**(exponent + 1.0)
+            up = upper_nondimensional**(exponent + 1.0)
+            ll = np.log(lower_nondimensional)
+            ul = np.log(upper_nondimensional)
+            if deriv == 0:
+                return(
+                    exponent * c2
+                    + c1 * np.log(exponent + 1.0)
+                    - c1 * np.log(up - lp)
+                    )
+            elif deriv == 1:
+                return(
+                    c2 
+                    + c1 / (exponent + 1.0) 
+                    - c1 * (up * ul - lp * ll) / (up - lp)
+                    )
+            elif deriv == 2:
+                return(
+                    - c1 / (exponent + 1.0)**2
+                    + c1 * (up * ul - lp * ll)**2 / (up - lp)**2
+                    - c1 * (up * ul**2 - lp * ll**2) / (up - lp)
+                    )
+            elif deriv == 3:
+                return(
+                    2.0 * c1 / (exponent + 1.0)**3
+                    - 2.0 * c1 * (up * ul - lp * ll)**3 / (up - lp)**3
+                    + 3.0 * c1 * (up * ul - lp * ll) * (up * ul**2 - lp * ll**2) / (up - lp)**2
+                    - c1 * (up * ul**3 - lp * ll**3) / (up - lp)
+                    )
         
+    def calc_multiplier(self) -> float | Quantity:
+        """Calculate power law multiplier
+
+        Calculate the corresponding power law multiplier that satisfies:
+
+            p(x) = multiplier * (x / x0)**exponent
+
+        Returns
+        -------
+        float | Quantity
+            Power law multiplier
+
+        """
+        if np.isclose(self.exponent, -1.0):
+            return(1.0 / (x0 * np.log(self.upper / self.lower)))
+        else:
+            return(
+                (self.exponent + 1.0) 
+                / self.x0 
+                / ((self.upper / self.x0)**(self.exponent + 1.0)
+                   - (self.lower / self.x0)**(self.exponent + 1.0))
+                )
+    
 
 class WeibullFit(BaseFit1D):
     
@@ -981,8 +997,8 @@ class BaseFit2D:
             self,
             x_unit: str | None = None,
             y_unit: str | None = None,
-            x_label: str = 'x',
-            y_label: str = 'y',
+            x_label: str | None = 'x',
+            y_label: str | None = 'y',
             show_data: bool = True,
             show_fit: bool = True,
             show_confidence: bool = False,
@@ -995,8 +1011,9 @@ class BaseFit2D:
             n: int = 101,
             axis_expand = 0.05,
             x_limits = [0.0, None],
-            y_limits = [0.0, None]
-            ) -> tuple:
+            y_limits = [0.0, None],
+            ax: Axes | None = None
+            ) -> tuple | None:
         """Plot powerlaw fitting results
 
         This method generates a matplotlib plot that can show:
@@ -1013,10 +1030,10 @@ class BaseFit2D:
         y_unit : str | None, optional
             unit for y-axis, by default None. If None, the unit of the y-data
             used to generate the fit is used.
-        x_label : str, optional
+        x_label : str | None, optional
             label for x-axis, by default 'x'. Units are automatically added (in
             square brackets)
-        y_label : str, optional
+        y_label : str | None, optional
             label for y-axis, by default 'y'. Units are automatically added (in
             square brackets)
         show_data : bool, optional
@@ -1062,11 +1079,18 @@ class BaseFit2D:
             automatically. The units of these values are assuemd as 'y_unit',
             or in the absence of this, the units of y-data used to generate
             the plot
+        ax : matplotlib.axes.Axes | None, optional
+            matplotlib axis on which to plot the results, by default None.
+            if None, a new figure and axis object is created and returned by
+            the function. If the axis is defined, results are added to the 
+            existing axis.
 
         Returns
         -------
-        tuple
-            tuple containing matplotlib figure and axis objects.
+        tuple | None
+            tuple containing matplotlib figure and axis objects, in case
+            the axis is not defined as part of the input. If axis is defined,
+            nothing is returned.
         """        
         if isinstance(x_unit, str):
             x_multiplier = (1.0 * self.x0.units).to(x_unit).magnitude
@@ -1090,7 +1114,12 @@ class BaseFit2D:
         y_data_nondimensional = nondimensionalise(self.y, self.y0)
         x_fit = np.linspace(self.x.min(), self.x.max(), n)
         x_fit_nondimensional = nondimensionalise(x_fit, self.x0)
-        fig, ax = plt.subplots()
+        
+        if isinstance(ax, Axes):
+            return_fig_and_ax = False
+        else:
+            fig, ax = plt.subplots()
+            return_fig_and_ax = True
 
         if show_data is True:
             ax.plot(
@@ -1147,13 +1176,14 @@ class BaseFit2D:
                     label = label_conf, 
                     alpha = 0.25
                     )
-
-        if isinstance(x_unit_label, str):
-            x_label = x_label + ' [' + x_unit_label + ']'
-        ax.set_xlabel(x_label)
-        if isinstance(y_unit_label, str):
-            y_label = y_label + ' [' + y_unit_label + ']'
-        ax.set_ylabel(y_label)
+        if x_label is not None:
+            if isinstance(x_unit_label, str):
+                x_label = x_label + ' [' + x_unit_label + ']'
+            ax.set_xlabel(x_label)
+        if y_label is not None:
+            if isinstance(y_unit_label, str):
+                y_label = y_label + ' [' + y_unit_label + ']'
+            ax.set_ylabel(y_label)
 
         ax.set_xlim(round_range(
             x_multiplier * x_data_nondimensional * (1.0 + axis_expand), 
@@ -1166,8 +1196,9 @@ class BaseFit2D:
         
         if show_legend is True:
             ax.legend(loc = legend_location)
-
-        return(fig, ax)
+        
+        if return_fig_and_ax is True:
+            return(fig, ax)
          
 
 class LinearFit(BaseFit2D):
@@ -1852,8 +1883,8 @@ class PowerlawFit(BaseFit2D):
                 + 2.0 * dyn_dmultiplier * dyn_dexponent * covariance_matrix[0, 1]
                 + dyn_dexponent**2 * covariance_matrix[1, 1]
                 )
-            P = 0.5 + 0.5 * level
-            sd_mult = np.sqrt(2.0) * erfinv(2.0 * P - 1.0)
+            quantile = 0.5 + 0.5 * level
+            sd_mult = np.sqrt(2.0) * erfinv(2.0 * quantile - 1.0)
             y_lower = redimensionalise(y_fit_nondimensional - sd_mult * np.sqrt(var), self.y0)
             y_upper = redimensionalise(y_fit_nondimensional + sd_mult * np.sqrt(var), self.y0)
         return(x, y_lower, y_upper)
@@ -1871,10 +1902,14 @@ class PowerlawFit(BaseFit2D):
         method is set to 'fisher', determines the matrix based on the 
         Fisher information (negative second order partial differential of
         the loglikelihood with respect to the fitting parameters). 
-        
+
         If method is 'bootstrap', use a bootstrap method instead. `n` fits
         are created through random selection of input data, and the covariance
         calculated from all fitting results.
+
+        The covariance matrix is calculated in dimensionless terms, by using 
+        the reference values for the x and y data (`x0` and `y0') in order
+        to nondimensionalise any parameters.
 
         Parameters
         ----------
@@ -1890,12 +1925,11 @@ class PowerlawFit(BaseFit2D):
         np.ndarray
             the covariance matrix, a m*m square matrix, where 'm' is the 
             number of independent fitting parameters (`m=3` for most fitting 
-            methods)
+            methods). Any values are nondimensionalised using 'x0' and 'y0'.
         """
         if self.zero_variance is True:
             return None
-        jacobian = self.calc_loglikelihood(deriv = 2)
-        if (method == 'bootstrap') or (jacobian is None):
+        if (method == 'bootstrap') or (self.model == 'uniform'):
             rng = np.random.default_rng()
             indices = rng.choice(
                 np.arange(len(self.x), dtype = int),
@@ -1945,7 +1979,7 @@ class PowerlawFit(BaseFit2D):
                         for f in fits])               
             return(np.cov(vals.transpose()))
         elif method == 'fisher':
-            fisher = -jacobian
+            fisher = -self.calc_loglikelihood(deriv = 2)
             if np.isscalar(fisher):
                 return(1.0 / fisher)
             else:
@@ -2274,51 +2308,51 @@ class PowerlawFit(BaseFit2D):
                 c12 = np.sum(weights * y_nondimensional**2 * np.log(x_nondimensional)**2 / (x_nondimensional**(2.*exponent)) * np.exp(-y_nondimensional / (scale0_nondimensional * x_nondimensional**exponent)))
                 if deriv == 0:
                     return(
-                        c1 * (multiplier / scale0_nondimensional - np.log(scale0_nondimensional) - np.euler_gamma) 
+                        c1 * (multiplier_nondimensional / scale0_nondimensional - np.log(scale0_nondimensional) - np.euler_gamma) 
                         - exponent * c2 - c3 / scale0_nondimensional 
-                        - np.exp(multiplier / scale0_nondimensional - np.euler_gamma) * c6)
+                        - np.exp(multiplier_nondimensional / scale0_nondimensional - np.euler_gamma) * c6)
                 elif deriv == 1:
                     dlogL_dmultiplier = (
                         c1 / scale0_nondimensional 
-                        - c6 / scale0_nondimensional * np.exp(multiplier / scale0_nondimensional - np.euler_gamma)
+                        - c6 / scale0_nondimensional * np.exp(multiplier_nondimensional / scale0_nondimensional - np.euler_gamma)
                     )
                     dlogL_dexponent = (
                         c4 / scale0_nondimensional 
                         - c2 
-                        - c8 / scale0_nondimensional * np.exp(multiplier / scale0_nondimensional - np.euler_gamma)
+                        - c8 / scale0_nondimensional * np.exp(multiplier_nondimensional / scale0_nondimensional - np.euler_gamma)
                     )
                     dlogL_dtheta0 = (
-                        (c3 - c1 * multiplier) / scale0_nondimensional**2 
+                        (c3 - c1 * multiplier_nondimensional) / scale0_nondimensional**2 
                         - c1 / scale0_nondimensional 
-                        + (c6 * multiplier - c7) / scale0_nondimensional**2 * np.exp(multiplier / scale0_nondimensional - np.euler_gamma)
+                        + (c6 * multiplier_nondimensional - c7) / scale0_nondimensional**2 * np.exp(multiplier_nondimensional / scale0_nondimensional - np.euler_gamma)
                         )
                     return(np.array([dlogL_dmultiplier, dlogL_dexponent, dlogL_dtheta0]))
                 elif deriv == 2:
-                    d2logL_dmultiplier2 = -c6 / scale0_nondimensional**2 * np.exp(multiplier / scale0_nondimensional - np.euler_gamma)
-                    d2logL_dmultiplier_dexponent = -c8 / scale0_nondimensional**2 * np.exp(multiplier / scale0_nondimensional - np.euler_gamma)
+                    d2logL_dmultiplier2 = -c6 / scale0_nondimensional**2 * np.exp(multiplier_nondimensional / scale0_nondimensional - np.euler_gamma)
+                    d2logL_dmultiplier_dexponent = -c8 / scale0_nondimensional**2 * np.exp(multiplier_nondimensional / scale0_nondimensional - np.euler_gamma)
                     d2logL_dmultiplier_dscale0 = (
                         1.0 / scale0_nondimensional**2
-                        * (c6 * (1.0 + multiplier / scale0_nondimensional) - c7 / scale0)
-                        * np.exp(multiplier / scale0_nondimensional - np.euler_gamma) 
+                        * (c6 * (1.0 + multiplier_nondimensional / scale0_nondimensional) - c7 / scale0_nondimensional)
+                        * np.exp(multiplier_nondimensional / scale0_nondimensional - np.euler_gamma) 
                         - c1 / scale0_nondimensional**2
                         )
                     d2logL_dexponent2 = (
                         1.0 / scale0_nondimensional * (c9 - c12 / scale0_nondimensional) 
-                        * np.exp(multiplier / scale0_nondimensional - np.euler_gamma) 
+                        * np.exp(multiplier_nondimensional / scale0_nondimensional - np.euler_gamma) 
                         - c5 / scale0_nondimensional
                         )
                     d2logL_dexponent_dscale0 = (
                         -c4 / scale0_nondimensional**2 
-                        + 1.0 / scale0_nondimensional**2 * (c8 * (1.0 + multiplier / scale0_nondimensional) - c11 / scale0_nondimensional)
-                        * np.exp(multiplier / scale0_nondimensional - np.euler_gamma)
+                        + 1.0 / scale0_nondimensional**2 * (c8 * (1.0 + multiplier_nondimensional / scale0_nondimensional) - c11 / scale0_nondimensional)
+                        * np.exp(multiplier_nondimensional / scale0_nondimensional - np.euler_gamma)
                         )
                     d2logL_dscale02 = (
                         c1 / scale0_nondimensional**2 
-                        - 2.0 * (c3 - c1 * multiplier) / scale0_nondimensional**3 
-                        - 2.0 * (c6 * multiplier - c7) / scale0_nondimensional**3 * np.exp(multiplier / scale0_nondimensional - np.euler_gamma) 
-                        + (2.0 * c7 * multiplier - c10 - c6 * multiplier**2)
+                        - 2.0 * (c3 - c1 * multiplier_nondimensional) / scale0_nondimensional**3 
+                        - 2.0 * (c6 * multiplier_nondimensional - c7) / scale0_nondimensional**3 * np.exp(multiplier_nondimensional / scale0_nondimensional - np.euler_gamma) 
+                        + (2.0 * c7 * multiplier_nondimensional - c10 - c6 * multiplier_nondimensional**2)
                         / scale0_nondimensional**4 
-                        * np.exp(multiplier / scale0_nondimensional - np.euler_gamma)
+                        * np.exp(multiplier_nondimensional / scale0_nondimensional - np.euler_gamma)
                         )
                     return(np.array([
                         [d2logL_dmultiplier2, d2logL_dmultiplier_dexponent, d2logL_dmultiplier_dscale0],
@@ -2977,9 +3011,10 @@ def _powerlaw_fit_gumbel_root(
             + c1 * c8 / (shape0**2 * c6)
             )
         d2logL_dshape02 = (
-            -2. * c3 / shape0**3 
-            + 2. * c1 * c7 / (shape0**3 * c6) 
-            - c1 * c10 / (shape0**4 * c6) + c1 * c7**2 / (shape0**4 * c6**2) 
+            -2.0 * c3 / shape0**3 
+            + 2.0 * c1 * c7 / (shape0**3 * c6) 
+            - c1 * c10 / (shape0**4 * c6) 
+            + c1 * c7**2 / (shape0**4 * c6**2) 
             + c1 / shape0**2
             )
         droot_dpar = np.array([
