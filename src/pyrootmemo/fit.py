@@ -3259,3 +3259,91 @@ def _powerlaw_fit_weibull_root(
             [d2logL_dexponentdshape, d2logL_dshape2]
             ])
         return(root, droot_dpar)
+
+
+
+
+def calc_loglikelihood_power_class(
+        par,
+        xlower,
+        xupper,
+        weights,
+        weights_exponent = 0.0,
+        return_jacobian = False
+        ):
+    exponent, xmin, xmax = par
+
+    dxlower_dxmin = (xlower <= xmin).astype(float)
+    dxupper_dxmax = (xupper >= xmax).astype(float)
+    xlower = np.maximum(xlower, xmin)
+    xupper = np.minimum(xupper, xmax)
+
+    if np.isclose(exponent, -1.0):
+        A = np.log(xmax / xmin)
+        B = np.log(xupper / xlower)
+    else:
+        A = xmax**(exponent + 1.0) - xmin**(exponent + 1.0)
+        B = xupper**(exponent + 1.0) - xlower**(exponent + 1.0)
+    if np.isclose(exponent + weights_exponent, -1.0):
+        C = np.log(xupper / xlower)
+    else:
+        C = xupper**(exponent + weights_exponent + 1.0) - xlower**(exponent + weights_exponent + 1.0)
+
+    P = B / A
+    Q = C / B
+    W = weights * Q * np.sum(weights) / np.sum(weights * Q)
+    logL = np.sum(W * np.log(P))
+
+    if return_jacobian is False:
+        return(logL)
+    else:
+        if np.isclose(exponent, -1.0):
+            dA_dexponent = np.log(xmax / xmin)
+            dB_dexponent = np.log(xupper / xlower)
+        else:
+            dA_dexponent = (
+                xmax**(exponent - 1.0) * np.log(xmax) 
+                - xmin**(exponent - 1.0) * np.log(xmin)
+                )
+            dB_dexponent = (
+                xupper**(exponent - 1.0) * np.log(xupper) 
+                - xlower**(exponent - 1.0) * np.log(xlower)
+                )
+        if np.isclose(exponent + weights_exponent, -1.0):
+            dC_dexponent = np.log(xupper / xlower)
+        else:
+            dC_dexponent = (
+                xupper**(exponent + weights_exponent + 1.0) * np.log(xupper) 
+                - xlower**(exponent + weights_exponent + 1.0) * np.log(xupper)
+                )
+        dA_dxmin = -(exponent + 1.0) * xmin**exponent
+        dA_dxmax = (exponent + 1.0) * xmax**exponent
+        dB_dxlower = -(exponent + 1.0) * xlower**exponent
+        dB_dxupper = (exponent + 1.0) * xupper**exponent
+        dC_dxlower = -(exponent + weights_exponent + 1.0) * xlower**(exponent + weights_exponent)
+        dC_dxupper = (exponent + weights_exponent + 1.0) * xupper**(exponent + weights_exponent)
+
+        dP_dA = -B / A**2
+        dP_dB = 1.0 / A
+        dQ_dB = -C / B**2
+        dQ_dC = 1.0 / B
+        dW_dQ = weights * (np.sum(weights * Q) - weights * Q) / np.sum(weights * Q)**2
+        dlogL_dW = np.log(P)
+        dlogL_dP = W / P
+
+        dlogL_dexponent = np.sum(
+            dlogL_dW * dW_dQ * (dQ_dB * dB_dexponent + dQ_dC * dC_dexponent)
+            + dlogL_dP * (dP_dA * dA_dexponent + dP_dB * dB_dexponent)                        
+            )
+        dlogL_dxmin = np.sum(
+            dlogL_dW * dW_dQ * (dQ_dB * dB_dxlower + dQ_dC * dC_dxlower) * dxlower_dxmin
+            + dlogL_dP * (dP_dA + dA_dxmin + dP_dB * dB_dxlower * dxlower_dxmin)
+            )
+        dlogL_dxmax = np.sum(
+            dlogL_dW * dW_dQ * (dQ_dB * dB_dxupper + dQ_dC * dC_dxupper) * dxupper_dxmax
+            + dlogL_dP * (dP_dA + dA_dxmax + dP_dB * dB_dxupper * dxupper_dxmax)
+            )        
+        dlogL_dpar = np.array([dlogL_dexponent, dlogL_dxmin, dlogL_dxmax])
+        return(logL, dlogL_dpar)
+
+
