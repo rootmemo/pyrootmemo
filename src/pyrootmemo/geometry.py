@@ -7,12 +7,14 @@ from pint import DimensionalityError
 SOIL_PROFILE_PARAMETERS = {
     "depth": {"type": (float | int), "unit": units("m")},
     "groundwater_table": {"type": (float | int), "unit": units("m")},
+    "slope_angle": {"type": (float | int), "unit": units("deg")}
 }
 
 FAILURE_SURFACE_PARAMETERS = {
     "depth": {"type": (float | int), "unit": units("m")},
     "orientation": {"type": (float | int), "unit": units("deg")},
     "shear_zone_thickness": {"type": (float | int), "unit": units("m")},
+    "max_shear_zone_thickness": {"type": (float | int), "unit": units("m")},
     "cross_sectional_area": {"type": (float | int), "unit": units("m^2")},
 }
 
@@ -20,17 +22,20 @@ UNIT_WEIGHT_WATER = 9.81 * units('kN/m^3')
 
 class SoilProfile:
     """
-       Initialize a SoilProfile object with a list of Soil objects and optional parameters.
-       This class represents a profile of soils, allowing for the calculation of vertical stress
+       Initialize a SoilProfile object with a list of Soil objects and optional 
+       parameters. This class represents a profile of soils, allowing for the 
+       calculation of vertical stress
 
        Attributes
        ----------
        soils : pyrootmemo.materials.Soil
-           A list of Soil objects representing the different soil layers in the profile.
+           A list of Soil objects representing the different soil layers in the 
+           profile.
        depth : pyrootmemo.tools.helpers.Parameter
-           The depth of each soil layer in the profile, specified as a Parameter object.
+           The depth of the top of each soil layer in the profile, defined as 
+           a Parameter tuple with a list of values and the unit
        groundwater_table : pyrootmemo.tools.helpers.Parameter
-           The depth of the groundwater table in the profile, specified as a Parameter object.
+           The depth of the groundwater table in the profile
         
        Methods 
        ------
@@ -47,7 +52,7 @@ class SoilProfile:
         if not all([isinstance(s, Soil) for s in soils]):
             raise TypeError("Soils should be a list of Soil objects")
         self.soils = soils
-            
+
         for k, v in kwargs.items():
             if k not in SOIL_PROFILE_PARAMETERS.keys():
                 raise ValueError(
@@ -102,15 +107,16 @@ class SoilProfile:
         ----------
         depth : float or int
             The depth at which to retrieve the soil object.
+
         Returns
         ------- 
-        soils_deeper : pyrootmemo.materials.Soil
+        pyrootmemo.materials.Soil
             Returns the Soil object at the specified depth.
         """
         soils_deeper = [s for s, d in zip(self.soils, self.depth) if d >= depth]
         return(soils_deeper[0])
     
-    def calc_vertical_stress(
+    def calc_total_vertical_stress(
             self,
             depth
             ):
@@ -131,34 +137,61 @@ class SoilProfile:
             np.minimum(self.depth, depth)
             - np.minimum(depth_top, depth)
         )
-        if depth > self.groundwater_table:
-            tmp_above = np.minimum(depth, self.groundwater_table)
-            thickness_above = (
-                np.minimum(self.depth, tmp_above)
-                - np.minimum(depth_top, tmp_above)
-                )
-            thickness_below = thickness - thickness_above
-        else:
-            thickness_above = thickness
-            thickness_below = 0.0 * thickness
         unit = 'kN/m^3'
         unit_weight_above = np.array([soil.unit_weight_bulk.to(unit).magnitude for soil in self.soils]) * units(unit)
-        unit_weight_below = np.array([soil.unit_weight_saturated.to(unit).magnitude for soil in self.soils]) * units(unit)
-        return(np.sum(
-            unit_weight_above * thickness_above
-            + unit_weight_below * thickness_below
-            ))
+        if hasattr(self, "groundwater_table"):
+            unit_weight_below = np.array([soil.unit_weight_saturated.to(unit).magnitude for soil in self.soils]) * units(unit)
+            if depth > self.groundwater_table:
+                tmp_above = np.minimum(depth, self.groundwater_table)
+                thickness_above = (
+                    np.minimum(self.depth, tmp_above)
+                    - np.minimum(depth_top, tmp_above)
+                    )
+                thickness_below = thickness - thickness_above
+            else:
+                thickness_above = thickness
+                thickness_below = 0.0 * thickness
+
+            return(np.sum(
+                unit_weight_above * thickness_above
+                + unit_weight_below * thickness_below
+                ))
+        else:
+            return(np.sum(unit_weight_above * thickness))
+
     
     def calc_pore_pressure(
             self,
             depth,
             direction = 0.0 * units('deg')    # flow direction, relative to the horizontal
             ):
-        if depth <= self.groundwater_table:
-            return(0.0 * units('kPa'))
+        if hasattr(self, "groundwater_table"):
+            if depth >= self.groundwater_table:
+                pore_pressure = UNIT_WEIGHT_WATER * (depth - self.groundwater_table)
+                return(pore_pressure * np.cos(direction)**2)
+            else:
+                return(0.0 * units('kPa'))    
         else:
-            pore_pressure = UNIT_WEIGHT_WATER * (depth - self.groundwater_table)
-            return(pore_pressure * np.cos(direction)**2)
+            return(0.0 * units('kPa'))
+
+    def calc_vertical_effective_stress(
+            self,
+            depth
+            ):
+        total_stress = self.calc_total_vertical_stress(depth)
+        pore_pressure = self.calc_pore_pressure(depth)
+        return(total_stress - pore_pressure)
+    
+    def calc_shear_strength(
+            self,
+            depth
+            ):
+        #TODO: currently assumes:
+        # 1) plane is horizontal, so normal stress = vertical stress
+        # 2) pore pressure is hydrostatic, so u = gamma_w * (depth - depth_watertable)
+        effective_stress = self.calc_vertical_effective_stress(depth)
+        soil = self.get_soil(depth)
+        return(soil.cohesion + effective_stress * np.tan(soil.friction_angle))
 
         
       

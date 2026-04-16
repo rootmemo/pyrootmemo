@@ -230,3 +230,58 @@ def solve_cubic(
     flag_zero = np.isclose(d.magnitude, 0.0)
     x[flag_zero] = 0.0 * d.units / c.units
     return(x)
+
+
+def polarangles_to_unitvector(
+        azimuth: Parameter | None = None,
+        elevation: Parameter | None = None,
+        n: int = 1
+        ) -> Parameter:
+    """Calculate 3-D orientation unit vectors from polar coordinates
+
+    Calculate three-dimensional vector representations based on polar angles:
+    * azimuth: the angle between a) the projection of the root axis onto the x-y 
+      plane and b) the x-axis. Defined as positive when rotating from x towards
+      y.
+    * elevation: the angle between a) the z-axis, and b) the root axis. Defined
+      as positive when rotating from z towards the root axis (i.e. the 
+      projection of root axis unto the x-y plane)
+
+    Parameters
+    ----------
+    azimuth : Parameter | None
+        Parameter named tuple with (list of) azimuth angle(s), and unit
+    elevation : Parameter | None
+        Parameter named tuple with (list of) elevation angle(s), and unit
+    n : int, optional
+        Number of roots (only required if both azimuths and elevations
+        undefined), by default 1
+
+    Returns
+    -------
+    Parameter
+        Parameter tuple containing 1) a list of numpy arrays (size 3) containing 
+        unit vector components in global x, y and z-directions, and 2) the 
+        "dimensionless" unit. 
+        
+        This parameter can be inputted straight into the 'orientation' parameter
+        of the MultipleRoots class
+    """
+    if azimuth is None:
+        azimuth = np.zeros(n) * units('rad')
+    elif is_namedtuple(azimuth):
+        azimuth = azimuth.value * units(azimuth.unit)
+    else:
+        raise TypeError("azimuth should be of type Parameter(value, unit) or None")
+    if elevation is None:
+        elevation = np.zeros(n) * units('rad')
+    elif is_namedtuple(elevation):
+        elevation = elevation.value * units(elevation.unit)
+    else:
+        raise TypeError("elevation should be of type Parameter(value, unit) or None")
+    values = np.stack((
+        np.cos(azimuth) * np.sin(elevation),
+        np.sin(azimuth) * np.sin(elevation),
+        np.cos(elevation)
+        ), axis = -1)
+    return(Parameter(list(values.magnitude), "dimensionless"))

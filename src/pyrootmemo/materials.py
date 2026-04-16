@@ -21,6 +21,7 @@ ROOT_PARAMETERS = {
     "length_surface": {"type": (float | int), "unit": units("m"), "limit_check": "non-negative"},
     "azimuth_angle": {"type": (float | int), "unit": units("degrees"), "limit_check": "any"},
     "elevation_angle": {"type": (float | int), "unit": units("degrees"), "limit_check": "any"},
+    "orientation": {"type": (np.ndarray), "unit": units("dimensionless"), "limit_check": "any"}
 }
 
 #TODO: Implement unit_weight_saturated > unit_weight_bulk > unit_weight_dry

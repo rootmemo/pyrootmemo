@@ -20,7 +20,8 @@ def vector_normalise(
 
     Returns
     -------
-    Array with normalised vectors (np.ndarray, same size as input 'vector')
+    np.ndarray
+        Array with normalised vectors (same size as `vector`)
 
     """
     
@@ -209,3 +210,107 @@ def _rotationmatrix_check(
         raise TypeError('matrix must be defined as a numpy array')
     if not matrix.shape == (3, 3):
         raise ValueError('matrix must have shape 3*3')
+
+
+
+
+
+
+# class <rotation3d>
+# input: axis-angle, strike/dip, azimuth/elevation
+# methods
+# euler_to_matrix
+# matrix_to_euler
+# add_rotation
+
+from pyrootmemo.helpers import units
+from pyrootmemo.materials import Parameter
+from pyrootmemo.tools.checks import is_namedtuple
+
+class Rotation3d:
+
+    def __init__(
+            self,
+            euler_angles: Parameter | None = None, 
+            euler_axes: str | None = None,
+            axisangle: np.ndarray | None = None
+            ):
+        if is_namedtuple(euler_angles) and isinstance(euler_axes, str):
+            self.euler_angles = euler_angles.value * units(euler_angles.unit)
+            if len(euler_axes) == self.euler_angles.shape[-1]:
+                self.euler_axes = euler_axes
+            else:
+                raise ValueError("euler axis string length must equal the number of euler rotations")
+            shape = (*self.euler_angles.shape[:-2], 3, 3)
+
+            self.matrix = np.eye(3)
+            for angle, axis in zip(self.euler_angles, self.euler_axes):
+                if axis == "x":
+                    self.matrix = self.matrix @ np.array([
+                        [1.0, 0.0, 0.0]
+                        [0.0, np.cos(angle), np.sin(angle)],
+                        [0.0, -np.sin(angle), np.cos(angle)]
+                        ])
+                elif axis == "y":
+                    self.matrix = self.matrix @ np.array([
+                        [np.cos(angle), 0.0, -np.sin(angle)],
+                        [0.0, 1.0, 0.0],
+                        [np.sin(angle), 0.0, np.cos(angle)]
+                        ])
+                elif axis == "z":
+                    self.matrix = self.matrix @ np.array([
+                        [np.cos(angle), np.sin(angle), 0.0],
+                        [-np.sin(angle), np.cos(angle), 0.0],
+                        [0.0, 0.0, 1.0]
+                        ])
+                else:
+                    raise ValueError("axes must by combination of 'x', 'y' and 'z'")
+            self.axisangle = self.matrix_to_axisangle()
+        elif isinstance(axisangle, np.ndarray):
+            if axisangle.shape[-1] == 3:
+                self.axisangle = axisangle
+            else:
+                raise ValueError("last axis of `axisangle` must be length 3")
+
+
+    def matrix_to_axisangle(self):
+        rotation = np.arccos((np.trace(self.matrix) - 1.0) / 2.0)
+        if np.isclose(np.mod(rotation, np.pi), 0.0):
+            eig_val, eig_vec = np.linalg.eig(self.matrix)
+            index = np.argmax(np.isclose(eig_val, 1.0))
+            axis = eig_vec[:, index].real
+        else:
+            axis = np.array([
+                self.matrix[2, 1] - self.matrix[1, 2],
+                self.matrix[0, 2] - self.matrix[2, 0],
+                self.matrix[1, 0] - self.matrix[0, 1]
+            ]) / (2.0 * np.sin(rotation))
+        return(axis * rotation)
+
+
+    def axisangle_to_matrix(self):
+        rotation = np.linalg.norm(self.axisangle)
+        if np.isclose(rotation, 0.0):
+            return(np.eye(3))
+        else:
+            axis = self.axisangle / rotation
+            cost = np.cos(rotation)
+            sint = np.sin(rotation)
+            return(np.array([
+                [(1.0 - cost) * axis[0]**2 + cost,
+                (1.0 - cost) * axis[0] * axis[1] - axis[2] * sint,
+                (1.0 - cost) * axis[0] * axis[2] + axis[1] * sint],
+                [(1.0 - cost) * axis[1] * axis[0] + axis[2] * sint,
+                (1.0 - cost) * axis[1]**2 + cost,
+                (1.0 - cost) * axis[1] * axis[2] - axis[0] * sint],
+                [(1.0 - cost) * axis[2] * axis[0] - axis[1] * sint,
+                (1.0 - cost) * axis[2] * axis[1] + axis[0] * sint,
+                (1.0 - cost) * axis[2]**2 + cost]
+                ]))
+        
+def matrix_to_axisangle(matrix):
+    rotation = np.arccos((np.trace(matrix, axis1 = 0, axis2 = 1) - 1.0) / 2.0)
+    eig_val, eig_vec = np.linalg.eig(matrix)
+    index = np.argmax(np.isclose(eig_val, 1.0), axis = 0)
+    axis = eig_vec[..., index].real
+    return(axis * rotation)
