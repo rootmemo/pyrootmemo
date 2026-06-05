@@ -34,6 +34,7 @@ def create_quantity(
     -------
     np.ndarray | Quantity | int | float
         output data
+
     """
     if isinstance(x, Parameter):
         if np.isscalar(x[0]):
@@ -86,8 +87,9 @@ def create_reference_value(
     -------
     int | float | Quantity
         Reference value (scalar)
+
     """
-    x = create_array(x)
+    x = create_quantity(x)
     if x0 is None:
         if isinstance(x, Quantity):
             return(1.0 * x.units)
@@ -110,7 +112,7 @@ def create_reference_value(
                 raise TypeError('x0 must be int, float or None when x is dimensionless')
             
 
-def create_array(
+def check_array_values(
         x: np.ndarray | Quantity | Parameter,
         finite: bool = True,
         xmin: float | int | Quantity | Parameter | None = None,
@@ -118,7 +120,7 @@ def create_array(
         xmin_include: bool = True,
         xmax_include: bool = True,
         label: str = 'x'
-    ):  
+    ) -> np.ndarray | Quantity:  
         """Check array data input
 
         Checks data input for
@@ -151,7 +153,6 @@ def create_array(
             Checked data array (will be the same as input x)
 
         """
-        
         x = create_quantity(x)
         if not (isinstance(x, np.ndarray) | isinstance(x, Quantity)):
             raise TypeError(f'{label} must be a np.ndarray or Quantity')
@@ -178,8 +179,6 @@ def create_array(
                 if (x >= xmin).any():
                     raise ValueError(f'all {label} values must be smaller than {xmax}')
 
-        return(x)
-
 
 def create_weights(
         x: np.ndarray | Quantity,
@@ -200,6 +199,7 @@ def create_weights(
     -------
     np.ndarray
         weights for each observation in x
+
     """
     if isinstance(weights, Quantity):
         if weights.dimensionless is True:
@@ -240,6 +240,7 @@ def nondimensionalise(
     -------
     np.ndarray
         nondimensionalised data array
+
     """
     if isinstance(x, Quantity):
         if x0 is None:
@@ -277,16 +278,20 @@ def redimensionalise(
     -------
     np.ndarray | Quantity
         redimensionalised data
+
     """
     return(x * x0)
 
 
-###################################
-### 1D-fitting (x distribution) ###
-###################################
+#####################
+### DISTRIBUTIONS ###
+#####################
 
 
-class BaseFit1D:
+class _DistributionClass:
+    """
+    Base class for distribution fitting classes
+    """
 
     def plot(
             self,
@@ -302,6 +307,41 @@ class BaseFit1D:
             axis_expand = 0.05,
             x_limits = [1.0e-12, None]
             ) -> tuple:
+        """Plot histogram of data, and fitted distribution
+
+        Parameters
+        ----------
+        x_unit : str | None, optional
+            unit of x-data to show on axis, by default None
+        bins : int | np.ndarray | str, optional
+            `bins` argument for histogram, by default None
+        x_label : str, optional
+            x-axis label, by default 'x'
+        y_label : str, optional
+            y-axis label_, by default 'Probability density'
+        show_data : bool, optional
+            if `True`, display data as histogram, by default True
+        show_fit : bool, optional
+            if `True`, display fit using a line, by default True
+        show_legend : bool, optional
+            if `True`, show the legend, by default False
+        legend_location : str, optional
+            matplotlib legend location string, by default 'best'
+        n : int, optional
+            number of points to use for plotting the fitted distribution, 
+            by default 251
+        axis_expand : float, optional
+            Scale all axis by this margin in order to show all points nicely, 
+            by default 0.05
+        x_limits : list, optional
+            x-axis limits, by default [1.0e-12, None]. If None, a sensible 
+            axis limit is automatically determined
+
+        Returns
+        -------
+        tuple
+            tuple with matplotlib figure and axis objects
+        """
 
         if isinstance(x_unit, str):
             x_multiplier = (1.0 * self.x0.units).to(x_unit).magnitude
@@ -363,7 +403,42 @@ class BaseFit1D:
         return(fig, ax)
     
 
-class GammaFit(BaseFit1D):
+class GammaDistribution(_DistributionClass):
+    """Gamma distribution fitting class
+
+    Fit a gamma distribution using (weighted) loglikehood 
+
+    This class is able to deal with data that has dimensions, e.g. millimetres 
+    or megapascals. Fitted values will be automatically assigned the correct 
+    units.
+
+    Attributes
+    ----------
+    x : np.ndarray | Quantity
+        One-dimensional array with x-data
+    weights : np.ndarray
+        Array with (dimensionless) weighting for each value in x
+    x0 : float | int | Quantity
+        Reference value for x-values
+    shape : float
+        best-fitting gamma distribution shape parameter
+    scale : float | Quantity
+        best-fitting gamma distribution scale parameterr
+
+    Methods
+    -------
+    __init__(x, weights, x0, shape_guess, root_method)
+        Constructor
+    calc_density(..., cumulative)
+        calculate probability density or cumulative probablity density
+    calc_loglikelihood(..., deriv)
+        calculate (partial derivatives of) fit loglikehood
+    generate_random(n)
+        draw `n` new values from the fitted distribution
+    plot(...)
+        plot histogram of data, and the fitted distribution
+
+    """
 
     def __init__(
             self,
@@ -373,9 +448,30 @@ class GammaFit(BaseFit1D):
             shape_guess: float | int | None = None,
             root_method: str = 'halley'
             ):
+        """Initialise instance of gamma distribution fitting class
+
+        Parameters
+        ----------
+        x : np.ndarray | Quantity | Parameter
+            data
+        weights : np.ndarray | Quantity, optional
+            weight for each data point in `x`, by default None. If None, 
+            all weights are assumed as one
+        x0 : int | float | Quantity | Parameter | None, optional
+            reference x-value used to make data nondimensional, by default None. 
+            If None, is defined as one unit of x.
+        shape_guess : float | int | Quantity | None, optional
+            initial guess for shape parameter. Must have same dimensionality 
+            as `x`. By default None. If None, a reasonable starting guess is 
+            made using the method of moments
+        root_method : str, optional
+            root solver routine used by `scipy.optimize.root_scalar()` solver, 
+            by default 'halley'. 
+        """
         
         self.x0 = create_reference_value(x, x0)
-        self.x = create_array(x, finite = True, xmin = 0.0 * self.x0, xmin_include = True)
+        check_array_values(x, finite = True, xmin = 0.0 * self.x0, xmin_include = True)
+        self.x = x
         self.weights = create_weights(self.x, weights = weights)
 
         if shape_guess is None:
@@ -384,6 +480,37 @@ class GammaFit(BaseFit1D):
             c2 = np.sum(self.weights * np.log(x_nondimensional))
             c3 = np.sum(self.weights * x_nondimensional)
             shape_guess = c1 / (2.0 * c1 * np.log(c3 / c1) - 2.0 * c2)
+        else:
+            shape_guess = nondimensionalise(shape_guess, self.x0)
+
+        def _gamma_fit_root(
+                shape: float | int,
+                x: np.ndarray,
+                weights: np.ndarray,
+                return_jacobian: bool = True, 
+                return_hessian: bool = True
+                ):
+            """
+            Root function to solve to find best-fitting gamma shape parameter.
+            Solves in terms of nondimensionalised data
+            """
+            c1 = np.sum(weights)
+            c2 = np.sum(weights * np.log(x))
+            c3 = np.sum(weights * x)
+            root = (
+                c1 * (np.log(shape) - np.log(c3 / c1))
+                - c1 * digamma(shape)
+                + c2
+                )
+            if return_jacobian is False and return_hessian is False:
+                return(root)    
+            else:
+                droot_dshape = c1 / shape  - c1 * polygamma(1, shape)
+                if return_hessian is False:
+                    return(root, droot_dshape)        
+                else:
+                    droot2_dshape2 = -c1 / shape**2 - c1 * polygamma(2, shape)
+                    return(root, droot_dshape, droot2_dshape2)
 
         fit = root_scalar(
             _gamma_fit_root,
@@ -399,18 +526,51 @@ class GammaFit(BaseFit1D):
         c3 = np.sum(self.weights * x_nondimensional)
         self.scale = redimensionalise(c3 / (self.shape * c1), self.x0)
 
+
     def generate_random(
             self, 
             n: int
-            ):
+            ) -> np.ndarray | Quantity:
+        """
+        Generate new, random data based on the fitted distribution
+
+        Parameters
+        ----------
+        n : int
+            number of data points to create
+
+        Returns
+        -------
+        np.ndarray | Quantity
+            New data, in same units as input data
+        """
         y = np.random.rand(n)
         return(self.scale * gammaincinv(self.shape, y))
     
+
     def calc_density(
             self, 
-            x = None, 
-            cumulative = False
-            ):
+            x: np.ndarray | Quantity | float | None= None, 
+            cumulative: bool = False
+            ) -> np.ndarray | Quantity | float:
+        """
+        Calculate probability densities
+
+        Parameters
+        ----------
+        x : np.ndarray | Quantity | float | None, optional
+            new x-data, by default None. Must have same dimensionality as x 
+            data used to generate the fit. If None, calculations are made using
+            the x-data used to generate the fit. 
+        cumulative : bool, optional
+            if True, calculate the cumulative density instead of probability 
+            density, by default False
+
+        Returns
+        -------
+        np.ndarray | Quantity | float
+            probability for each value in x
+        """
         if x is None:
             x = self.x
         if cumulative is False:
@@ -422,14 +582,44 @@ class GammaFit(BaseFit1D):
         else:
             return(gammainc(self.shape, x / self.scale))
        
+
     def calc_loglikelihood(
             self,
-            x = None, 
-            weights = None,
-            shape = None, 
-            scale = None, 
-            deriv = 0
-            ):
+            x: float | np.ndarray | Quantity | None = None, 
+            weights: np.ndarray | None = None,
+            shape: float | None = None, 
+            scale: float | Quantity | None = None, 
+            deriv: int = 0
+            ) -> float | np.ndarray:
+        """
+        Calculate (partial derivatives of) fit loglikelihood
+
+        Parameters
+        ----------
+        x : np.ndarray | Quantity | float | None, optional
+            new x-data, by default None. Must have same dimensionality as x 
+            data used to generate the fit. If None, calculations are made using
+            the x-data used to generate the fit. 
+        weights : np.ndarray | None, optional
+            weighting for each data point in x, by default None. If None, same
+            individual weightings as used to generate the fit are used
+        shape : float | None, optional
+            gamma shape parameter, by default None. If None, the fitted 
+            value is used
+        scale : float | Quantity | None, optional
+            gamma scale parameter (must have same dimensionality as x), by
+            default None. If None, the fitted value is used. M
+        deriv : int, optional
+            derivative order of loglikelihood with respect to shape and scale 
+            parameters, by default 0. 
+
+        Returns
+        -------
+        float | np.ndarray
+            loglikelihood (float), or partial derivatives of loglikelihood with
+            respect to nondimensional shape and scale parameters (np.ndarray)
+        """
+
         x = self.x if x is None else x
         weights = self.weights if weights is None else weights
         shape = self.shape if shape is None else shape
@@ -475,33 +665,42 @@ class GammaFit(BaseFit1D):
             raise ValueError('deriv must be 0, 1 or 2')
 
 
-def _gamma_fit_root(
-        shape: float | int,
-        x: np.ndarray,
-        weights: np.ndarray,
-        return_jacobian: bool = True, 
-        return_hessian: bool = True
-        ):
-    c1 = np.sum(weights)
-    c2 = np.sum(weights * np.log(x))
-    c3 = np.sum(weights * x)
-    root = (
-        c1 * (np.log(shape) - np.log(c3 / c1))
-        - c1 * digamma(shape)
-        + c2
-        )
-    if return_jacobian is False and return_hessian is False:
-        return(root)    
-    else:
-        droot_dshape = c1 / shape  - c1 * polygamma(1, shape)
-        if return_hessian is False:
-            return(root, droot_dshape)        
-        else:
-            droot2_dshape2 = -c1 / shape**2 - c1 * polygamma(2, shape)
-            return(root, droot_dshape, droot2_dshape2)
+class GumbelDistribution(_DistributionClass):   
+    """Gumbel distribution fitting class
 
+    Fit a Gumbel distribution using (weighted) loglikehood 
 
-class GumbelFit(BaseFit1D):   
+    This class is able to deal with data that has dimensions, e.g. millimetres 
+    or megapascals. Fitted values will be automatically assigned the correct 
+    units.
+
+    Attributes
+    ----------
+    x : np.ndarray | Quantity
+        One-dimensional array with x-data
+    weights : np.ndarray
+        Array with (dimensionless) weighting for each value in x
+    x0 : float | int | Quantity
+        Reference value for x-values
+    location : float | Quantity
+        best-fitting Gumbel distribution location parameter
+    scale : float | Quantity
+        best-fitting Gumbel distribution scale parameterr
+
+    Methods
+    -------
+    __init__(x, weights, x0, shape_guess, root_method)
+        Constructor
+    generate_random(n)
+        draw `n` new values from the fitted distribution
+    calc_density(x, cumulative)
+        calculate probability density or cumulative probablity density
+    calc_loglikelihood(..., deriv)
+        calculate (partial derivatives of) fit loglikehood
+    plot(...)
+        plot histogram of data, and the fitted distribution
+
+    """
 
     def __init__(
             self,
@@ -513,7 +712,8 @@ class GumbelFit(BaseFit1D):
             ):  
         
         self.x0 = create_reference_value(x, x0)
-        self.x = create_array(x, finite = True)        
+        check_array_values(x, finite = True)
+        self.x = x
         self.weights = create_weights(self.x, weights = weights)
 
         x_nondimensional = nondimensionalise(self.x, self.x0)
@@ -522,6 +722,31 @@ class GumbelFit(BaseFit1D):
             sd_log = np.sqrt(np.sum(self.weights * (np.log(x_nondimensional) - mu_log)**2) / np.sum(self.weights))
             variance = (np.exp(sd_log**2) - 1.0) * np.exp(2.0 * mu_log + sd_log**2)
             scale_guess = np.sqrt(6.0 * variance) / np.pi
+
+        def _gumbel_fit_root(
+                scale: float | int,
+                x: np.ndarray,
+                weights: np.ndarray,
+                return_jacobian: bool = True
+                ):
+            """
+            Root function to solve to find best-fitting Gumbel scale parameter.
+            Solves in terms of nondimensionalised data
+            """
+            c1 = np.sum(weights)
+            c2 = np.sum(weights * x)
+            c3 = np.sum(weights * np.exp(-x / scale))
+            c4 = np.sum(weights * x * np.exp(-x / scale))
+            root = 1.0 / scale**2 * (c2 - c1 * c4 / c3) - c1 / scale
+            if return_jacobian is False:
+                return(root)
+            else:
+                c5 = np.sum(weights * x**2 * np.exp(-x / scale))
+                droot_dscale = (
+                    c1 / (c3 * scale**4) * (c4**2 / c3 - c5) 
+                    - 2.0 / scale**3 * (c2 - c1 * c4 / c3) + c1 / scale**2
+                    )
+                return(root, droot_dscale)
 
         fit = root_scalar(
             _gumbel_fit_root,
@@ -536,12 +761,27 @@ class GumbelFit(BaseFit1D):
         c3 = np.sum(self.weights * np.exp(-x_nondimensional / fit.root))
         self.location = self.scale * np.log(c1 / c3)
 
+
     def generate_random(
             self, 
             n: int
             ):
+        """
+        Generate new, random data based on the fitted distribution
+
+        Parameters
+        ----------
+        n : int
+            number of data points to create
+
+        Returns
+        -------
+        np.ndarray | Quantity
+            New data, in same units as input data
+        """
         y = np.random.rand(n)
         return(self.location - self.scale * np.log(-np.log(y)))
+
 
     def calc_density(
             self, 
@@ -549,6 +789,27 @@ class GumbelFit(BaseFit1D):
             log = False, 
             cumulative = False
             ):
+        """
+        Calculate probability densities
+
+        Parameters
+        ----------
+        x : np.ndarray | Quantity | float | None, optional
+            new x-data, by default None. Must have same dimensionality as x 
+            data used to generate the fit. If None, calculations are made using
+            the x-data used to generate the fit. 
+        log : bool, optional
+            if True, return log-transformed probabilities instead. By default 
+            False
+        cumulative : bool, optional
+            if True, calculate the cumulative density instead of probability 
+            density, by default False
+
+        Returns
+        -------
+        np.ndarray | Quantity | float
+            probability for each value in x
+        """
         if x is None:
             x = self.x
         gumbel_reduced = (x - self.location) / self.scale
@@ -563,14 +824,43 @@ class GumbelFit(BaseFit1D):
             else:
                 return(1.0 / self.scale * np.exp(-gumbel_reduced - np.exp(-gumbel_reduced)))
             
+
     def calc_loglikelihood(
             self, 
-            x = None, 
-            location = None, 
-            scale = None,
-            deriv = 0,
-            weights = None
+            x: np.ndarray | Quantity | None = None, 
+            weights: np.ndarray = None,
+            location: Quantity | float | None = None, 
+            scale: Quantity | float | None = None,
+            deriv: int = 0            
             ):
+        """
+        Calculate (partial derivatives of) fit loglikelihood
+
+        Parameters
+        ----------
+        x : np.ndarray | Quantity | None, optional
+            new x-data, by default None. Must have same dimensionality as x 
+            data used to generate the fit. If None, calculations are made using
+            the x-data used to generate the fit. 
+        weights : np.ndarray | None, optional
+            weighting for each data point in x, by default None. If None, same
+            individual weightings as used to generate the fit are used
+        location : float | Quantity | None, optional
+            gumbel location parameter (must have same dimensionality as x), 
+            by default None. If None, the fitted value is used
+        scale : float | Quantity | None, optional
+            gumbel scale parameter (must have same dimensionality as x), by
+            default None. If None, the fitted value is used. M
+        deriv : int, optional
+            derivative order of loglikelihood with respect to location and scale 
+            parameters, by default 0. 
+
+        Returns
+        -------
+        float | np.ndarray
+            loglikelihood (float), or partial derivatives of loglikelihood with
+            respect to nondimensional location and scale parameters (np.ndarray)
+        """
         x = self.x if x is None else x
         weights = self.weights if weights is None else weights
         location = self.location if location is None else location
@@ -619,30 +909,56 @@ class GumbelFit(BaseFit1D):
                 ]))  
 
 
-def _gumbel_fit_root(
-        scale: float | int,
-        x: np.ndarray,
-        weights: np.ndarray,
-        return_jacobian: bool = True
-        ):
-    c1 = np.sum(weights)
-    c2 = np.sum(weights * x)
-    c3 = np.sum(weights * np.exp(-x / scale))
-    c4 = np.sum(weights * x * np.exp(-x / scale))
-    root = 1.0 / scale**2 * (c2 - c1 * c4 / c3) - c1 / scale
-    if return_jacobian is False:
-        return(root)
-    else:
-        c5 = np.sum(weights * x**2 * np.exp(-x / scale))
-        droot_dscale = (
-            c1 / (c3 * scale**4) * (c4**2 / c3 - c5) 
-            - 2.0 / scale**3 * (c2 - c1 * c4 / c3) + c1 / scale**2
-            )
-        return(root, droot_dscale)
+class PowerDistribution(_DistributionClass):
+    """Power distribution fitting class
 
+    Fit a Power distribution using (weighted) loglikehood. Probability density
+    is given by:
 
-class PowerFit(BaseFit1D):
-    
+           [0                                when x < lower
+    p(x) = [multiplier * (x / x0)^exponent   when lower <= x <= upper
+           [0                                when x > upper
+
+    where the multiplier follows from:
+
+    integral p(x) = 1
+           
+    This class is able to deal with data that has dimensions, e.g. millimetres 
+    or megapascals. Fitted values will be automatically assigned the correct 
+    units.
+
+    Attributes
+    ----------
+    x : np.ndarray | Quantity
+        One-dimensional array with x-data
+    weights : np.ndarray
+        Array with (dimensionless) weighting for each value in x
+    x0 : float | int | Quantity
+        Reference value for x-values
+    lower : float | Quantity
+        lower limit
+    upper : float | Quantity
+        upper limit
+    exponent: float
+        power law exponent
+
+    Methods
+    -------
+    __init__(x, weights, x0, shape_guess, root_method)
+        Constructor
+    generate_random(n)
+        draw `n` new values from the fitted distribution
+    calc_density(x, cumulative)
+        calculate probability density or cumulative probablity density
+    calc_loglikelihood(..., deriv)
+        calculate (partial derivatives of) fit loglikehood
+    calc_multiplier()
+        calculate the power law multiplier from the fitted solution
+    plot(...)
+        plot histogram of data, and the fitted distribution
+
+    """
+
     def __init__(
             self,
             x: np.ndarray | Quantity | Parameter,
@@ -654,7 +970,8 @@ class PowerFit(BaseFit1D):
             root_method: str = 'halley'
             ):  
         self.x0 = create_reference_value(x, x0)
-        self.x = create_array(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
+        check_array_values(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
+        self.x = x
         self.weights = create_weights(self.x, weights = weights)
         if lower is None:
             self.lower = np.min(x)
@@ -698,10 +1015,24 @@ class PowerFit(BaseFit1D):
             )
         self.exponent = fit.root
 
+
     def generate_random(
             self, 
             n: int
             ):
+        """
+        Generate new, random data based on the fitted distribution
+
+        Parameters
+        ----------
+        n : int
+            number of data points to create
+
+        Returns
+        -------
+        np.ndarray | Quantity
+            New data, in same units as input data
+        """
         y = np.random.rand(n)
         if np.isclose(self.exponent, -1.0):
             return(self.lower * (self.upper / self.lower)**y)
@@ -711,11 +1042,30 @@ class PowerFit(BaseFit1D):
                 + y * (self.upper**(self.exponent + 1.0) - self.lower**(self.exponent + 1.0))
                 ) ** (1.0 / (self.exponent + 1.0)))
     
+
     def calc_density(
             self, 
             x = None, 
             cumulative = False
-        ):
+            ):
+        """
+        Calculate probability densities
+
+        Parameters
+        ----------
+        x : np.ndarray | Quantity | float | None, optional
+            new x-data, by default None. Must have same dimensionality as x 
+            data used to generate the fit. If None, calculations are made using
+            the x-data used to generate the fit. 
+        cumulative : bool, optional
+            if True, calculate the cumulative density instead of probability 
+            density, by default False
+
+        Returns
+        -------
+        np.ndarray | Quantity | float
+            probability for each value in x
+        """
         x = self.x if x is None else x
         if cumulative is False:
             if np.isclose(self.exponent, -1.0):
@@ -741,15 +1091,47 @@ class PowerFit(BaseFit1D):
             y[x > self.upper] = 1.0 * y[x > self.upper]
             return(y)      
 
+
     def calc_loglikelihood(
             self, 
-            x = None, 
-            weights = None,
-            exponent = None, 
-            lower = None, 
-            upper = None, 
-            deriv = 0
-        ):
+            x: np.ndarray | Quantity | None = None, 
+            weights: np.ndarray | None = None,
+            exponent: float | None = None, 
+            lower: float | Quantity | None = None, 
+            upper: float | Quantity | None = None, 
+            deriv: int = 0
+            ) -> float | np.ndarray:
+        """
+        Calculate (partial derivatives of) fit loglikelihood
+
+        Parameters
+        ----------
+        x : np.ndarray | Quantity | None, optional
+            new x-data, by default None. Must have same dimensionality as x 
+            data used to generate the fit. If None, calculations are made using
+            the x-data used to generate the fit. 
+        weights : np.ndarray | None, optional
+            weighting for each data point in x, by default None. If None, same
+            individual weightings as used to generate the fit are used
+        exponent : float | None, optional
+            power exponent, by default None. If None, the fitted value is used
+        lower : float | Quantity | None, optional
+            lower x-limit of fit (must have same dimensionality as x), by
+            default None. If None, the fitted value is used.
+        upper : float | Quantity | None, optional
+            upper x-limit of fit (must have same dimensionality as x), by
+            default None. If None, the fitted value is used.
+        deriv : int, optional
+            derivative order of loglikelihood with respect to location and scale 
+            parameters, by default 0. 
+
+        Returns
+        -------
+        float | np.ndarray
+            loglikelihood (float), or partial derivatives of loglikelihood with
+            respect to nondimensional exponent, lower and upper parameters 
+            (np.ndarray)
+        """
         x = self.x if x is None else x
         weights = self.weights if weights is None else weights
         exponent = self.exponent if exponent is None else exponent
@@ -802,6 +1184,7 @@ class PowerFit(BaseFit1D):
                     - c1 * (up * ul**3 - lp * ll**3) / (up - lp)
                     )
         
+
     def calc_multiplier(self) -> float | Quantity:
         """Calculate power law multiplier
 
@@ -816,7 +1199,7 @@ class PowerFit(BaseFit1D):
 
         """
         if np.isclose(self.exponent, -1.0):
-            return(1.0 / (x0 * np.log(self.upper / self.lower)))
+            return(1.0 / (self.x0 * np.log(self.upper / self.lower)))
         else:
             return(
                 (self.exponent + 1.0) 
@@ -826,8 +1209,43 @@ class PowerFit(BaseFit1D):
                 )
     
 
-class WeibullFit(BaseFit1D):
-    
+class WeibullDistribution(_DistributionClass):
+    """Weibull distribution fitting class
+
+    Fit a Weibull distribution using (weighted) loglikehood 
+
+    This class is able to deal with data that has dimensions, e.g. millimetres 
+    or megapascals. Fitted values will be automatically assigned the correct 
+    units.
+
+    Attributes
+    ----------
+    x : np.ndarray | Quantity
+        One-dimensional array with x-data
+    weights : np.ndarray
+        Array with (dimensionless) weighting for each value in x
+    x0 : float | int | Quantity
+        Reference value for x-values
+    shape : float
+        Weibull distribution shape parameter
+    scale : float | Quantity
+        Weibull distribution scale parameterr
+
+    Methods
+    -------
+    __init__(x, weights, x0, shape_guess, root_method)
+        Constructor
+    generate_random(n)
+        draw `n` new values from the fitted distribution
+    calc_density(x, cumulative)
+        calculate probability density or cumulative probablity density
+    calc_loglikelihood(..., deriv)
+        calculate (partial derivatives of) fit loglikehood
+    plot(...)
+        plot histogram of data, and the fitted distribution
+
+    """
+
     def __init__(
             self,
             x: np.ndarray | Quantity | Parameter,
@@ -838,7 +1256,8 @@ class WeibullFit(BaseFit1D):
             ):
     
         self.x0 = create_reference_value(x, x0)        
-        self.x = create_array(x, finite = True, xmin = 0.0 * self.x0, xmin_include = True)
+        check_array_values(x, finite = True, xmin = 0.0 * self.x0, xmin_include = True)
+        self.x = x
         self.weights = create_weights(self.x, weights = weights)
 
         x_nondimensional = nondimensionalise(self.x, self.x0)
@@ -846,13 +1265,50 @@ class WeibullFit(BaseFit1D):
             xn_sorted = np.sort(x_nondimensional)
             n = len(xn_sorted)
             yp = (2.0 * np.arange(n, 0, -1) - 1.0) / (2.0 * n)
-            linear_fit = LinearFit(
+            linear_fit = LinearRegression(
                 np.log(xn_sorted), 
                 np.log(-np.log(yp)), 
                 weights = self.weights
                 )
             shape_guess = linear_fit.gradient
         
+        def _weibull_fit_root(
+                shape: int | float,
+                x: np.ndarray,
+                weights: np.ndarray, 
+                return_jacobian: bool = True, 
+                return_hessian: bool = True
+                ):
+            """
+            Root function to solve to find the best-fitting weibull shape 
+            parameter. Uses nondimensionalised data.
+            """
+            c1 = np.sum(weights)
+            c2 = np.sum(weights * np.log(x))
+            c3 = np.sum(weights * x**shape)
+            c4 = np.sum(weights * x**shape * np.log(x))
+            root = c1 / shape - c1 * c4 / c3 + c2
+            if return_jacobian is False and return_hessian is False:
+                return(root)
+            else:
+                c5 = np.sum(weights * x**shape * np.log(x)**2)
+                droot_dshape = (
+                    -c1 / shape**2 
+                    - c1 * c5 / c3 
+                    + c1 * c4**2 / c3**2
+                )
+                if return_hessian is False:
+                    return(root, droot_dshape)
+                else:
+                    c6 = np.sum(weights * x**shape * np.log(x)**3)
+                    d2root_dshape2 = (
+                        2.0 * c1 / shape**3 
+                        - c1 * c6 / c3 
+                        + 3.0 * c1 * c4 * c5 / c3**2 
+                        - 2.0 * c1 * c4**3 / c3**3
+                    )
+                    return(root, droot_dshape, d2root_dshape2)
+
         fit = root_scalar(
             _weibull_fit_root,
             fprime = True,
@@ -867,18 +1323,51 @@ class WeibullFit(BaseFit1D):
         c3 = np.sum(self.weights * x_nondimensional**self.shape)
         self.scale = redimensionalise((c3 / c1) ** (1.0 / self.shape), self.x0)
 
+
     def generate_random(
             self, 
             n: int
             ):
+        """
+        Generate new, random data based on the fitted distribution
+
+        Parameters
+        ----------
+        n : int
+            number of data points to create
+
+        Returns
+        -------
+        np.ndarray | Quantity
+            New data, in same units as input data
+        """
         y = np.random.rand(n)
         return(self.scale * (-np.log(1.0 - y)) ** (1.0 / self.shape))
-    
+
+
     def calc_density(
             self, 
             x = None, 
             cumulative = False
             ):
+        """
+        Calculate probability densities
+
+        Parameters
+        ----------
+        x : np.ndarray | Quantity | float | None, optional
+            new x-data, by default None. Must have same dimensionality as x 
+            data used to generate the fit. If None, calculations are made using
+            the x-data used to generate the fit. 
+        cumulative : bool, optional
+            if True, calculate the cumulative density instead of probability 
+            density, by default False
+
+        Returns
+        -------
+        np.ndarray | Quantity | float
+            probability for each value in x
+        """
         if x is None:
             x = self.x
         if cumulative is False:
@@ -888,15 +1377,44 @@ class WeibullFit(BaseFit1D):
                     )
         else:
             return(1.0 - np.exp(-(x / self.scale) ** self.shape))
+    
 
     def calc_loglikelihood(
             self,
-            x = None, 
-            weights = None,
-            shape = None, 
-            scale = None, 
-            deriv = 0
-            ):
+            x: np.ndarray | Quantity | None = None, 
+            weights: np.ndarray | None = None,
+            shape: float | None = None, 
+            scale: Quantity | float | None = None, 
+            deriv: int = 0
+            ) -> float | np.ndarray:
+        """
+        Calculate (partial derivatives of) fit loglikelihood
+
+        Parameters
+        ----------
+        x : np.ndarray | Quantity | None, optional
+            new x-data, by default None. Must have same dimensionality as x 
+            data used to generate the fit. If None, calculations are made using
+            the x-data used to generate the fit. 
+        weights : np.ndarray | None, optional
+            weighting for each data point in x, by default None. If None, same
+            individual weightings as used to generate the fit are used
+        shape : float | None, optional
+            weibull shape parameter, by default None. If None, the fitted value 
+            is used
+        scale : float | Quantity | None, optional
+            weibull scale parameter (must have same dimensionality as x), by
+            default None. If None, the fitted value is used.
+        deriv : int, optional
+            derivative order of loglikelihood with respect to location and scale 
+            parameters, by default 0. 
+
+        Returns
+        -------
+        float | np.ndarray
+            loglikelihood (float), or partial derivatives of loglikelihood with
+            respect to nondimensional shape and scale parameters (np.ndarray)
+        """
         x = self.x if x is None else x
         weights = self.weights if weights is None else weights
         shape = self.shape if shape is None else shape
@@ -952,46 +1470,11 @@ class WeibullFit(BaseFit1D):
             raise ValueError('deriv must be 0, 1 or 2')
 
 
-def _weibull_fit_root(
-        shape: int | float,
-        x: np.ndarray,
-        weights: np.ndarray, 
-        return_jacobian: bool = True, 
-        return_hessian: bool = True
-        ):
-    c1 = np.sum(weights)
-    c2 = np.sum(weights * np.log(x))
-    c3 = np.sum(weights * x**shape)
-    c4 = np.sum(weights * x**shape * np.log(x))
-    root = c1 / shape - c1 * c4 / c3 + c2
-    if return_jacobian is False and return_hessian is False:
-        return(root)
-    else:
-        c5 = np.sum(weights * x**shape * np.log(x)**2)
-        droot_dshape = (
-            -c1 / shape**2 
-            - c1 * c5 / c3 
-            + c1 * c4**2 / c3**2
-        )
-        if return_hessian is False:
-            return(root, droot_dshape)
-        else:
-            c6 = np.sum(weights * x**shape * np.log(x)**3)
-            d2root_dshape2 = (
-                2.0 * c1 / shape**3 
-                - c1 * c6 / c3 
-                + 3.0 * c1 * c4 * c5 / c3**2 
-                - 2.0 * c1 * c4**3 / c3**3
-            )
-            return(root, droot_dshape, d2root_dshape2)
-
-
-
 ###############################
-### 2D-fitting (x versus y) ###
+### REGRESSION (x versus y) ###
 ###############################
 
-class BaseFit2D:
+class _RegressionClass:
 
     def plot(
             self,
@@ -1091,6 +1574,7 @@ class BaseFit2D:
             tuple containing matplotlib figure and axis objects, in case
             the axis is not defined as part of the input. If axis is defined,
             nothing is returned.
+
         """        
         if isinstance(x_unit, str):
             x_multiplier = (1.0 * self.x0.units).to(x_unit).magnitude
@@ -1201,7 +1685,7 @@ class BaseFit2D:
             return(fig, ax)
          
 
-class LinearFit(BaseFit2D):
+class LinearRegression(_RegressionClass):
     """Linear fitting class
 
     Fit a power-law function to a set of (x, y) data. The fit is defined as:
@@ -1247,6 +1731,7 @@ class LinearFit(BaseFit2D):
     predict(x)
         Predict the average value of y (y_fit) for each given x, using the 
         linear fit
+
     """
 
     def __init__(
@@ -1279,11 +1764,14 @@ class LinearFit(BaseFit2D):
             the reference value for x, by default None
         y0 : float | int | Quantity | Parameter | None, optional
             the reference value for y, by default None
+
         """
         self.x0 = create_reference_value(x, x0)
         self.y0 = create_reference_value(y, y0)
-        self.x = create_array(x, finite = True)
-        self.y = create_array(y, finite = True)
+        self.x = create_quantity(x)
+        check_array_values(self.x, finite = True)
+        self.y = create_quantity(y)
+        check_array_values(self.y, finite = True)
         self.weights = create_weights(self.x, weights)
 
         c = np.sum(self.weights)
@@ -1300,6 +1788,7 @@ class LinearFit(BaseFit2D):
             / np.sum(self.weights)
             )
     
+
     def predict(
             self,
             x: int | float | np.ndarray | Quantity | Parameter | None = None
@@ -1316,15 +1805,16 @@ class LinearFit(BaseFit2D):
         -------
         np.ndarray | Quantity
             fitted values of y, at each x
+
         """
         if x is None:
             x = self.x
         else:
-            x = create_array(x)
+            check_array_values(x)
         return(self.intercept + self.gradient * x)
 
 
-class PowerlawFit(BaseFit2D):
+class PowerRegression(_RegressionClass):
     """Powerlaw fitting class
 
     Fit a power-law function to a set of (x, y) data. The fit is defined as:
@@ -1363,7 +1853,7 @@ class PowerlawFit(BaseFit2D):
         corresponding powerlaw is the geometric rather than arithmetic mean, 
         and thus underpredicts the average of y at each value of x. See Meijer
         (2025, https://doi.org/10.1007/s11104-024-07007-9) for more details
-    * `normal_stress`: assumes y - y_fit is normally (Gaussian) 
+    * `normal` or `normal_stress`: assumes y - y_fit is normally (Gaussian) 
         distributed, with a standard deviation `sd_multiplier` describing 
         the residuals.
     * `normal_force`: assumes y - y_fit is normally (Gaussian) 
@@ -1464,8 +1954,9 @@ class PowerlawFit(BaseFit2D):
         Plot the data, best fit, confidence intervals and/or prediction 
         intervals
     predict(x):
-        Predict the average value of y (y_fit) for each given x, using the 
-        fitted powerlaw
+        Predict the fitted value of y_fit for each given x, using the 
+        fitted power law
+
     """
 
     def __init__(
@@ -1473,7 +1964,7 @@ class PowerlawFit(BaseFit2D):
             x: np.ndarray | Quantity | Parameter,
             y: np.ndarray | Quantity | Parameter,
             weights: int | float | np.ndarray | None = None,
-            model: str = 'normal',
+            model: str = 'normal_stress',
             x0: float | int | Quantity | Parameter | None = None,
             y0: float | int | Quantity | Parameter | None = None,
             algorithm: str = 'convex_hull',
@@ -1513,13 +2004,26 @@ class PowerlawFit(BaseFit2D):
             set accordingly to the model specified, i.e. `sd_exponent = 0` for
             `model = 'normal_strength'` and `sd_exponent = -2` for `model == 
             'normal_force'`.
+
         """        
-        self.x0 = create_reference_value(x, x0)
-        self.y0 = create_reference_value(y, y0)
-        self.x = create_array(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
-        self.y = create_array(y, finite = True, xmin = 0.0 * self.y0, xmin_include = False)
-        self.weights = create_weights(self.x, weights)
+
+        model_options = [
+            'gamma', 'gumbel', 'logistic', 'lognormal', 'lognormal_uncorrected',
+            'normal', 'normal_stress', 'normal_force', 'normal_scaled', 'normal_freesd',
+            'uniform', 'weibull'
+            ]
         self.model = model.lower()
+        if not self.model in model_options:
+            raise ValueError(f'model name not recognised. Must be one of {model_options}')
+
+        self.x0 = create_reference_value(x, x0)
+        self.x = create_quantity(x)
+        check_array_values(self.x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
+        self.y0 = create_reference_value(y, y0)
+        self.y = create_quantity(y)
+        check_array_values(self.y, finite = True, xmin = 0.0 * self.y0, xmin_include = False)
+        self.weights = create_weights(self.x, weights)
+
         if sd_exponent is not None:
             if isinstance(sd_exponent, int) | isinstance(sd_exponent, float):
                 self.sd_exponent = sd_exponent
@@ -1583,8 +2087,51 @@ class PowerlawFit(BaseFit2D):
         else:
             match self.model:
                 case 'gamma':
-                    fit_initial = LinearFit(np.log(x_nondimensional), np.log(y_nondimensional), weights = self.weights)
+                    fit_initial = LinearRegression(np.log(x_nondimensional), np.log(y_nondimensional), weights = self.weights)
                     exponent_guess = fit_initial.gradient
+
+                    def _powerlaw_fit_gamma_exponent_root(
+                            exponent: int | float,
+                            x: np.ndarray,
+                            y: np.ndarray,
+                            weights: np.ndarray,
+                            return_jacobian: bool = True
+                            ) -> float | tuple:
+                        """Root function for powerlaw fit with gamma distributed variance
+
+                        Root function to find the best-fitting powerlaw exponent 
+                        
+                        Parameters
+                        ----------
+                        exponent : int | float
+                            power law exponent, to fit
+                        x : np.ndarray
+                            x-data (dimensionless)
+                        y : np.ndarray
+                            y-data (dimensionless)
+                        weights : np.ndarray
+                            weights per (x, y) observation
+                        return_jacobian : bool, optional
+                            if False, returns the root. If True, also returns the jacobian matrix, 
+                            by default True
+
+                        Returns
+                        -------
+                        float | tuple
+                            root, or tuple with root and jacobian scalar
+                        """
+                        c1 = np.sum(weights)
+                        c2 = np.sum(weights * np.log(x))
+                        c4 = np.sum(weights * y * x**(-exponent))
+                        c5 = np.sum(weights * y * x**(-exponent) * np.log(x))
+                        root = c1 * c5 / c4 - c2
+                        if return_jacobian is False:
+                            return(root)
+                        else:
+                            c6 = np.sum(weights * y * x**(-exponent) * np.log(x)**2)
+                            droot_dexponent = c1 / c4 * (c5**2 / c4 - c6)
+                            return(root, droot_dexponent)
+
                     fit_exponent = root_scalar(
                         _powerlaw_fit_gamma_exponent_root,
                         x0 = exponent_guess,
@@ -1598,6 +2145,54 @@ class PowerlawFit(BaseFit2D):
                     c3 = np.sum(self.weights * np.log(y_nondimensional))
                     c4 = np.sum(self.weights * y_nondimensional * x_nondimensional**(-self.exponent))
                     shape_guess = 0.5 * c1 / (self.exponent * c2 - c3 + c1 * np.log(c4) - c1 * np.log(c1))
+
+                    def _powerlaw_fit_gamma_shape_root(
+                            shape: int | float,
+                            exponent: int | float,
+                            x: np.ndarray,
+                            y: np.ndarray,
+                            weights: np.ndarray,
+                            return_jacobian: bool = True
+                            ):
+                        """Root function for powerlaw fit with gamma distributed variance
+
+                        Root function to find the best-fitting gamma shape parameter, given a
+                        known value for the best powerlaw exponent
+                        
+                        Parameters
+                        ----------
+                        shape : int | float
+                            gamma shape parameter, to fit
+                        exponent : int | float
+                            known law exponent
+                        x : np.ndarray
+                            x-data (dimensionless)
+                        y : np.ndarray
+                            y-data (dimensionless)
+                        weights : np.ndarray
+                            weights per (x, y) observation
+                        return_jacobian : bool, optional
+                            if False, returns the root. If True, also returns the jacobian matrix, 
+                            by default True
+
+                        Returns
+                        -------
+                        float | tuple
+                            root, or tuple with root and jacobian scalar
+
+                        """
+                        c1 = np.sum(weights)
+                        c2 = np.sum(weights * np.log(x))
+                        c3 = np.sum(weights * np.log(y))
+                        c4 = np.sum(weights * y * x**(-exponent))
+                        root = (c1 * (np.log(shape) - digamma(shape) - np.log(c4) + np.log(c1)) 
+                                - exponent * c2 + c3)
+                        if return_jacobian is False:
+                            return(root)
+                        else:
+                            droot_dshape = c1 * (1.0 / shape - polygamma(1, shape))
+                            return(root, droot_dshape)
+
                     fit_shape = root_scalar(
                         _powerlaw_fit_gamma_shape_root,
                         x0 = shape_guess,
@@ -1611,10 +2206,102 @@ class PowerlawFit(BaseFit2D):
                     self.multiplier = redimensionalise(c4 / c1, self.y0)
                     
                 case 'gumbel':
-                    fit_linear = LinearFit(np.log(x_nondimensional), np.log(y_nondimensional), weights = self.weights)
+                    fit_linear = LinearRegression(np.log(x_nondimensional), np.log(y_nondimensional), weights = self.weights)
                     exponent = fit_linear.gradient
-                    fit_gumbel = GumbelFit(y_nondimensional / (x_nondimensional**exponent), weights = self.weights)
+                    fit_gumbel = GumbelDistribution(y_nondimensional / (x_nondimensional**exponent), weights = self.weights)
                     exponent_scale0_guess = [exponent, fit_gumbel.scale]
+
+                    def _powerlaw_fit_gumbel_root(
+                            par: np.ndarray, 
+                            x: np.ndarray,
+                            y: np.ndarray,
+                            weights: np.ndarray,
+                            return_jacobian: bool = True
+                            ) -> np.ndarray | tuple:
+                        """Root function for powerlaw fit with gumbel distributed variance
+
+                        Root function to find the best-fitting power law exponent and Gumbel shape
+                        parameter.
+                        
+                        Parameters
+                        ----------
+                        par : np.ndarray
+                            array with power law exponent and Gumbel shape parameter, to fit 
+                            (dimensionless)
+                        x : np.ndarray
+                            x-data (dimensionless)
+                        y : np.ndarray
+                            y-data (dimensionless)
+                        weights : np.ndarray
+                            weights per (x, y) observation
+                        return_jacobian : bool, optional
+                            if False, returns the roots. If True, also returns the jacobian matrix, 
+                            by default True
+
+                        Returns
+                        -------
+                        np.ndarray | tuple
+                            array with the two roots to solve, or tuple with roots and 2x2 
+                            jacobian matrix
+
+                        """
+                        exponent, shape0 = par
+                        c1 = np.sum(weights)
+                        c2 = np.sum(weights * np.log(x))
+                        c3 = np.sum(weights * y / (x**exponent))
+                        c4 = np.sum(weights * y * np.log(x) / (x**exponent))
+                        c5 = np.sum(weights * y * np.log(x)**2 / (x**exponent))
+                        c6 = np.sum(weights * np.exp(-y / (shape0 * x**exponent)))
+                        c7 = np.sum(weights * y / (x**exponent) * np.exp(-y / (shape0 * x**exponent)))
+                        c8 = np.sum(weights * y * np.log(x) / (x**exponent) * np.exp(-y / (shape0 * x**exponent)))
+                        dlogL_dexponent = c4 / shape0 - c1 * c8 / (shape0 * c6) - c2
+                        dlogL_dshape0 = c3 / shape0**2 - c1 * c7 / (shape0**2 * c6) - c1 / shape0
+                        root = np.array([dlogL_dexponent, dlogL_dshape0])
+                        if return_jacobian is False:
+                            return(root)
+                        else:
+                            c9 = np.sum(
+                                weights * y * np.log(x)**2 
+                                / (x**exponent) 
+                                * np.exp(-y / (shape0 * x**exponent))
+                                )
+                            c10 = np.sum(
+                                weights * y**2 / (x**(2. * exponent))
+                                * np.exp(-y / (shape0 * x**exponent))
+                                )
+                            c11 = np.sum(
+                                weights * y**2 * np.log(x) / (x**(2. * exponent))
+                                * np.exp(-y / (shape0 * x**exponent))
+                                )
+                            c12 = np.sum(
+                                weights * y**2 * np.log(x)**2 / (x**(2. * exponent))
+                                * np.exp(-y / (shape0 * x**exponent))
+                                )
+                            d2logL_dexponent2 = (
+                                -c5 / shape0 
+                                - c1 * c12 / (shape0**2 * c6) 
+                                + c1 * c9 / (shape0 * c6) 
+                                + c1 * c8**2 / (shape0**2 * c6**2)
+                                )
+                            d2logL_dexponentdshape0 = (
+                                -c1 * c11 / (shape0**3 * c6) 
+                                + c1 * c7 * c8 / (shape0**3 * c6**2) 
+                                - c4 / shape0**2 
+                                + c1 * c8 / (shape0**2 * c6)
+                                )
+                            d2logL_dshape02 = (
+                                -2.0 * c3 / shape0**3 
+                                + 2.0 * c1 * c7 / (shape0**3 * c6) 
+                                - c1 * c10 / (shape0**4 * c6) 
+                                + c1 * c7**2 / (shape0**4 * c6**2) 
+                                + c1 / shape0**2
+                                )
+                            droot_dpar = np.array([
+                                [d2logL_dexponent2, d2logL_dexponentdshape0],
+                                [d2logL_dexponentdshape0, d2logL_dshape02]
+                            ])
+                            return(root, droot_dpar)
+
                     fit = root(
                         _powerlaw_fit_gumbel_root,
                         x0 = exponent_scale0_guess,
@@ -1630,7 +2317,7 @@ class PowerlawFit(BaseFit2D):
                     self.multiplier = redimensionalise(multiplier_nondimensional, self.y0)
                 
                 case 'logistic':
-                    fit_normal = PowerlawFit(self.x, self.y, weights = self.weights, model = "normal_scaled")
+                    fit_normal = PowerRegression(self.x, self.y, weights = self.weights, model = "normal_scaled")
                     guess = np.array([
                         nondimensionalise(fit_normal.multiplier, self.y0),
                         fit_normal.exponent,
@@ -1690,48 +2377,235 @@ class PowerlawFit(BaseFit2D):
                         multiplier_nondimensional = np.exp((c3 - self.exponent * c2) / c1 + self.sdlog**2 / 2.0)
                     self.multiplier = redimensionalise(multiplier_nondimensional, self.y0)
 
-                case 'normal' | 'normal_strength' | 'normal_force':
-                    if not hasattr(self, 'sd_exponent'):
-                        if self.model == 'normal_force':
-                            self.sd_exponent = -2.0
+                case 'normal' | 'normal_strength' | 'normal_force' | 'normal_freesd' | 'normal_scaled':
+            
+                    def _powerlaw_fit_normal_freesd_root(
+                            par: np.ndarray, 
+                            x: np.ndarray,
+                            y: np.ndarray,
+                            weights: np.ndarray,
+                            return_jacobian: bool = True
+                            ):
+                        """Root function for powerlaw fit with normal distributed variance (free sd)
+
+                        Root function to find the best-fitting power law exponent and the standard
+                        deviation powerlaw exponent.
+                        
+                        Parameters
+                        ----------
+                        par : np.ndarray
+                            array with power law exponent and standard deviation powerlaw exponent, 
+                            to fit (dimensionless)
+                        x : np.ndarray
+                            x-data (dimensionless)
+                        y : np.ndarray
+                            y-data (dimensionless)
+                        weights : np.ndarray
+                            weights per (x, y) observation
+                        return_jacobian : bool, optional
+                            if False, returns the two roots. If True, also returns the 2x2 jacobian
+                            matrix, by default True
+
+                        Returns
+                        -------
+                        np.ndarray | tuple
+                            array with the two roots to solve, or tuple with roots and 2x2 
+                            jacobian matrix
+
+                        """
+                        exponent, sd_exponent = par
+                        c1 = np.sum(weights)
+                        c2 = np.sum(weights * np.log(x))
+                        c3 = np.sum(weights * x**(2.0 * exponent - 2.0 * sd_exponent))
+                        c4 = np.sum(weights * x**(2.0 * exponent - 2.0 * sd_exponent) * np.log(x))
+                        c6 = np.sum(weights * x**(exponent - 2.0 * sd_exponent) * y)
+                        c7 = np.sum(weights * x**(exponent - 2.0 * sd_exponent) * y * np.log(x))
+                        c9 = np.sum(weights * x**(-2.0 * sd_exponent)* y **2)
+                        c10 = np.sum(weights * x**(-2.0 * sd_exponent) * y**2 * np.log(x))
+                        zeta = 1.0 / (c3**2 * c9 - c3 * c6**2)
+                        dlogL_dexponent = c1 * c6 * (c3 * c7 - c4 * c6) * zeta
+                        dlogL_dsdexponent = c1 * (c3**2 * c10 - 2. * c3 * c6 * c7 + c4 * c6**2) * zeta - c2
+                        root = np.array([dlogL_dexponent, dlogL_dsdexponent])
+                        if return_jacobian is False:
+                            return(root)
                         else:
-                            self.sd_exponent = 0.0
-                    fit_linear = LinearFit(np.log(x_nondimensional), np.log(y_nondimensional), weights = self.weights)
-                    exponent_guess = fit_linear.gradient
-                    fit_exponent = root_scalar(
-                        _powerlaw_fit_normal_fixedsd_root,
-                        x0 = exponent_guess,
-                        fprime = True,
-                        args = (x_nondimensional, y_nondimensional, self.weights, self.sd_exponent, True),
-                        method = 'newton'
-                        )
-                    self.exponent = fit_exponent.root
-                    c1 = np.sum(self.weights)
-                    c3 = np.sum(self.weights * x_nondimensional**(2.0 * self.exponent - 2.0 * self.sd_exponent))
-                    c6 = np.sum(self.weights * x_nondimensional**(self.exponent - 2.0 * self.sd_exponent) * y_nondimensional)
-                    c9 = np.sum(self.weights * x_nondimensional**(-2.0 * self.sd_exponent) * y_nondimensional**2)
-                    self.multiplier = redimensionalise(c6 / c3, self.y0)
-                    self.sd_multiplier = redimensionalise(np.sqrt(c9 / c1 - c6**2 / (c1 * c3)), self.y0)
+                            c5 = np.sum(weights * x**(2.0 * exponent - 2.0 * sd_exponent) * np.log(x)**2)
+                            c8 = np.sum(weights * x**(exponent - 2.0 * sd_exponent) * y * np.log(x)**2)
+                            c11 = np.sum(weights * x**(-2.0 * sd_exponent) * y**2 * np.log(x)**2)
+                            dzeta_dexponent = -(
+                                4.0 * c3 * c4 * c9 
+                                - 2.0 * c4 * c6**2 
+                                - 2.0 * c3 * c6 * c7
+                                ) * zeta**2
+                            dzeta_dsdexponent = -(
+                                -4.0 * c3 * c4 * c9 
+                                - 2.0 * c3**2 * c10 
+                                + 2.0 * c4 * c6**2 
+                                + 4.0 * c3 * c6 * c7
+                                ) * zeta**2
+                            d2logL_dexponent2 = (
+                                c1 
+                                * (c3 * c7 - c4 * c6)
+                                * (c6 * dzeta_dexponent + c7 * zeta) 
+                                + c1 * c6 * (c4 * c7 + c3 * c8 - 2.0 * c5 * c6) * zeta
+                                )
+                            d2logL_dexponent_dsdexponent = (
+                                c1 
+                                * (c3 * c7 - c4 * c6)
+                                * (c6 * dzeta_dsdexponent - 2.0 * c7 * zeta) 
+                                + 2.0 * c1 * c6 * (c5 * c6 - c3 * c8) * zeta
+                                )
+                            d2logL_dsdexponent2 = (
+                                c1 
+                                * (c3**2 * c10 - 2.0 * c3 * c6 * c7 + c4 * c6**2)
+                                * dzeta_dsdexponent 
+                                + c1 * (
+                                    -4.0 * c3 * c4 * c10 
+                                    - 2.0 * c3**2 * c11 
+                                    + 4.0 * c3 * c7**2 
+                                    + 4.0 * c3 * c6 * c8 
+                                    - 2.0 * c5 * c6**2
+                                ) * zeta
+                            )
+                            droot_dpar = np.array([
+                                [d2logL_dexponent2, d2logL_dexponent_dsdexponent],
+                                [d2logL_dexponent_dsdexponent, d2logL_dsdexponent2]
+                                ])
+                            return(root, droot_dpar)
+
+                    if self.model in ('normal', 'normal_strength', 'normal_force'):
+                        if not hasattr(self, 'sd_exponent'):
+                            if self.model == 'normal_force':
+                                self.sd_exponent = -2.0
+                            else:
+                                self.sd_exponent = 0.0
+                        fit_linear = LinearRegression(np.log(x_nondimensional), np.log(y_nondimensional), weights = self.weights)
+                        exponent_guess = fit_linear.gradient
+
+                        def _powerlaw_fit_normal_fixedsd_root(
+                                exponent: int | float,
+                                x: np.ndarray,
+                                y: np.ndarray,
+                                weights: np.ndarray,
+                                sd_exponent: int | float = 0.0,
+                                return_jacobian: bool = True
+                                ):
+                            """Root function for powerlaw fit with normal distributed variance (fixed sd)
+
+                            Root function to find the best-fitting power law exponent. The powerlaw 
+                            exponent for the standard deviation is assumed to be known.
+                            
+                            Parameters
+                            ----------
+                            exponent : int | float
+                                power law exponent, to fit (dimensionless)
+                            x : np.ndarray
+                                x-data (dimensionless)
+                            y : np.ndarray
+                                y-data (dimensionless)
+                            weights : np.ndarray
+                                weights per (x, y) observation
+                            sd_exponent : int | float
+                                known value of the standard deviation powerlaw exponent (dimensionless),
+                                by default 0.0
+                            return_jacobian : bool, optional
+                                if False, returns the root. If True, also returns jacobian scalar, 
+                                by default True
+
+                            Returns
+                            -------
+                            float | tuple
+                                root, or tuple with the root and the jacobian scalar
+
+                            """
+                            res = _powerlaw_fit_normal_freesd_root([exponent, sd_exponent], x, y, weights, return_jacobian = return_jacobian)
+                            if return_jacobian is False:
+                                return(res[0])
+                            else:
+                                return(res[0][0], res[1][0, 0])
+
+                        fit_exponent = root_scalar(
+                            _powerlaw_fit_normal_fixedsd_root,
+                            x0 = exponent_guess,
+                            fprime = True,
+                            args = (x_nondimensional, y_nondimensional, self.weights, self.sd_exponent, True),
+                            method = 'newton'
+                            )
+                        self.exponent = fit_exponent.root
                 
-                case 'normal_freesd':
-                    fit_linear = LinearFit(np.log(x_nondimensional), np.log(y_nondimensional), weights = self.weights)
-                    exponent_guess = fit_linear.gradient
-                    sd_exponent_guesses = exponent_guess + np.linspace(-1.0, 1.0, 9)
-                    fits_guesses = [
-                        PowerlawFit(self.x, self.y, weights = self.weights, model = 'normal', sd_exponent = d) 
-                        for d in sd_exponent_guesses
-                        ]
-                    loglikelihood_guess = [ft.calc_loglikelihood() for ft in fits_guesses]
-                    index_max = np.argmax(loglikelihood_guess)
-                    exponents_guess = np.array([fits_guesses[index_max].exponent, fits_guesses[index_max].sd_exponent])
-                    fit_exponents = root(
-                        _powerlaw_fit_normal_freesd_root,
-                        x0 = exponents_guess,
-                        jac = True,
-                        args = (x_nondimensional, y_nondimensional, self.weights, True),
-                        method = 'hybr'
-                        )
-                    self.exponent, self.sd_exponent = fit_exponents.x
+                    elif self.model == 'normal_freesd':
+                        fit_linear = LinearRegression(np.log(x_nondimensional), np.log(y_nondimensional), weights = self.weights)
+                        exponent_guess = fit_linear.gradient
+                        sd_exponent_guesses = exponent_guess + np.linspace(-1.0, 1.0, 9)
+                        fits_guesses = [
+                            PowerRegression(self.x, self.y, weights = self.weights, model = 'normal', sd_exponent = d) 
+                            for d in sd_exponent_guesses
+                            ]
+                        loglikelihood_guess = [ft.calc_loglikelihood() for ft in fits_guesses]
+                        index_max = np.argmax(loglikelihood_guess)
+                        exponents_guess = np.array([fits_guesses[index_max].exponent, fits_guesses[index_max].sd_exponent])
+                        fit_exponents = root(
+                            _powerlaw_fit_normal_freesd_root,
+                            x0 = exponents_guess,
+                            jac = True,
+                            args = (x_nondimensional, y_nondimensional, self.weights, True),
+                            method = 'hybr'
+                            )
+                        self.exponent, self.sd_exponent = fit_exponents.x
+
+                    elif self.model == 'normal_scaled':
+                        fit_linear = LinearRegression(np.log(x_nondimensional), np.log(y_nondimensional), weights = self.weights)
+                        exponent_guess = fit_linear.gradient
+
+                        def _powerlaw_fit_normal_scaled_root(
+                                exponent: int | float,
+                                x: np.ndarray,
+                                y: np.ndarray,
+                                weights: np.ndarray,
+                                return_jacobian: bool = True
+                                ):
+                            """Root function for powerlaw fit with normal distributed variance (scaled)
+
+                            Root function to find the best-fitting power law exponent. The powerlaw 
+                            exponent for the standard deviation is assumed equal to the powerlaw
+                            exponent.
+                            
+                            Parameters
+                            ----------
+                            exponent : int | float
+                                power law exponent, to fit (dimensionless)
+                            x : np.ndarray
+                                x-data (dimensionless)
+                            y : np.ndarray
+                                y-data (dimensionless)
+                            weights : np.ndarray
+                                weights per (x, y) observation
+                            return_jacobian : bool, optional
+                                if False, returns the root. If True, also returns jacobian scalar, 
+                                by default True
+
+                            Returns
+                            -------
+                            float | tuple
+                                root, or tuple with the root and the jacobian scalar
+
+                            """
+                            res = _powerlaw_fit_normal_freesd_root([exponent, exponent], x, y, weights, return_jacobian = return_jacobian)
+                            if return_jacobian is False:
+                                return(np.sum(res))
+                            else:
+                                return(np.sum(res[0]), np.sum(res[1]))
+
+                        fit_exponent = root_scalar(
+                            _powerlaw_fit_normal_scaled_root,
+                            x0 = exponent_guess,
+                            fprime = True,
+                            args = (x_nondimensional, y_nondimensional, self.weights, True),
+                            method = 'newton'
+                            )
+                        self.exponent = fit_exponent.root
+                        self.sd_exponent = fit_exponent.root
+                
                     c1 = np.sum(self.weights)
                     c3 = np.sum(self.weights * x_nondimensional**(2.0 * self.exponent - 2.0 * self.sd_exponent))
                     c6 = np.sum(self.weights * x_nondimensional**(self.exponent - 2.0 * self.sd_exponent) * y_nondimensional)
@@ -1739,25 +2613,6 @@ class PowerlawFit(BaseFit2D):
                     self.multiplier = redimensionalise(c6 / c3, self.y0)
                     self.sd_multiplier = redimensionalise(np.sqrt(c9 / c1 - c6**2 / (c1 * c3)), self.y0)
 
-                case 'normal_scaled':
-                    fit_linear = LinearFit(np.log(x_nondimensional), np.log(y_nondimensional), weights = self.weights)
-                    exponent_guess = fit_linear.gradient
-                    fit_exponent = root_scalar(
-                        _powerlaw_fit_normal_scaled_root,
-                        x0 = exponent_guess,
-                        fprime = True,
-                        args = (x_nondimensional, y_nondimensional, self.weights, True),
-                        method = 'newton'
-                        )
-                    self.exponent = fit_exponent.root
-                    self.sd_exponent = fit_exponent.root
-                    c1 = np.sum(self.weights)
-                    c3 = np.sum(self.weights * x_nondimensional**(2.0 * self.exponent - 2.0 * self.sd_exponent))
-                    c6 = np.sum(self.weights * x_nondimensional**(self.exponent - 2.0 * self.sd_exponent) * y_nondimensional)
-                    c9 = np.sum(self.weights * x_nondimensional**(-2.0 * self.sd_exponent) * y_nondimensional**2)
-                    self.multiplier = redimensionalise(c6 / c3, self.y0)
-                    self.sd_multiplier = redimensionalise(np.sqrt(c9 / c1 - c6**2 / (c1 * c3)), self.y0)
-                
                 case 'uniform':
                     if algorithm == 'convex_hull':
                         log_xyn = np.log(np.unique(np.column_stack((x_nondimensional, y_nondimensional)), axis = 0))
@@ -1774,7 +2629,7 @@ class PowerlawFit(BaseFit2D):
                         fts = np.array([fn(b) for b in gradients])
                         self.exponent = gradients[np.argmax(fts)]
                     elif algorithm == 'root':
-                        fit_linear = LinearFit(np.log(x_nondimensional), np.log(y_nondimensional), weights = self.weights)
+                        fit_linear = LinearRegression(np.log(x_nondimensional), np.log(y_nondimensional), weights = self.weights)
                         exponent_guess = fit_linear.gradient
                         fn0 = lambda b: -self.calc_loglikelihood(
                             x = self.x,
@@ -1810,10 +2665,73 @@ class PowerlawFit(BaseFit2D):
                     self.multiplier = redimensionalise(0.5*(lower_nondimensional + upper_nondimensional), self.y0)
                 
                 case 'weibull':
-                    ft_linear = LinearFit(np.log(x_nondimensional), np.log(y_nondimensional), weights = self.weights)
+                    ft_linear = LinearRegression(np.log(x_nondimensional), np.log(y_nondimensional), weights = self.weights)
                     yn_scaled = y_nondimensional / (x_nondimensional**ft_linear.gradient)
-                    ft_weibull = WeibullFit(yn_scaled, weights = self.weights)
+                    ft_weibull = WeibullDistribution(yn_scaled, weights = self.weights)
                     exponent_shape_guess = (ft_linear.gradient, ft_weibull.shape)
+
+                    def _powerlaw_fit_weibull_root(
+                            par: np.ndarray, 
+                            x: np.ndarray,
+                            y: np.ndarray,
+                            weights: np.ndarray,
+                            return_jacobian: bool = True
+                            ) -> np.ndarray | tuple:
+                        """Root function for powerlaw fit with Weibull distributed variance
+
+                        Parameters
+                        ----------
+                        par : np.ndarray
+                            fitting parameters: power law exponent + weibull shape parameter
+                        x : np.ndarray
+                            x-data (dimensionless)
+                        y : np.ndarray
+                            y-data (dimensionless)
+                        weights : np.ndarray
+                            weights per (x, y) observation
+                        return_jacobian : bool, optional
+                            if False, returns the roots. If True, also returns the jacobian matrix, 
+                            by default True
+
+                        Returns
+                        -------
+                        np.ndarray | tuple
+                            array with the two roots to solve, or tuple with roots and 2x2 
+                            jacobian matrix
+
+                        """
+                        exponent, shape = par
+                        c1 = np.sum(weights)
+                        c2 = np.sum(weights * np.log(x))
+                        c3 = np.sum(weights * np.log(y))
+                        c4 = np.sum(weights * x**(-exponent * shape) * y**shape)
+                        c5 = np.sum(weights * x**(-exponent * shape) * y**shape * np.log(x))
+                        c6 = np.sum(weights * x**(-exponent * shape) * y**shape * np.log(y))
+                        dlogL_dexponent = shape * c1 * c5 / c4 - shape * c2
+                        dlogL_dshape = (1.0 / shape + (exponent * c5 - c6) / c4) * c1 - exponent * c2 + c3
+                        root = np.array([dlogL_dexponent, dlogL_dshape])
+                        if return_jacobian is False:
+                            return(root)
+                        else:
+                            c7 = np.sum(weights * x**(-exponent * shape) * y**shape * np.log(x)**2)
+                            c8 = np.sum(weights * x**(-exponent * shape) * y**shape * np.log(x) * np.log(y))
+                            c9 = np.sum(weights * x**(-exponent * shape) * y**shape * np.log(y)**2)
+                            d2logL_dexponent2 = c1 * shape**2 / c4 * (c5**2 / c4 - c7)
+                            d2logL_dexponentdshape = (
+                                c1 / c4 
+                                * (c5 - exponent * shape * c7 + shape * c8 + shape * c5 / c4 * (exponent * c5 - c6)) 
+                                - c2
+                                )
+                            d2logL_dshape2 = (
+                                (-1.0 / shape**2 - (exponent**2 * c7 - 2.0 * exponent * c8 + c9) / c4 
+                                    + (exponent * c5 - c6)**2 / c4**2) * c1
+                                    )
+                            droot_dpar = np.array([
+                                [d2logL_dexponent2, d2logL_dexponentdshape], 
+                                [d2logL_dexponentdshape, d2logL_dshape2]
+                                ])
+                            return(root, droot_dpar)
+
                     fit = root(  
                         _powerlaw_fit_weibull_root,
                         x0 = exponent_shape_guess,
@@ -1862,11 +2780,12 @@ class PowerlawFit(BaseFit2D):
             tuple of three np.ndarrays, each with size n: x values, and 
             y-values of the lower and upper boundaries of the confidence 
             interval, respectively
+
         """
         if x is None:
             x = np.linspace(self.x.min(), self.x.max(), n)
         else:
-            x = create_array(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
+            check_array_values(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
         y_fit = self.predict(x)
         if self.zero_variance is True:
             y_lower = y_fit
@@ -1926,6 +2845,7 @@ class PowerlawFit(BaseFit2D):
             the covariance matrix, a m*m square matrix, where 'm' is the 
             number of independent fitting parameters (`m=3` for most fitting 
             methods). Any values are nondimensionalised using 'x0' and 'y0'.
+
         """
         if self.zero_variance is True:
             return None
@@ -1936,7 +2856,7 @@ class PowerlawFit(BaseFit2D):
                 (n, len(self.x)),
                 replace = True
             )
-            fits = [PowerlawFit(self.x[i], self.y[i], weights = self.weights[i], 
+            fits = [PowerRegression(self.x[i], self.y[i], weights = self.weights[i], 
                                 model = self.model, x0 = self.x0, y0 = self.y0)
                     for i in indices]
             match self.model:
@@ -2015,15 +2935,18 @@ class PowerlawFit(BaseFit2D):
         -------
         np.ndarray | Quantity
             An array of (cumulative) probability densities.
+
         """
         if x is None:
             x = self.x
         else:
-            x = create_array(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
+            x = create_quantity(x)
+            check_array_values(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
         if y is None:
             y = self.y
         else:
-            y = create_array(y, finite = True, xmin = 0.0 * self.y0, xmin_include = False)
+            y = create_quantity(y)
+            check_array_values(y, finite = True, xmin = 0.0 * self.y0, xmin_include = False)
         x_nondimensional = nondimensionalise(x, self.x0)
         y_nondimensional = nondimensionalise(y, self.y0)
         y_fit_nondimensional = nondimensionalise(self.predict(x), self.y0)
@@ -2154,6 +3077,7 @@ class PowerlawFit(BaseFit2D):
         -------
         float
             Kolmogorov-Smirnov distance
+
         """
         if self.zero_variance is True:
             return(0.0)
@@ -2231,10 +3155,11 @@ class PowerlawFit(BaseFit2D):
             with partial differentation of the weighted loglikelihood with
             respect to each of the fitting parameters (`deriv = 1` or 
             `deriv = 2`)
+            
         """
-        x = self.x if x is None else x
+        x = self.x if x is None else create_quantity(x)
         x_nondimensional = nondimensionalise(x, self.x0)
-        y = self.y if y is None else y
+        y = self.y if y is None else create_quantity(y)
         y_nondimensional = nondimensionalise(y, self.y0)
         weights = self.weights if weights is None else weights
         if self.model != 'uniform':
@@ -2685,6 +3610,7 @@ class PowerlawFit(BaseFit2D):
                         [d2logL_dmultiplier_dshape, d2logL_dexponent_dshape, d2logL_dshape2]
                         ]))
 
+
     def calc_prediction_interval(
             self, 
             x: np.ndarray | Quantity | Parameter | None = None, 
@@ -2714,11 +3640,13 @@ class PowerlawFit(BaseFit2D):
             tuple of three np.ndarrays, each with size n: x values, and 
             y-values of the lower and upper boundaries of the prediction 
             interval, respectively
+
         """
         if x is None:
             x = np.linspace(self.x.min(), self.x.max(), n)
         else:
-            x = create_array(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
+            x = create_quantity(x)
+            check_array_values(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
         if self.zero_variance is True:
             y_fit = self.predict(x)
             return(x, y_fit, y_fit)
@@ -2729,6 +3657,7 @@ class PowerlawFit(BaseFit2D):
                 self.calc_quantile(x, 0.5 + 0.5 * level)
                 )
         
+
     def calc_quantile(
             self,
             x: np.ndarray | Quantity | Parameter | None,
@@ -2752,11 +3681,13 @@ class PowerlawFit(BaseFit2D):
         -------
         np.ndarray | Quantity
             y-values
+
         """
         if x is None:
-            x = np.linspace(self.x.min(), self.x.max(), n)
+            x = self.x
         else:
-            x = create_array(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
+            x = create_quantity(x)
+            check_array_values(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
         if self.zero_variance is True:
             return(self.predict(x))
         else:
@@ -2792,6 +3723,13 @@ class PowerlawFit(BaseFit2D):
                     return(mean + sd * (np.sqrt(2.0) * erfinv(2.0 * quantile - 1.0)))
                 case 'uniform':
                     return((self.multiplier + (quantile - 0.5) * self.width) * x_nondimensional**self.exponent)
+                case 'weibull':
+                    return(
+                        self.predict(x)
+                        * (-np.log(1.0 - quantile))**(1.0 / self.shape)
+                        / gamma(1.0 + 1.0 / self.shape)
+                        )
+
 
     def generate_random(
             self,
@@ -2808,12 +3746,15 @@ class PowerlawFit(BaseFit2D):
         -------
         np.ndarray | Quantity
             Array with random y-values
+
         """
         if x is None:
             x = self.x
         else:
-            x = create_array(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
+            x = create_quantity(x)
+            check_array_values(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
         return(self.calc_quantile(x, np.random.rand(*x.shape)))
+
 
     def predict(
             self,
@@ -2834,516 +3775,12 @@ class PowerlawFit(BaseFit2D):
         -------
         float | np.ndarray | Quantity
             average y-values at each of the specified x-values
+
         """
         if x is None:
             x = self.x
         else:
-            x = create_array(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
+            x = create_quantity(x)
+            check_array_values(x, finite = True, xmin = 0.0 * self.x0, xmin_include = False)
         x_nondimensional = nondimensionalise(x, self.x0)
         return(self.multiplier * x_nondimensional**self.exponent)
-
-
-def _powerlaw_fit_gamma_exponent_root(
-        exponent: int | float,
-        x: np.ndarray,
-        y: np.ndarray,
-        weights: np.ndarray,
-        return_jacobian: bool = True
-        ) -> float | tuple:
-    """Root function for powerlaw fit with gamma distributed variance
-
-    Root function to find the best-fitting powerlaw exponent 
-    
-    Parameters
-    ----------
-    exponent : int | float
-        power law exponent, to fit
-    x : np.ndarray
-        x-data (dimensionless)
-    y : np.ndarray
-        y-data (dimensionless)
-    weights : np.ndarray
-        weights per (x, y) observation
-    return_jacobian : bool, optional
-        if False, returns the root. If True, also returns the jacobian matrix, 
-        by default True
-
-    Returns
-    -------
-    float | tuple
-        root, or tuple with root and jacobian scalar
-    """
-    c1 = np.sum(weights)
-    c2 = np.sum(weights * np.log(x))
-    c4 = np.sum(weights * y * x**(-exponent))
-    c5 = np.sum(weights * y * x**(-exponent) * np.log(x))
-    root = c1 * c5 / c4 - c2
-    if return_jacobian is False:
-        return(root)
-    else:
-        c6 = np.sum(weights * y * x**(-exponent) * np.log(x)**2)
-        droot_dexponent = c1 / c4 * (c5**2 / c4 - c6)
-        return(root, droot_dexponent)
-
-
-def _powerlaw_fit_gamma_shape_root(
-        shape: int | float,
-        exponent: int | float,
-        x: np.ndarray,
-        y: np.ndarray,
-        weights: np.ndarray,
-        return_jacobian: bool = True
-        ):
-    """Root function for powerlaw fit with gamma distributed variance
-
-    Root function to find the best-fitting gamma shape parameter, given a
-    known value for the best powerlaw exponent
-    
-    Parameters
-    ----------
-    shape : int | float
-        gamma shape parameter, to fit
-    exponent : int | float
-        known law exponent
-    x : np.ndarray
-        x-data (dimensionless)
-    y : np.ndarray
-        y-data (dimensionless)
-    weights : np.ndarray
-        weights per (x, y) observation
-    return_jacobian : bool, optional
-        if False, returns the root. If True, also returns the jacobian matrix, 
-        by default True
-
-    Returns
-    -------
-    float | tuple
-        root, or tuple with root and jacobian scalar
-    """
-    c1 = np.sum(weights)
-    c2 = np.sum(weights * np.log(x))
-    c3 = np.sum(weights * np.log(y))
-    c4 = np.sum(weights * y * x**(-exponent))
-    root = (c1 * (np.log(shape) - digamma(shape) - np.log(c4) + np.log(c1)) 
-            - exponent * c2 + c3)
-    if return_jacobian is False:
-        return(root)
-    else:
-        droot_dshape = c1 * (1.0 / shape - polygamma(1, shape))
-        return(root, droot_dshape)
-
-
-def _powerlaw_fit_gumbel_root(
-        par: np.ndarray, 
-        x: np.ndarray,
-        y: np.ndarray,
-        weights: np.ndarray,
-        return_jacobian: bool = True
-        ) -> np.ndarray | tuple:
-    """Root function for powerlaw fit with gumbel distributed variance
-
-    Root function to find the best-fitting power law exponent and Gumbel shape
-    parameter.
-    
-    Parameters
-    ----------
-    par : np.ndarray
-        array with power law exponent and Gumbel shape parameter, to fit 
-        (dimensionless)
-    x : np.ndarray
-        x-data (dimensionless)
-    y : np.ndarray
-        y-data (dimensionless)
-    weights : np.ndarray
-        weights per (x, y) observation
-    return_jacobian : bool, optional
-        if False, returns the roots. If True, also returns the jacobian matrix, 
-        by default True
-
-    Returns
-    -------
-    np.ndarray | tuple
-        array with the two roots to solve, or tuple with roots and 2x2 
-        jacobian matrix
-    """
-    exponent, shape0 = par
-    c1 = np.sum(weights)
-    c2 = np.sum(weights * np.log(x))
-    c3 = np.sum(weights * y / (x**exponent))
-    c4 = np.sum(weights * y * np.log(x) / (x**exponent))
-    c5 = np.sum(weights * y * np.log(x)**2 / (x**exponent))
-    c6 = np.sum(weights * np.exp(-y / (shape0 * x**exponent)))
-    c7 = np.sum(weights * y / (x**exponent) * np.exp(-y / (shape0 * x**exponent)))
-    c8 = np.sum(weights * y * np.log(x) / (x**exponent) * np.exp(-y / (shape0 * x**exponent)))
-    dlogL_dexponent = c4 / shape0 - c1 * c8 / (shape0 * c6) - c2
-    dlogL_dshape0 = c3 / shape0**2 - c1 * c7 / (shape0**2 * c6) - c1 / shape0
-    root = np.array([dlogL_dexponent, dlogL_dshape0])
-    if return_jacobian is False:
-        return(root)
-    else:
-        c9 = np.sum(
-            weights * y * np.log(x)**2 
-            / (x**exponent) 
-            * np.exp(-y / (shape0 * x**exponent))
-            )
-        c10 = np.sum(
-            weights * y**2 / (x**(2. * exponent))
-            * np.exp(-y / (shape0 * x**exponent))
-            )
-        c11 = np.sum(
-            weights * y**2 * np.log(x) / (x**(2. * exponent))
-            * np.exp(-y / (shape0 * x**exponent))
-            )
-        c12 = np.sum(
-            weights * y**2 * np.log(x)**2 / (x**(2. * exponent))
-            * np.exp(-y / (shape0 * x**exponent))
-            )
-        d2logL_dexponent2 = (
-            -c5 / shape0 
-            - c1 * c12 / (shape0**2 * c6) 
-            + c1 * c9 / (shape0 * c6) 
-            + c1 * c8**2 / (shape0**2 * c6**2)
-            )
-        d2logL_dexponentdshape0 = (
-            -c1 * c11 / (shape0**3 * c6) 
-            + c1 * c7 * c8 / (shape0**3 * c6**2) 
-            - c4 / shape0**2 
-            + c1 * c8 / (shape0**2 * c6)
-            )
-        d2logL_dshape02 = (
-            -2.0 * c3 / shape0**3 
-            + 2.0 * c1 * c7 / (shape0**3 * c6) 
-            - c1 * c10 / (shape0**4 * c6) 
-            + c1 * c7**2 / (shape0**4 * c6**2) 
-            + c1 / shape0**2
-            )
-        droot_dpar = np.array([
-            [d2logL_dexponent2, d2logL_dexponentdshape0],
-            [d2logL_dexponentdshape0, d2logL_dshape02]
-        ])
-        return(root, droot_dpar)
-
-
-def _powerlaw_fit_normal_freesd_root(
-        par: np.ndarray, 
-        x: np.ndarray,
-        y: np.ndarray,
-        weights: np.ndarray,
-        return_jacobian: bool = True
-        ):
-    """Root function for powerlaw fit with normal distributed variance (free sd)
-
-    Root function to find the best-fitting power law exponent and the standard
-    deviation powerlaw exponent.
-    
-    Parameters
-    ----------
-    par : np.ndarray
-        array with power law exponent and standard deviation powerlaw exponent, 
-        to fit (dimensionless)
-    x : np.ndarray
-        x-data (dimensionless)
-    y : np.ndarray
-        y-data (dimensionless)
-    weights : np.ndarray
-        weights per (x, y) observation
-    return_jacobian : bool, optional
-        if False, returns the two roots. If True, also returns the 2x2 jacobian
-        matrix, by default True
-
-    Returns
-    -------
-    np.ndarray | tuple
-        array with the two roots to solve, or tuple with roots and 2x2 
-        jacobian matrix
-    """
-    exponent, sd_exponent = par
-    c1 = np.sum(weights)
-    c2 = np.sum(weights * np.log(x))
-    c3 = np.sum(weights * x**(2.0 * exponent - 2.0 * sd_exponent))
-    c4 = np.sum(weights * x**(2.0 * exponent - 2.0 * sd_exponent) * np.log(x))
-    c6 = np.sum(weights * x**(exponent - 2.0 * sd_exponent) * y)
-    c7 = np.sum(weights * x**(exponent - 2.0 * sd_exponent) * y * np.log(x))
-    c9 = np.sum(weights * x**(-2.0 * sd_exponent)* y **2)
-    c10 = np.sum(weights * x**(-2.0 * sd_exponent) * y**2 * np.log(x))
-    zeta = 1.0 / (c3**2 * c9 - c3 * c6**2)
-    dlogL_dexponent = c1 * c6 * (c3 * c7 - c4 * c6) * zeta
-    dlogL_dsdexponent = c1 * (c3**2 * c10 - 2. * c3 * c6 * c7 + c4 * c6**2) * zeta - c2
-    root = np.array([dlogL_dexponent, dlogL_dsdexponent])
-    if return_jacobian is False:
-        return(root)
-    else:
-        c5 = np.sum(weights * x**(2.0 * exponent - 2.0 * sd_exponent) * np.log(x)**2)
-        c8 = np.sum(weights * x**(exponent - 2.0 * sd_exponent) * y * np.log(x)**2)
-        c11 = np.sum(weights * x**(-2.0 * sd_exponent) * y**2 * np.log(x)**2)
-        dzeta_dexponent = -(
-            4.0 * c3 * c4 * c9 
-            - 2.0 * c4 * c6**2 
-            - 2.0 * c3 * c6 * c7
-            ) * zeta**2
-        dzeta_dsdexponent = -(
-            -4.0 * c3 * c4 * c9 
-            - 2.0 * c3**2 * c10 
-            + 2.0 * c4 * c6**2 
-            + 4.0 * c3 * c6 * c7
-            ) * zeta**2
-        d2logL_dexponent2 = (
-            c1 
-            * (c3 * c7 - c4 * c6)
-            * (c6 * dzeta_dexponent + c7 * zeta) 
-            + c1 * c6 * (c4 * c7 + c3 * c8 - 2.0 * c5 * c6) * zeta
-            )
-        d2logL_dexponent_dsdexponent = (
-            c1 
-            * (c3 * c7 - c4 * c6)
-            * (c6 * dzeta_dsdexponent - 2.0 * c7 * zeta) 
-            + 2.0 * c1 * c6 * (c5 * c6 - c3 * c8) * zeta
-            )
-        d2logL_dsdexponent2 = (
-            c1 
-            * (c3**2 * c10 - 2.0 * c3 * c6 * c7 + c4 * c6**2)
-            * dzeta_dsdexponent 
-            + c1 * (
-                -4.0 * c3 * c4 * c10 
-                - 2.0 * c3**2 * c11 
-                + 4.0 * c3 * c7**2 
-                + 4.0 * c3 * c6 * c8 
-                - 2.0 * c5 * c6**2
-            ) * zeta
-        )
-        droot_dpar = np.array([
-            [d2logL_dexponent2, d2logL_dexponent_dsdexponent],
-            [d2logL_dexponent_dsdexponent, d2logL_dsdexponent2]
-            ])
-        return(root, droot_dpar)
-
-
-def _powerlaw_fit_normal_fixedsd_root(
-        exponent: int | float,
-        x: np.ndarray,
-        y: np.ndarray,
-        weights: np.ndarray,
-        sd_exponent: int | float = 0.0,
-        return_jacobian: bool = True
-        ):
-    """Root function for powerlaw fit with normal distributed variance (fixed sd)
-
-    Root function to find the best-fitting power law exponent. The powerlaw 
-    exponent for the standard deviation is assumed to be known.
-    
-    Parameters
-    ----------
-    exponent : int | float
-        power law exponent, to fit (dimensionless)
-    x : np.ndarray
-        x-data (dimensionless)
-    y : np.ndarray
-        y-data (dimensionless)
-    weights : np.ndarray
-        weights per (x, y) observation
-    sd_exponent : int | float
-        known value of the standard deviation powerlaw exponent (dimensionless),
-        by default 0.0
-    return_jacobian : bool, optional
-        if False, returns the root. If True, also returns jacobian scalar, 
-        by default True
-
-    Returns
-    -------
-    float | tuple
-        root, or tuple with the root and the jacobian scalar
-    """
-    res = _powerlaw_fit_normal_freesd_root([exponent, sd_exponent], x, y, weights, return_jacobian = return_jacobian)
-    if return_jacobian is False:
-        return(res[0])
-    else:
-        return(res[0][0], res[1][0, 0])
-    
-
-def _powerlaw_fit_normal_scaled_root(
-        exponent: int | float,
-        x: np.ndarray,
-        y: np.ndarray,
-        weights: np.ndarray,
-        return_jacobian: bool = True
-        ):
-    """Root function for powerlaw fit with normal distributed variance (scaled)
-
-    Root function to find the best-fitting power law exponent. The powerlaw 
-    exponent for the standard deviation is assumed equal to the powerlaw
-    exponent.
-    
-    Parameters
-    ----------
-    exponent : int | float
-        power law exponent, to fit (dimensionless)
-    x : np.ndarray
-        x-data (dimensionless)
-    y : np.ndarray
-        y-data (dimensionless)
-    weights : np.ndarray
-        weights per (x, y) observation
-    return_jacobian : bool, optional
-        if False, returns the root. If True, also returns jacobian scalar, 
-        by default True
-
-    Returns
-    -------
-    float | tuple
-        root, or tuple with the root and the jacobian scalar
-    """
-    res = _powerlaw_fit_normal_freesd_root([exponent, exponent], x, y, weights, return_jacobian = return_jacobian)
-    if return_jacobian is False:
-        return(np.sum(res))
-    else:
-        return(np.sum(res[0]), np.sum(res[1]))
-
-
-def _powerlaw_fit_weibull_root(
-        par: np.ndarray, 
-        x: np.ndarray,
-        y: np.ndarray,
-        weights: np.ndarray,
-        return_jacobian: bool = True
-        ) -> np.ndarray | tuple:
-    """Root function for powerlaw fit with Weibull distributed variance
-
-    Parameters
-    ----------
-    par : np.ndarray
-        fitting parameters: power law exponent + weibull shape parameter
-    x : np.ndarray
-        x-data (dimensionless)
-    y : np.ndarray
-        y-data (dimensionless)
-    weights : np.ndarray
-        weights per (x, y) observation
-    return_jacobian : bool, optional
-        if False, returns the roots. If True, also returns the jacobian matrix, 
-        by default True
-
-    Returns
-    -------
-    np.ndarray | tuple
-        array with the two roots to solve, or tuple with roots and 2x2 
-        jacobian matrix
-    """
-    exponent, shape = par
-    c1 = np.sum(weights)
-    c2 = np.sum(weights * np.log(x))
-    c3 = np.sum(weights * np.log(y))
-    c4 = np.sum(weights * x**(-exponent * shape) * y**shape)
-    c5 = np.sum(weights * x**(-exponent * shape) * y**shape * np.log(x))
-    c6 = np.sum(weights * x**(-exponent * shape) * y**shape * np.log(y))
-    dlogL_dexponent = shape * c1 * c5 / c4 - shape * c2
-    dlogL_dshape = (1.0 / shape + (exponent * c5 - c6) / c4) * c1 - exponent * c2 + c3
-    root = np.array([dlogL_dexponent, dlogL_dshape])
-    if return_jacobian is False:
-        return(root)
-    else:
-        c7 = np.sum(weights * x**(-exponent * shape) * y**shape * np.log(x)**2)
-        c8 = np.sum(weights * x**(-exponent * shape) * y**shape * np.log(x) * np.log(y))
-        c9 = np.sum(weights * x**(-exponent * shape) * y**shape * np.log(y)**2)
-        d2logL_dexponent2 = c1 * shape**2 / c4 * (c5**2 / c4 - c7)
-        d2logL_dexponentdshape = (
-            c1 / c4 
-            * (c5 - exponent * shape * c7 + shape * c8 + shape * c5 / c4 * (exponent * c5 - c6)) 
-            - c2
-            )
-        d2logL_dshape2 = (
-            (-1.0 / shape**2 - (exponent**2 * c7 - 2.0 * exponent * c8 + c9) / c4 
-                + (exponent * c5 - c6)**2 / c4**2) * c1
-                )
-        droot_dpar = np.array([
-            [d2logL_dexponent2, d2logL_dexponentdshape], 
-            [d2logL_dexponentdshape, d2logL_dshape2]
-            ])
-        return(root, droot_dpar)
-
-
-
-
-def calc_loglikelihood_power_class(
-        par,
-        xlower,
-        xupper,
-        weights,
-        weights_exponent = 0.0,
-        return_jacobian = False
-        ):
-    exponent, xmin, xmax = par
-
-    dxlower_dxmin = (xlower <= xmin).astype(float)
-    dxupper_dxmax = (xupper >= xmax).astype(float)
-    xlower = np.maximum(xlower, xmin)
-    xupper = np.minimum(xupper, xmax)
-
-    if np.isclose(exponent, -1.0):
-        A = np.log(xmax / xmin)
-        B = np.log(xupper / xlower)
-    else:
-        A = xmax**(exponent + 1.0) - xmin**(exponent + 1.0)
-        B = xupper**(exponent + 1.0) - xlower**(exponent + 1.0)
-    if np.isclose(exponent + weights_exponent, -1.0):
-        C = np.log(xupper / xlower)
-    else:
-        C = xupper**(exponent + weights_exponent + 1.0) - xlower**(exponent + weights_exponent + 1.0)
-
-    P = B / A
-    Q = C / B
-    W = weights * Q * np.sum(weights) / np.sum(weights * Q)
-    logL = np.sum(W * np.log(P))
-
-    if return_jacobian is False:
-        return(logL)
-    else:
-        if np.isclose(exponent, -1.0):
-            dA_dexponent = np.log(xmax / xmin)
-            dB_dexponent = np.log(xupper / xlower)
-        else:
-            dA_dexponent = (
-                xmax**(exponent - 1.0) * np.log(xmax) 
-                - xmin**(exponent - 1.0) * np.log(xmin)
-                )
-            dB_dexponent = (
-                xupper**(exponent - 1.0) * np.log(xupper) 
-                - xlower**(exponent - 1.0) * np.log(xlower)
-                )
-        if np.isclose(exponent + weights_exponent, -1.0):
-            dC_dexponent = np.log(xupper / xlower)
-        else:
-            dC_dexponent = (
-                xupper**(exponent + weights_exponent + 1.0) * np.log(xupper) 
-                - xlower**(exponent + weights_exponent + 1.0) * np.log(xupper)
-                )
-        dA_dxmin = -(exponent + 1.0) * xmin**exponent
-        dA_dxmax = (exponent + 1.0) * xmax**exponent
-        dB_dxlower = -(exponent + 1.0) * xlower**exponent
-        dB_dxupper = (exponent + 1.0) * xupper**exponent
-        dC_dxlower = -(exponent + weights_exponent + 1.0) * xlower**(exponent + weights_exponent)
-        dC_dxupper = (exponent + weights_exponent + 1.0) * xupper**(exponent + weights_exponent)
-
-        dP_dA = -B / A**2
-        dP_dB = 1.0 / A
-        dQ_dB = -C / B**2
-        dQ_dC = 1.0 / B
-        dW_dQ = weights * (np.sum(weights * Q) - weights * Q) / np.sum(weights * Q)**2
-        dlogL_dW = np.log(P)
-        dlogL_dP = W / P
-
-        dlogL_dexponent = np.sum(
-            dlogL_dW * dW_dQ * (dQ_dB * dB_dexponent + dQ_dC * dC_dexponent)
-            + dlogL_dP * (dP_dA * dA_dexponent + dP_dB * dB_dexponent)                        
-            )
-        dlogL_dxmin = np.sum(
-            dlogL_dW * dW_dQ * (dQ_dB * dB_dxlower + dQ_dC * dC_dxlower) * dxlower_dxmin
-            + dlogL_dP * (dP_dA + dA_dxmin + dP_dB * dB_dxlower * dxlower_dxmin)
-            )
-        dlogL_dxmax = np.sum(
-            dlogL_dW * dW_dQ * (dQ_dB * dB_dxupper + dQ_dC * dC_dxupper) * dxupper_dxmax
-            + dlogL_dP * (dP_dA + dA_dxmax + dP_dB * dB_dxupper * dxupper_dxmax)
-            )        
-        dlogL_dpar = np.array([dlogL_dexponent, dlogL_dxmin, dlogL_dxmax])
-        return(logL, dlogL_dpar)
-
-
