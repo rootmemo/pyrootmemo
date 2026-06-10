@@ -189,7 +189,7 @@ class Roots:
             
     def calc_orientation(self) -> np.ndarray:
         """
-        Returns the initial orientation vector of the root in 3D space.
+        Returns the initial orientation vector of the root in 3-D space.
         
         The three-dimensional vector is calculated by rotating an intial vector
         [0, 0, 1]^T first by an azimuth angle (rotation around z-axis, positive 
