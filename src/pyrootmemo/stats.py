@@ -408,6 +408,14 @@ class GammaDistribution(_DistributionClass):
 
     Fit a gamma distribution using (weighted) loglikehood 
 
+    Probability density p(x):
+
+        p(x) = x**(shape - 1) / (Gamma(shape) * scale**shape) * exp(-x / scale)
+
+    (Weighted) loglikelihood will be maximised, i.e.
+
+        min sum_i weight * log p(x_i))
+
     This class is able to deal with data that has dimensions, e.g. millimetres 
     or megapascals. Fitted values will be automatically assigned the correct 
     units.
@@ -670,6 +678,15 @@ class GumbelDistribution(_DistributionClass):
 
     Fit a Gumbel distribution using (weighted) loglikehood 
 
+    Probability density p(x):
+
+        p(x) = exp(-(z + exp(-z))) / scale
+        z = (x - location) / scale
+
+    (Weighted) loglikelihood will be maximised, i.e.
+
+        min sum_i weight * log p(x_i))
+    
     This class is able to deal with data that has dimensions, e.g. millimetres 
     or megapascals. Fitted values will be automatically assigned the correct 
     units.
@@ -915,14 +932,18 @@ class PowerDistribution(_DistributionClass):
     Fit a Power distribution using (weighted) loglikehood. Probability density
     is given by:
 
-           [0                                when x < lower
-    p(x) = [multiplier * (x / x0)^exponent   when lower <= x <= upper
-           [0                                when x > upper
+               [0                                 when x < lower
+        p(x) = [multiplier * (x / x0)**exponent   when lower <= x <= upper
+               [0                                 when x > upper
 
     where the multiplier follows from:
 
-    integral p(x) = 1
-           
+        integral p(x) = 1
+    
+    (Weighted) loglikelihood will be maximised, i.e.
+    
+        min sum_i weight * log p(x_i))
+
     This class is able to deal with data that has dimensions, e.g. millimetres 
     or megapascals. Fitted values will be automatically assigned the correct 
     units.
@@ -1214,6 +1235,15 @@ class WeibullDistribution(_DistributionClass):
 
     Fit a Weibull distribution using (weighted) loglikehood 
 
+    Probability density p(x):
+
+        p(x) = shape / scale * (x / scale)**(shape - 1)
+               * exp(-(x / scale)**shape)
+
+    (Weighted) loglikelihood will be maximised, i.e.
+
+        min sum_i weight * log p(x_i))
+    
     This class is able to deal with data that has dimensions, e.g. millimetres 
     or megapascals. Fitted values will be automatically assigned the correct 
     units.
@@ -1690,13 +1720,13 @@ class LinearRegression(_RegressionClass):
 
     Fit a power-law function to a set of (x, y) data. The fit is defined as:
 
-        `y_fit = intercept + x * gradient`
+        y_fit = intercept + x * gradient
 
     where the intercept and the gradient are to be fitted. Parameters are
     found by solving the (weighted) linear least-squares regression problem.
     i.e. will minimise:
 
-        `sum(weights * (y_fit * y) ** 2)`
+        SLSQ = sum(weights * (y_fit * y) ** 2)
         
     where 'weights' is the individual weighting for each (x, y) observation.
 
@@ -1819,7 +1849,7 @@ class PowerRegression(_RegressionClass):
 
     Fit a power-law function to a set of (x, y) data. The fit is defined as:
 
-        `y_fit = multiplier * (x / x0) ** exponent`
+        y_fit = multiplier * (x / x0)**exponent
 
     where the power law multiplier and exponent are to be fitted. 'x0' is the 
     reference value, and must be specified to correctly deal with any units 
