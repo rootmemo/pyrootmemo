@@ -10,3 +10,4 @@ dependencies:
   - pint
   - pandas
   - pydoe
+  - rasterio
