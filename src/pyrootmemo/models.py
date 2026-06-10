@@ -1660,15 +1660,20 @@ class _DirectShear():
     as function of direct shear displacement, such as the different iterations
     of Waldron's models, or DRAM.
 
-    An addition to the following attributes, also sets some useful attributes
-    to the input arguments:
+    An addition to the following attributes, also calculates some useful
+    attributes to the input arguments:
 
     roots.orientation
         unit vector describing the initial orientation of each roots in 
-        'roots'. numpy array with size (number of roots, 3)
-    failure_surface.tanphi
-        the value of tan(friction angle) for the soil that is present at the
-        failure surface
+        'roots'. These are defined in the local coordinate system of the 
+        failure surface (x-axis in direction of shearing, z-axis normal to 
+        shear plane):
+        
+        (local root vector)                    # defined in local coordinates
+        = (failure surface coord system)^T     # defined in global coordinates
+        * (global root vector)                 # defined in global coordinates
+
+        Numpy array with size (number of roots, 3)
 
     Attributes
     ----------
@@ -1738,13 +1743,12 @@ class _DirectShear():
             ):
             raise TypeError('distribution factor must be int or float')
         self.length_distribution_factor = length_distribution_factor
-        if hasattr(failure_surface, 'orientation'):
-            self.roots.local_orientation = axisangle_rotate(
-                self.roots.orientation,
-                failure_surface.orientation
-                )
-        else:
-            self.roots.local_orientation = self.roots.orientation
+        
+        self.roots.orientation = np.einsum(
+            'ji,...j->...i',
+            failure_surface.calc_orientation(),
+            roots.calc_orientation()
+            )
     
 
     def calc_pullout_displacement(
@@ -1782,9 +1786,9 @@ class _DirectShear():
         if np.isclose(shear_zone_thickness.magnitude, 0.0):
             dict_out = {'pullout_displacement': ones * self.length_distribution_factor * shear_displacement}
         else:
-            length_initial = shear_zone_thickness / self.roots.local_orientation[..., 2]
-            length_x = shear_zone_thickness * self.roots.local_orientation[..., 0] / self.roots.local_orientation[..., 2] + shear_displacement
-            length_y = shear_zone_thickness * self.roots.local_orientation[..., 1] / self.roots.local_orientation[..., 2]
+            length_initial = shear_zone_thickness / self.roots.orientation[..., 2]
+            length_x = shear_zone_thickness * self.roots.orientation[..., 0] / self.roots.orientation[..., 2] + shear_displacement
+            length_y = shear_zone_thickness * self.roots.orientation[..., 1] / self.roots.orientation[..., 2]
             length_z = shear_zone_thickness
             length = np.sqrt(length_x**2 + length_y**2 + length_z**2)
             dict_out = {'pullout_displacement': self.length_distribution_factor * (length - length_initial)}
@@ -1835,8 +1839,8 @@ class _DirectShear():
         if np.isclose(shear_zone_thickness.magnitude, 0.0):
             dict_out = {'orientation': np.stack((ones, zeros, zeros), axis = -1)}
         else:
-            length_x = shear_zone_thickness * self.roots.local_orientation[..., 0] / self.roots.local_orientation[..., 2] + shear_displacement
-            length_y = shear_zone_thickness * self.roots.local_orientation[..., 1] / self.roots.local_orientation[..., 2]
+            length_x = shear_zone_thickness * self.roots.orientation[..., 0] / self.roots.orientation[..., 2] + shear_displacement
+            length_y = shear_zone_thickness * self.roots.orientation[..., 1] / self.roots.orientation[..., 2]
             length_z = shear_zone_thickness
             length = np.sqrt(length_x ** 2 + length_y ** 2 + length_z ** 2)
             dict_out = {'orientation': np.stack((
@@ -2070,7 +2074,7 @@ class Waldron(_DirectShear):
             dict_out['dk_dshear_displacement'] = (
                 res_orientation['dorientation_dshear_displacement'][..., 0]
                 + res_orientation['dorientation_dshear_displacement'][..., 2]
-                * self.failure_surface.tanphi
+                * tanphi
                 )
         return(dict_out)
 
@@ -2523,7 +2527,7 @@ class Dram(_DirectShear):
         # calculate yield criterion
         root_x = dict_Tp['force'] * dict_ori['orientation'][:, 0] 
         root_z = dict_Tp['force'] * dict_ori['orientation'][:, 2] * np.tan(soil_friction_angle)
-        res = {'yield_value': np.sum(root_x - root_z) / self.failure_surface.cross_sectional_area + soil_shear_strength}
+        res = {'yield_value': np.sum(root_x - root_z) / self.failure_surface.cross_sectional_area - soil_shear_strength}
         # calculate reinforcement
         if total is True:
             res['reinforcement'] = np.sum(root_x + root_z) / self.failure_surface.cross_sectional_area
@@ -2688,13 +2692,22 @@ class Dram(_DirectShear):
                 initial_shear_displacement = shear_displacement_min,
                 initial_shear_zone_thickness = shear_zone_thickness
                 )
-            index = np.argmax(res['reinforcement'])
-            shear_displacement_min = res['displacement'][index - 1]
-            shear_displacement_max = res['displacement'][index + 1]
-            shear_zone_thickness = res['displacement'][index - 1]
+            index_peak = np.argmax(res['reinforcement'])
+            if index_peak == 0:
+                index_previous = 0
+                index_next = 1
+            elif index_peak == (n - 1):
+                index_previous = index_peak - 1
+                index_next = index_peak
+            else:
+                index_previous = index_peak - 1
+                index_next = index_peak + 1
+            shear_displacement_min = res['displacement'][index_previous]
+            shear_displacement_max = res['displacement'][index_next]
+            shear_zone_thickness = res['shear_zone_thickness'][index_previous]
         return({
-            'displacement': res['displacement'][index],
-            'reinforcement': res['reinforcement'][index]
+            'displacement': res['displacement'][index_peak],
+            'reinforcement': res['reinforcement'][index_peak]
             })
     
 

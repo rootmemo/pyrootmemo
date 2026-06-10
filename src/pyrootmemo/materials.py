@@ -20,8 +20,7 @@ ROOT_PARAMETERS = {
     "length": {"type": (float | int), "unit": units("m"), "limit_check": "positive_only"},
     "length_surface": {"type": (float | int), "unit": units("m"), "limit_check": "non-negative"},
     "azimuth_angle": {"type": (float | int), "unit": units("degrees"), "limit_check": "any"},
-    "elevation_angle": {"type": (float | int), "unit": units("degrees"), "limit_check": "any"},
-    "orientation": {"type": (np.ndarray), "unit": units("dimensionless"), "limit_check": "any"}
+    "elevation_angle": {"type": (float | int), "unit": units("degrees"), "limit_check": "any"}
 }
 
 #TODO: Implement unit_weight_saturated > unit_weight_bulk > unit_weight_dry
@@ -42,6 +41,7 @@ ROOT_SOIL_INTERFACE_PARAMETERS = {
     "friction_angle": {"type": (float | int), "unit": units("degrees"), "limit_check": "positive_only"},
     "effective_stress": {"type": (float | int), "unit": units("kPa"), "limit_check": "positive_only"},    
 }
+
 
 class Roots:
     """
@@ -187,77 +187,45 @@ class Roots:
         else:
             raise AttributeError("Diameter is needed to calculate cross-sectional area and circumference")
             
-    def initial_orientation_vector(
-            self,
-            axis_angle: (float | int) = None
-            ):
+    def calc_orientation(self) -> np.ndarray:
         """
         Returns the initial orientation vector of the root in 3D space.
-        The vector is calculated based on the azimuth and elevation angles of the root. 
+        
+        The three-dimensional vector is calculated by rotating an intial vector
+        [0, 0, 1]^T first by an azimuth angle (rotation around z-axis, positive 
+        when rotating from x to y), and then by a elevation angle (rotation 
+        around the now-rotated y-axis, positive when rotating from z to x).
+        
+        So the initial root orientation is described by the vector:
 
-        Parameters
-        ----------
-        axis_angle : float  |  int, optional
-            Angle in radians to rotate the initial orientation vector around the z-axis, by default None.
-            If None, the initial orientation vector is returned without rotation.
+                [ cos(azimuth) * sin(elevation) ]
+            n = [ sin(azimuth) * sin(elevation) ]
+                [ cos(elevation)                ]
+
+        If elevation and/or azimuth angles are not defined, they are assumed 
+        zero.
+                
         Returns
         -------
         np.ndarray
-            A 3D vector representing the initial orientation of the root in space.
-            The vector is of shape (1, 3) and contains the x, y, and z components.
+            A 3D vector representing the initial orientation of the root in 
+            3-D space. The vector is of shape (n, 3), where n is the number of 
+            roots, and contains the x, y, and z-components of the vector.
         """
-
+        if hasattr(self, 'azimuth_angle'):
+            azimuth = self.azimuth_angle
+        else:
+            azimuth = np.zeros_like(self.diameter.magnitude)
         if hasattr(self, 'elevation_angle'):
-            if hasattr(self, 'azimuth_angle'):
-                v = np.stack([
-                    np.cos(self.azimuth_angle.magnitude) * np.sin(self.elevation_angle.magnitude),
-                    np.sin(self.azimuth_angle.magnitude) * np.sin(self.elevation_angle.magnitude),
-                    np.cos(self.elevation_angle.magnitude)
-                ], axis = 1)
-            else:
-                v = np.stack([
-                    np.sin(self.elevation_angle.magnitude),
-                    np.zeros_like(self.diameter.magnitude),
-                    np.cos(self.elevation_angle.magnitude)
-                ], axis = 1)
+            elevation = self.elevation_angle
         else:
-            v = np.stack([
-                np.zeros_like(self.diameter.magnitude),
-                np.zeros_like(self.diameter.magnitude),
-                np.zeros_like(self.diameter.magnitude)
+            elevation = np.zeros_like(self.diameter.magnitude)
+        return(np.stack([
+            np.cos(azimuth) * np.sin(elevation),
+            np.sin(azimuth) * np.sin(elevation),
+            np.cos(elevation)
             ], axis = 1)
-        # rotate using axis-angle vector (Rodriguez equation)
-        if axis_angle is None:
-            return v
-        else:
-            if np.isscalar(axis_angle):
-                # scalar input --> assume input equals angle between z-axis and rotated x-axis
-                axis_angle = np.array([
-                    np.sin(axis_angle),
-                    0.0,
-                    np.cos(axis_angle)
-                ])
-            elif len(axis_angle) == 2:
-                # 2-D input --> assume rotation vector in x-z space
-                axis_angle = np.array([
-                    axis_angle[0],
-                    0.0,
-                    axis_angle[1]
-                ])
-            # magnitude of rotation, in rad
-            theta = np.linalg.norm(axis_angle)  
-            # rotation axis - unit vector
-            if np.isclose(theta, 0.0):
-                return v
-            else:
-                k = axis_angle / theta 
-                # apply Rodriguez equation
-                root_vector_rotated = (
-                    v * np.cos(theta)
-                    + np.cross(k, v) * np.sin(theta)
-                    + np.outer(np.dot(v, k), k) * (1.0 - np.cos(theta))
-                )
-                return root_vector_rotated
+        )
 
 
 class SingleRoot(Roots):

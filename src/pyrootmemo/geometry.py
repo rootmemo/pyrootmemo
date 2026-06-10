@@ -16,6 +16,8 @@ FAILURE_SURFACE_PARAMETERS = {
     "shear_zone_thickness": {"type": (float | int), "unit": units("m")},
     "max_shear_zone_thickness": {"type": (float | int), "unit": units("m")},
     "cross_sectional_area": {"type": (float | int), "unit": units("m^2")},
+    "azimuth_angle": {"type": (float | int), "unit": units("deg")},
+    "elevation_angle": {"type": (float | int), "unit": units("deg")},
 }
 
 UNIT_WEIGHT_WATER = 9.81 * units('kN/m^3')
@@ -214,3 +216,24 @@ class FailureSurface:
                     f"Value should be of type {FAILURE_SURFACE_PARAMETERS[k]["type"]} or a list"
                 )
             setattr(self, k, v.value * units(v.unit))
+
+    def calc_orientation(self):
+        if hasattr(self, 'azimuth_angle'):
+            Rz = np.array([
+                [np.cos(self.azimuth_angle), -np.sin(self.azimuth_angle), 0.0],
+                [np.sin(self.azimuth_angle), np.cos(self.azimuth_angle), 0.0],
+                [0.0, 0.0, 1.0]
+            ])
+        else:
+            Rz = np.eye(3)
+        if hasattr(self, 'elevation_angle'):
+            Ry = np.array([
+                [np.cos(self.elevation_angle), 0.0, np.sin(self.elevation_angle)],
+                [0.0, 1.0, 0.0],
+                [-np.sin(self.elevation_angle), 0.0, np.cos(self.elevation_angle)]
+            ])
+        else:
+            Ry = np.eye(3)
+        return(Ry @ Rz)
+        
+
