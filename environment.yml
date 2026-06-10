@@ -9,4 +9,3 @@ dependencies:
   - ipykernel
   - pint
   - pandas
-  - rasterio
