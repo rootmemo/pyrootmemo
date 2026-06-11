@@ -18,9 +18,11 @@ from pint import Quantity
 class Wwm():
     """
     This class implements the Wu/Waldron model for root reinforcement.
+
     The Wu/Waldron model is a simple model that calculates the peak force
     mobilised by a bundle of roots, and the peak reinforcement that can be
     mobilised by the bundle at a given failure surface.
+
     The model assumes that all roots are mobilised at the same time, and that
     the peak force is the sum of the maximum tensile forces that can be
     mobilised in all roots.
@@ -1653,7 +1655,7 @@ class AxialPullout():
 ### BASE CLASS FOR DIRECT SHEAR MODELS ###
 ##########################################
 
-class _DirectShear():
+class DirectShearBase():
     """Base class for direct shear displacement-driven models
     
     Serves as a base clas for models in which reinforcement is mobilised
@@ -1888,6 +1890,7 @@ class _DirectShear():
         length_x = np.sqrt(length**2 - length_y**2 - length_z**2)
         return(length_x - shear_zone_thickness * self.roots.orientation[..., 0] / self.roots.orientation[..., 2])
 
+
     def calc_displacement_to_rootpeak(
             self,
             shear_zone_thickness: Quantity
@@ -1922,7 +1925,7 @@ class _DirectShear():
 ### WALDRON-TYPE MODELS ###
 ###########################
 
-class Waldron(_DirectShear):
+class Waldron(DirectShearBase):
     """Waldron model class
 
     Class for Waldron-type models, prediction soil reinforcement as function
@@ -1973,7 +1976,6 @@ class Waldron(_DirectShear):
         show how reinforcement mobilises with shear displacement
     """
 
-    # initiate model
     def __init__(
             self,
             roots: MultipleRoots,
@@ -2087,47 +2089,54 @@ class Waldron(_DirectShear):
             squeeze: bool = True,
             sign: int | float = 1.0
             ) -> dict:
-        """Calculate root reinforcement given level(s) of displacement
+        """
+        Calculate root reinforcement at specified level(s) of shear 
+        displacement.
 
         Parameters
         ----------
         shear_displacement : Quantity | Parameter
-            soil shear displacement.
+            soil shear displacement. Can be either a scalar or a vector of
+            displacements 
         total : bool, optional
             if True, returns total reinforcement by all roots. If False, return
-            reinforcement for each root seperately.
+            reinforcement for each root seperately. By default True
         jacobian : bool, optional
             additionally return the derivative of reinforcement with respect 
             to shear displacement. By default False
         squeeze : bool, optional
-            If True, strip all dimensions with length '1' out of the various
+            If `True`, strip all dimensions with length `1` out of the various
             results arrays. By default True
         sign : int, float, optional
             Multiplication factor for all result returned by the function. 
             This is used to be able to use minimisation algorithms in order
-            to find the global maximum force, see function self.peak_force(). 
+            to find the global maximum force, see function `self.peak_force()`. 
             Default = 1.0
 
         Returns
         -------
         dict
             Dictionary with reinforcement results. Has keys:
-            
+
+            'displacement' : Quantity
+                Array with all shear displacement steps
             'reinforcement' : Quantity
-                shear reinforcements. Has shape (n*m) where n is the number of displacement steps
-                and m the number of roots. If total is True, m = 1
+                shear reinforcements. Has shape (`n*m`) where `n` is the number 
+                of displacement steps and m the number of roots. If `total` is 
+                True, `m = None`
             'behaviour_types' : np.ndarray
                 list of root behaviour type names. 
             'behaviour_fraction' : np.ndarray
                 fraction of total root cross-sectional area that behaves
-                according to each of the types in 'behaviour_types'. Has shape (n*p*m) where
-                n is the number of dispalcement steps, p the number of behaviour types, and 
-                m the number of roots. If total = True, m = 1
+                according to each of the types in 'behaviour_types'. Has shape 
+                (`n*p*m`) where `n` is the number of dispalcement steps, `p` the 
+                number of behaviour types, and `m` the number of roots. If 
+                `total = True`, `m = None`
             'dreinforcement_ddisplacement': Quantity
                 derivative of reinforcement output with respect to the shear 
-                displacement. Only returned when jacobian = True. Has shape (n*m) where
-                n is the number of displacement stes and m the number of roots. If total
-                = True, m = 1.
+                displacement. Only returned when `jacobian = True`. Has shape 
+                (`n*m`) where `n` is the number of displacement stes and `m` the 
+                number of roots. If total = True, `m = None`.
 
         """
         shear_displacement = create_quantity(shear_displacement, check_unit = 'mm')
@@ -2164,7 +2173,8 @@ class Waldron(_DirectShear):
             if jacobian is True:
                 dcr_dus[i, ...] = sign / self.failure_surface.cross_sectional_area * (
                     res_k['dk_dshear_displacement'] * res_Tp['force']
-                     + res_k['k'] * res_Tp['dforce_ddisplacement'] * res_up['dpullout_displacement_dshear_displacement']
+                     + res_k['k'] * res_Tp['dforce_ddisplacement'] 
+                     * res_up['dpullout_displacement_dshear_displacement']
                     )
 
         dict_out = {
@@ -2189,6 +2199,7 @@ class Waldron(_DirectShear):
             if jacobian is True:
                 dict_out['dreinforcement_ddisplacement'] = dict_out['dreinforcement_ddisplacement'].squeeze()
         return(dict_out)    
+
 
     def calc_peak_reinforcement(
             self, 
@@ -2250,7 +2261,6 @@ class Waldron(_DirectShear):
 
     def plot(
             self,
-            fig = None,
             ax = None,
             n: int = 251,
             stack = False,
@@ -2263,16 +2273,13 @@ class Waldron(_DirectShear):
             xunit: str = 'mm',
             yunit: str = 'kPa'            
             ):
-        """Plot how forces in the Waldron model mobilise with displacements
+        """Plot how reinforcements in Waldron model mobilise with displacements
 
         Parameters
         ----------
-        fig : matplotlib.figure.Figure, optional
-            matplotlib figure object. If not defined, a new figure is created. By 
-            default None
         ax : matplotlib.axes.Axes, optional
-            matplotlib axis object to plot on. If not defined, a new axis is 
-            created. By default None
+            matplotlib axis object to plot on. If not defined, plots on the axis
+            in plot currently open. By default None
         n : int, optional
             number of displacement positions to plot, by default 251
         stack : bool, optional
@@ -2321,8 +2328,8 @@ class Waldron(_DirectShear):
         else:
             total_reinforcement_magnitude = np.sum(results['reinforcement'], axis = 1).to(yunit).magnitude
         
-        if fig is None and ax is None:
-            fig, ax  = plt.subplots()
+        if ax is None:
+            ax = plt.gca()
         shear_displacement_magnitude = shear_displacement.to(xunit).magnitude
         ax.plot(
             shear_displacement_magnitude,
@@ -2377,14 +2384,14 @@ class Waldron(_DirectShear):
 
         ax.set_xlabel(xlabel + ' [' + str(xunit) + ']')
         ax.set_ylabel(ylabel + ' [' + str(yunit) + ']')
-        return(fig, ax)
+        return(ax)
 
 
 ###########################################
 ### Dundee Root Analytical Model (DRAM) ###
 ###########################################
 
-class Dram(_DirectShear):
+class Dram(DirectShearBase):
     """Dram model class
 
     Class for the Dundee Root Analytical Model (DRAM), prediction soil 
@@ -2435,7 +2442,6 @@ class Dram(_DirectShear):
         show how reinforcement mobilises with shear displacement
     """
 
-    # initiate model
     def __init__(
             self,
             roots: MultipleRoots,
@@ -2446,7 +2452,7 @@ class Dram(_DirectShear):
             slipping: bool = True,
             elastoplastic: bool = False,
             weibull_shape: float | int | None = None
-    ):
+            ):
         """Initialise a Waldron model class object
 
         Parameters
@@ -2498,7 +2504,8 @@ class Dram(_DirectShear):
             weibull_shape = weibull_shape
             )
 
-    def _calc_single(
+
+    def calc_single_step(
             self,
             shear_displacement: Quantity,
             shear_zone_thickness: Quantity,
@@ -2507,33 +2514,27 @@ class Dram(_DirectShear):
             total: bool = True,
             jacobian: bool = False
             ):
-        # calculate orientation
-        dict_ori = self.calc_displaced_orientation(
+        dict_ori = self.calc_displaced_orientation( 
             shear_displacement,
             shear_zone_thickness,
             jacobian = jacobian
             )
-        # calculate pull-out displacement
         dict_up = self.calc_pullout_displacement(
             shear_displacement,
             shear_zone_thickness,
             jacobian = jacobian
             )
-        # calculate tensile force
-        dict_Tp = self.pullout.calc_force(
+        dict_Tp = self.pullout.calc_force(   # calculate tensile force
             dict_up['pullout_displacement'],
             jacobian = jacobian
             )
-        # calculate yield criterion
-        root_x = dict_Tp['force'] * dict_ori['orientation'][:, 0] 
-        root_z = dict_Tp['force'] * dict_ori['orientation'][:, 2] * np.tan(soil_friction_angle)
-        res = {'yield_value': np.sum(root_x - root_z) / self.failure_surface.cross_sectional_area - soil_shear_strength}
-        # calculate reinforcement
+        root_force_x = dict_Tp['force'] * dict_ori['orientation'][:, 0] 
+        root_force_z = dict_Tp['force'] * dict_ori['orientation'][:, 2] * np.tan(soil_friction_angle)
+        dict_out = {'yield_value': np.sum(root_force_x - root_force_z) / self.failure_surface.cross_sectional_area - soil_shear_strength}
         if total is True:
-            res['reinforcement'] = np.sum(root_x + root_z) / self.failure_surface.cross_sectional_area
+            dict_out['reinforcement'] = np.sum(root_force_x + root_force_z) / self.failure_surface.cross_sectional_area
         else:
-            res['reinforcement'] = (root_x + root_z) / self.failure_surface.cross_sectional_area
-        # derivative of yield respect to shear zone thickness
+            dict_out['reinforcement'] = (root_force_x + root_force_z) / self.failure_surface.cross_sectional_area
         if jacobian is True:
             droot_load_dshear_zone_thickness = np.sum(
                 dict_Tp['dforce_ddisplacement'] 
@@ -2549,20 +2550,79 @@ class Dram(_DirectShear):
                 + dict_Tp['force']
                 * dict_ori['dorientation_dshear_zone_thickness'][:, 2]
                 ) * np.tan(soil_friction_angle) / self.failure_surface.cross_sectional_area
-            res['dyield_value_dshear_zone_thickness'] = droot_load_dshear_zone_thickness - droot_resistance_dshear_zone_thickness
-        # return results
-        return(res)
+            dict_out['dyield_value_dshear_zone_thickness'] = droot_load_dshear_zone_thickness - droot_resistance_dshear_zone_thickness
+        return(dict_out)
 
-            
+    
     def calc_reinforcement(
             self,
-            max_shear_displacement: Parameter | Quantity,
+            max_shear_displacement: Parameter | Quantity | None = None,
             n: int = 251,
             algorithm: str = 'bracket',
             total: bool = True,
             initial_shear_displacement: None | Quantity = None,
             initial_shear_zone_thickness: None | Quantity = None
-            ):
+            ) -> dict:
+        """
+        Calculate shear reinforcement as function of shear displacement
+
+        Iterate through a range of soil shear displacements, ranging from zero
+        (default) to a specified maximum shear displacement. For each 
+        displacement step, calculate the  root reinforcement, shear zone 
+        thickness and behaviour of roots.
+
+        Parameters
+        ----------
+        max_shear_displacement : Parameter | Quantity | None, optional
+            Maximum shear displacement, by default None. If None, an automatic
+            reasonable guess.
+        n : int, optional
+            Number of (equally-spaced) discrete displacement steps to use, 
+            by default 251
+        algorithm : str, optional
+            root solve method used by the `scipy.optimize.root_solve()` function
+            used to find the new shear zone thickness, in case of shear zone
+            instability, by default 'bracket'
+        total : bool, optional
+            if True, returns total reinforcement by all roots. If False, return
+            reinforcement for each root seperately. By default True
+        initial_shear_displacement : None | Quantity, optional
+            Initial shear displacement, by default None, in which case it is 
+            assumed as 0.0. Can be used to start the iterative solving process
+            at displacements other than zero, but should normally not be used. 
+        initial_shear_zone_thickness : None | Quantity, optional
+            Initial shear zone thickness, by default None, in which case it is 
+            assumed from `self.failure_surface.shear_zone_thickness`. 
+            Can be used to start the iterative solving process at displacements 
+            other than zero if needed, but should normally not be used.
+
+        Returns
+        -------
+        dict
+            Dictionary with reinforcement results. Has keys:
+
+            'displacement' : Quantity
+                Array with all shear displacement steps
+            'reinforcement' : Quantity
+                shear reinforcements. Has shape (`n*m`) where `n` is the number 
+                of displacement steps and m the number of roots. If `total` is 
+                True, `m = None`
+            'shear_zone_thickness' : Quantity
+                shear zone thickness at each shear displacement step
+            'behaviour_types' : np.ndarray
+                list of root behaviour type names. 
+            'behaviour_fraction' : np.ndarray
+                fraction of total root cross-sectional area that behaves
+                according to each of the types in 'behaviour_types'. Has shape 
+                (`n*p*m`) where `n` is the number of dispalcement steps, `p` the 
+                number of behaviour types, and `m` the number of roots. If 
+                `total = True`, `m = None`
+            'dreinforcement_ddisplacement': Quantity
+                derivative of reinforcement output with respect to the shear 
+                displacement. Only returned when `jacobian = True`. Has shape 
+                (`n*m`) where `n` is the number of displacement stes and `m` the 
+                number of roots. If total = True, `m = None`.
+        """
         if is_namedtuple(max_shear_displacement):
             max_shear_displacement = max_shear_displacement.value * units(max_shear_displacement.unit)
         if initial_shear_displacement is None:
@@ -2588,7 +2648,7 @@ class Dram(_DirectShear):
         for i in np.arange(n):
             if shear_displacement[i].magnitude > 0.0:
                 # calculate results
-                res = self._calc_single(
+                res = self.calc_single_step(
                     shear_displacement[i],
                     shear_zone_thickness[i - 1],
                     soil_shear_strength,
@@ -2607,7 +2667,7 @@ class Dram(_DirectShear):
                         shear_zone_thickness[i] = shear_zone_thickness[i - 1]
                     else:
                         # check if possible to get a stable shear plane at the maximum shear zone thickness
-                        res_max = self._calc_single(
+                        res_max = self.calc_single_step(
                             shear_displacement[i],
                             self.failure_surface.max_shear_zone_thickness,
                             soil_shear_strength,
@@ -2623,7 +2683,7 @@ class Dram(_DirectShear):
                             # stable at max - iterate to find new shear zone thickness that makes yield_value zero
                             if algorithm == 'bracket':
                                 sol = root_scalar(
-                                    lambda x: self._calc_single(
+                                    lambda x: self.calc_single_step(
                                         shear_displacement[i],
                                         x * units('mm'),
                                         soil_shear_strength,
@@ -2634,11 +2694,12 @@ class Dram(_DirectShear):
                                     bracket = [
                                         shear_zone_thickness[i - 1].to('mm').magnitude,
                                         self.failure_surface.max_shear_zone_thickness.to('mm').magnitude
-                                    ])
+                                        ]
+                                    )
                                 shear_zone_thickness[i] = sol.root * units('mm')
                             elif algorithm == 'gradient':
                                 def root_function(x):
-                                    res = self._calc_single(
+                                    res = self.calc_single_step(
                                         shear_displacement[i],
                                         x * units('mm'),
                                         soil_shear_strength,
@@ -2660,7 +2721,7 @@ class Dram(_DirectShear):
                                     fprime = True                                
                                     )
                                 shear_zone_thickness[i] = sol.root * units('mm')
-                            res_solved = self._calc_single(
+                            res_solved = self.calc_single_step(
                                 shear_displacement[i],
                                 shear_zone_thickness[i],
                                 soil_shear_strength,
@@ -2713,12 +2774,11 @@ class Dram(_DirectShear):
 
     def plot(
             self,
-            fig = None,
             ax = None,
             n: int = 251,
             stack = False,
             peak: bool = True,
-            margin_axis: int | float = 0.20,
+            margin_axis: int | float = 0.10,
             labels = True,
             margin_label: int | float = 0.05,
             xlabel: str = 'Shear displacement',
@@ -2730,9 +2790,6 @@ class Dram(_DirectShear):
 
         Parameters
         ----------
-        fig : matplotlib.figure.Figure, optional
-            matplotlib figure object. If not defined, a new figure is created. By 
-            default None
         ax : matplotlib.axes.Axes, optional
             matplotlib axis object to plot on. If not defined, a new axis is 
             created. By default None
@@ -2748,7 +2805,7 @@ class Dram(_DirectShear):
             Add some extra displacement range so failure in roots nicely shows
             up in plot. Defined as a fraction of the chosen displacement range
             based on peak (function _get_displacement_root_peak()). By default
-            0.20.
+            0.10.
         labels : bool | list, optional
             labels to plot on contribution of each root, by default False.
             If False, no labels are plotted. If True, labels are plotted using
@@ -2776,15 +2833,15 @@ class Dram(_DirectShear):
             shear_displacement_max = 100.0 * units('mm')
         else:
             shear_displacement_rootpeak = self.calc_displacement_to_rootpeak(self.failure_surface.max_shear_zone_thickness)
-            shear_displacement_max = np.max(shear_displacement_rootpeak)
+            shear_displacement_max = np.max(shear_displacement_rootpeak) * (1.0 + margin_axis)
         results = self.calc_reinforcement(shear_displacement_max, n = n, total = False)
         if self.roots.xsection.shape == (1, ):
             total_reinforcement_magnitude = results['reinforcement'].to(yunit).magnitude
         else:
             total_reinforcement_magnitude = np.sum(results['reinforcement'], axis = 1).to(yunit).magnitude
         
-        if fig is None and ax is None:
-            fig, ax  = plt.subplots()
+        if ax is None:
+            ax = plt.gca()
         shear_displacement = results['displacement']
         shear_displacement_magnitude = shear_displacement.to(xunit).magnitude
         ax.plot(
@@ -2840,4 +2897,4 @@ class Dram(_DirectShear):
 
         ax.set_xlabel(xlabel + ' [' + str(xunit) + ']')
         ax.set_ylabel(ylabel + ' [' + str(yunit) + ']')
-        return(fig, ax)
+        return(ax)
