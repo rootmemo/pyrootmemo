@@ -220,7 +220,7 @@ def create_weights(
 
 
 def nondimensionalise(
-        x: np.ndarray | Quantity, 
+        x: np.ndarray | float | int | Quantity, 
         x0: int | float | Quantity | None = None
         ) -> np.ndarray:
     """Convert dimensional data array to nondimensional form
@@ -231,8 +231,8 @@ def nondimensionalise(
 
     Parameters
     ----------
-    x : np.ndarray | Quantity
-        array with (potentially dimensional) data
+    x : np.ndarray | float | int | Quantity
+        scalar or array with (potentially dimensional) data
     x0 : int | float | Quantity | None, optional
         reference value (scalar), by default None
 
@@ -249,7 +249,7 @@ def nondimensionalise(
             return(x.to(x0.units).magnitude / x0.magnitude)
         else:
             raise TypeError('x0 must be Quantity or None, with given x')
-    elif isinstance(x, np.ndarray):
+    elif isinstance(x, np.ndarray) | isinstance(x, float) | isinstance(x, int):
         if x0 is None:
             return(x)
         elif isinstance(x0, int) | isinstance(x0, float):
@@ -257,7 +257,7 @@ def nondimensionalise(
         else:
             raise TypeError('x0 must be int, float or None, with given x')
     else:
-        raise TypeError("x must be np.ndarray or Quantity")
+        raise TypeError("x must be np.ndarray, float, int or Quantity")
     
 
 def redimensionalise(
