@@ -137,6 +137,7 @@ class Roots:
         AttributeError
             Diameter is needed to calculate circumference
         """
+        
         if not isinstance(species, str):
             raise TypeError("Species should be entered as a string, e.g. alnus_incana")
         if "_" not in species:
@@ -293,7 +294,7 @@ class MultipleRoots(Roots):
     """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-
+#TODO: Multiple species in MultipleRoots class, check for species name in list  
 
 class Soil:
     """
