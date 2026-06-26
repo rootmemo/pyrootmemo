@@ -15,6 +15,7 @@ scipy = ">1.14"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.29.5"
+pytest
 
 
 [tool.poetry.group.docs.dependencies]
