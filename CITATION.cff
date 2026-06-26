@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+title: pyrootmemo
+message: "If you use this software, please cite it using the metadata below."
+type: software
+version: 0.1.0
+date-released: "2026-07-01"  # update to actual release date
+license: MIT
+repository-code: https://github.com/rootmemo/pyrootmemo
+abstract: >-
+  pyrootmemo is a Python package for modelling the contribution of root
+  systems to the shear strength of soil. It provides a consistent,
+  object-oriented interface to several root reinforcement models, making it easy to compare model outputs
+  and fit parameters to measurements.
+authors:
+  - family-names: Yildiz
+    given-names: Anil
+    affiliation: "RWTH Aachen University, Germany"
+    email: yildiz@mbd.rwth-aachen.de
+    orcid: "https://orcid.org/0000-0002-2257-7025"
+  - family-names: Meijer
+    given-names: Gerrit J.
+    affiliation: "University of Bath, United Kingdom"
+    email: gjm36@bath.ac.uk
+    orcid: "https://orcid.org/0000-0002-2815-5480"
+keywords:
+  - root reinforcement
+  - slope stability
+  - soil mechanics
+  - geotechnical engineering
+  - Python
