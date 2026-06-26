@@ -218,6 +218,7 @@
 <span class="sd">        AttributeError</span>
 <span class="sd">            Diameter is needed to calculate circumference</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">species</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Species should be entered as a string, e.g. alnus_incana&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="s2">&quot;_&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">species</span><span class="p">:</span>
@@ -388,7 +389,7 @@
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
-
+<span class="c1">#TODO: Multiple species in MultipleRoots class, check for species name in list  </span>
 
 <div class="viewcode-block" id="Soil">
 <a class="viewcode-back" href="../../materials/soil.html#pyrootmemo.materials.Soil">[docs]</a>
