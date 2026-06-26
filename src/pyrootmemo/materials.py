@@ -7,8 +7,6 @@ from pyrootmemo.helpers import units, limit_check
 Parameter = namedtuple("parameter", "value unit")
 
 
-#TODO: Check for non-negativeness and positivity of parameters
-
 #: A dictionary that maps root parameter names to their types and units.
 ROOT_PARAMETERS = {
     "elastic_modulus": {"type": (float | int), "unit": units("MPa"), "limit_check": "positive_only"},
@@ -22,8 +20,8 @@ ROOT_PARAMETERS = {
     "azimuth_angle": {"type": (float | int), "unit": units("degrees"), "limit_check": "any"},
     "elevation_angle": {"type": (float | int), "unit": units("degrees"), "limit_check": "any"},
 }
+#TODO: Check for angles (azimuth, elevation)
 
-#TODO: Implement unit_weight_saturated > unit_weight_bulk > unit_weight_dry
 #: A dictionary that maps soil parameter names to their types and units.
 SOIL_PARAMETERS = {
     "cohesion": {"type": (float | int), "unit": units("kPa"), "limit_check": "non-negative"},
@@ -33,6 +31,8 @@ SOIL_PARAMETERS = {
     "unit_weight_saturated": {"type": (float | int), "unit": units("kN/m^3"), "limit_check": "positive_only"},
     "water_content": {"type": (float | int), "unit": units("").to("percent"), "limit_check": "non-negative"},
 }
+#TODO: Implement unit_weight_saturated > unit_weight_bulk > unit_weight_dry
+
 
 #: A dictionary that maps root-soil interface parameter names to their types and units.
 ROOT_SOIL_INTERFACE_PARAMETERS = {
@@ -172,10 +172,10 @@ class Roots:
                     raise TypeError(
                         f"{k} should only be of type {ROOT_PARAMETERS[k]['type']} in a list"
                     )
-                [limit_check(entry, k, ROOT_PARAMETERS[k]['limit_check']) for entry in v.value]
+                for entry in v.value:
+                    limit_check(entry, k, ROOT_PARAMETERS[k]['limit_check'])
             else:
                 limit_check(v.value, k, ROOT_PARAMETERS[k]['limit_check'])
-            #TODO: check if all values in the list are positive or non-negative
             
             setattr(self, k, v.value * units(v.unit))
 
@@ -205,19 +205,22 @@ class Roots:
             A 3D vector representing the initial orientation of the root in space.
             The vector is of shape (1, 3) and contains the x, y, and z components.
         """
-
+        
+        
         if hasattr(self, 'elevation_angle'):
+            elevation_angle_rad = np.deg2rad(self.elevation_angle.magnitude)
             if hasattr(self, 'azimuth_angle'):
+            azimuth_angle_rad = np.deg2rad(self.azimuth_angle.magnitude)
                 v = np.stack([
-                    np.cos(self.azimuth_angle.magnitude) * np.sin(self.elevation_angle.magnitude),
-                    np.sin(self.azimuth_angle.magnitude) * np.sin(self.elevation_angle.magnitude),
-                    np.cos(self.elevation_angle.magnitude)
+                    np.cos(azimuth_angle_rad) * np.sin(elevation_angle_rad),
+                    np.sin(azimuth_angle_rad) * np.sin(elevation_angle_rad),
+                    np.cos(elevation_angle_rad)
                 ], axis = 1)
             else:
                 v = np.stack([
-                    np.sin(self.elevation_angle.magnitude),
+                    np.sin(elevation_angle_rad),
                     np.zeros_like(self.diameter.magnitude),
-                    np.cos(self.elevation_angle.magnitude)
+                    np.cos(elevation_angle_rad)
                 ], axis = 1)
         else:
             v = np.stack([
@@ -387,7 +390,8 @@ class Soil:
                     raise TypeError(
                         f"{k} should only be of type {SOIL_PARAMETERS[k]['type']} in a list"
                     )
-                [limit_check(entry, k, SOIL_PARAMETERS[k]['limit_check']) for entry in v.value]
+                for entry in v.value:
+                    limit_check(entry, k, SOIL_PARAMETERS[k]['limit_check'])
             else:
                 limit_check(v.value, k, SOIL_PARAMETERS[k]['limit_check'])
 
@@ -436,7 +440,8 @@ class Interface:
                     raise TypeError(
                         f"{k} should only be of type {ROOT_SOIL_INTERFACE_PARAMETERS[k]['type']} in a list"
                     )
-                [limit_check(entry, k, ROOT_SOIL_INTERFACE_PARAMETERS[k]['limit_check']) for entry in v.value]
+                for entry in v.value:
+                    limit_check(entry, k, ROOT_SOIL_INTERFACE_PARAMETERS[k]['limit_check'])
             else:
                 limit_check(v.value, k, ROOT_SOIL_INTERFACE_PARAMETERS[k]['limit_check'])
 
