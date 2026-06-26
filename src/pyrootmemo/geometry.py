@@ -3,20 +3,8 @@ from pyrootmemo.tools.checks import is_namedtuple
 from pyrootmemo.materials import Soil
 from pyrootmemo.helpers import units
 from pint import DimensionalityError
+from pyrootmemo.constants import SOIL_PROFILE_PARAMETERS, FAILURE_SURFACE_PARAMETERS, UNIT_WEIGHT_WATER
 
-SOIL_PROFILE_PARAMETERS = {
-    "depth": {"type": (float | int), "unit": units("m")},
-    "groundwater_table": {"type": (float | int), "unit": units("m")},
-}
-
-FAILURE_SURFACE_PARAMETERS = {
-    "depth": {"type": (float | int), "unit": units("m")},
-    "orientation": {"type": (float | int), "unit": units("deg")},
-    "shear_zone_thickness": {"type": (float | int), "unit": units("m")},
-    "cross_sectional_area": {"type": (float | int), "unit": units("m^2")},
-}
-
-UNIT_WEIGHT_WATER = 9.81 * units('kN/m^3')
 
 class SoilProfile:
     """
