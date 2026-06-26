@@ -13,10 +13,10 @@ matplotlib = ">3.9"
 pandas = ">2.2"
 scipy = ">1.14"
 
+
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.29.5"
-pytest
-
+pytest = "^9.1.1"
 
 [tool.poetry.group.docs.dependencies]
 sphinx = "^8.2.3"
