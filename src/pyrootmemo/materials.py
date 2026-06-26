@@ -210,7 +210,7 @@ class Roots:
         if hasattr(self, 'elevation_angle'):
             elevation_angle_rad = np.deg2rad(self.elevation_angle.magnitude)
             if hasattr(self, 'azimuth_angle'):
-            azimuth_angle_rad = np.deg2rad(self.azimuth_angle.magnitude)
+                azimuth_angle_rad = np.deg2rad(self.azimuth_angle.magnitude)
                 v = np.stack([
                     np.cos(azimuth_angle_rad) * np.sin(elevation_angle_rad),
                     np.sin(azimuth_angle_rad) * np.sin(elevation_angle_rad),
