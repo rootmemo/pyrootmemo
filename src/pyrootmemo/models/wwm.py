@@ -112,7 +112,6 @@ class Wwm():
         if not 'peak_force' in self.output:
             self.calc_peak_force()
         self.output['peak_reinforcement'] = (
-            k 
-            *  self.output['peak_force'] 
+            k *  self.output['peak_force'] 
             / failure_surface.cross_sectional_area
             )

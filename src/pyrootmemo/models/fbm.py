@@ -1,16 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from matplotlib.figure import Figure
 from matplotlib.axes import Axes
-from scipy.special import gamma
-from scipy.optimize import minimize, differential_evolution
-from pyrootmemo.helpers import units, Parameter, create_quantity, solve_quadratic, solve_cubic
-from pyrootmemo.geometry import SoilProfile, FailureSurface
-from pyrootmemo.materials import MultipleRoots, Interface
-from pyrootmemo.tools.utils_rotation import axisangle_rotate
+from pyrootmemo import Parameter
+from pyrootmemo.helpers import create_quantity
+from pyrootmemo.geometry import FailureSurface
+from pyrootmemo.materials import MultipleRoots
 from pyrootmemo.tools.utils_plot import round_range
 from pint import Quantity
+
 
 class Fbm():
     """
@@ -82,6 +80,8 @@ class Fbm():
             attributes 'diameter', 'xsection' and 'tensile_strength'
         load_sharing : float | int
             FBM load sharing parameter
+        output : dict
+            Dictionary with all calculation results
 
         """
         if not isinstance(roots, MultipleRoots):
@@ -103,6 +103,7 @@ class Fbm():
             )
         self.breakage_order = np.argsort(self.sort_order)
         self.matrix = self.calc_matrix()
+        self.output = {}
 
     def calc_matrix(self) -> Quantity:
         """Create matrix with forces in each root at breakage of all roots
@@ -130,25 +131,30 @@ class Fbm():
         matrix_broken = np.tril(matrix)
         return(matrix_broken * force_unit)
 
-    def calc_peak_force(self) -> Quantity:
+    def calc_peak_force(self) -> None:
         """Calculate peak force in the fibre bundle
 
         Calculat the peak force that the entire fibre bundle can carry. This
         reinforcement is calculated using the 'matrix method' as described 
         by Yildiz and Meijer.
         
+        Attributes Modified
+        -------------------
+        output : dict
+            adds a `peak_force` item to the output dictionary
+
         Returns
         -------
-        Quantity
-            Peak force, i.e. largest force the entire bundle can carry
+        None
         """
-        return(np.max(np.sum(self.matrix, axis = 0)))
+        peak_force = np.max(np.sum(self.matrix, axis = 0))
+        self.output['peak_force'] = peak_force
 
     def calc_peak_reinforcement(
             self, 
             failure_surface: FailureSurface,
             k: int | float = 1.0
-            ) -> Quantity:
+            ) -> None:
         """Calculate peak reinforcement in the fibre bundle
 
         Calculate peak reinforcement (largest soil reinforcement at any point)
@@ -163,10 +169,14 @@ class Fbm():
         k : float | int, optional
             Wu/Waldron reinforcement orientation factor. The default is 1.0.
 
+        Attributes Modified
+        -------------------
+        output : dict
+            adds a `peak_reinforcement` item to the output dictionary
+            
         Returns
         -------
-        Quantity
-            Peak root reinforcement.
+        None
         """
         if not isinstance(failure_surface, FailureSurface):
             raise TypeError('failure_surface must be intance of FailureSurface class')
@@ -174,31 +184,39 @@ class Fbm():
             raise AttributeError('Failure surface does not contain attribute cross_sectional_area')
         if not (isinstance(k, int) | isinstance(k, float)):
             raise TypeError('k must be an scalar integer or float')
-        return(k * self.calc_peak_force() / failure_surface.cross_sectional_area)
+        if not 'peak_force' in self.output:
+            self.calc_peak_force()
+        self.output['peak_reinforcement'] = (
+            k *  self.output['peak_force'] 
+            / failure_surface.cross_sectional_area
+            )
     
-    def calc_reduction_factor(self) -> float:
+    def calc_reduction_factor(self) -> None:
         """Calculate FBM peak reinforcement relative to WWM
 
         Calculate the ratio between fibre bundle peak force and the sum of 
         individual fibre strengths. Function will thus return a value between
         0.0 and 1.0. '1.0' indicates all roots break simultaneously.
 
+        Attributes Modified
+        -------------------
+        output : dict
+            adds a `reduction_factor` item to the output dictionary
+        
         Returns
         -------
-        float
-            ratio between FBM and WWM peak reinforcements.
+        None
         """
-        force_fbm = self.peak_force()
+        if not 'peak_force' in self.output:
+            self.peak_force()
         force_sum = np.sum(self.roots.xsection * self.roots.tensile_strength)
-        factor = force_fbm / force_sum
+        factor = self.output['peak_force'] / force_sum
         if isinstance(factor, Quantity):
-            return(factor.magnitude)
-        else:
-            return(factor)
+            factor = factor.magnitude
+        self.output['reduction_factor'] = factor
     
     def plot(
             self,
-            fig: Figure = None,
             ax: Axes = None,
             unit: str = 'N',
             reference_diameter: Quantity | Parameter = Parameter(1.0, 'mm'),
@@ -228,12 +246,9 @@ class Fbm():
 
         Parameters
         ----------
-        fig : matplotlib.figure.Figure, optional
-            matplotlib figure object. If not defined, a new figure is created. By 
-            default None
         ax : matplotlib.axes.Axes, optional
-            matplotlib axis object to plot on. If not defined, a new axis is 
-            created. By default None
+            matplotlib axis object to plot on. If not defined, the current axis
+            is used. By default None
         unit : str, optional
             unit used for plotting forces, by default 'N'
         reference_diameter : Quantity | Parameter(float | int, str), optional
@@ -271,8 +286,9 @@ class Fbm():
         force_total_before = np.sum(matrix, axis = 0)
         force_total_after = force_total_before - np.diag(matrix)
         force_total_all = np.append(0.0, np.stack((force_total_before, force_total_after)).ravel(order = 'F'))
-        if fig is None and ax is None:
-            fig, ax = plt.subplots()
+        
+        if not isinstance(ax, Axes):
+            ax = plt.gca()
 
         if stack is True:
             force_individual_before = matrix
@@ -338,4 +354,4 @@ class Fbm():
             limits = [0.0, None]
             )['limits'])
         
-        return(fig, ax)
+        return(ax)
