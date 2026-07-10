@@ -5,7 +5,7 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from scipy.special import gamma
 from scipy.optimize import minimize, differential_evolution
-from pyrootmemo.helpers import units, Parameter, create_quantity, solve_quadratic, solve_cubic
+from pyrootmemo.helpers import units, Parameter, create_quantity
 from pyrootmemo.geometry import SoilProfile, FailureSurface
 from pyrootmemo.materials import MultipleRoots, Interface
 from pyrootmemo.tools.utils_rotation import axisangle_rotate

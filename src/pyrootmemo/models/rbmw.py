@@ -212,7 +212,6 @@ class Rbmw():
                 self.output.update(output)
                 return output
 
-
     def calc_peak_force(
             self,
             method: str = 'Newton-CG',

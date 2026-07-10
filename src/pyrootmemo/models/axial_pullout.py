@@ -1,16 +1,102 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-from matplotlib.figure import Figure
-from matplotlib.axes import Axes
 from scipy.special import gamma
-from scipy.optimize import minimize, differential_evolution
-from pyrootmemo.helpers import units, Parameter, create_quantity, solve_quadratic, solve_cubic
-from pyrootmemo.geometry import SoilProfile, FailureSurface
+from pyrootmemo import Parameter
+from pyrootmemo.helpers import units, create_quantity, Results, ResultsType
 from pyrootmemo.materials import MultipleRoots, Interface
-from pyrootmemo.tools.utils_rotation import axisangle_rotate
-from pyrootmemo.tools.utils_plot import round_range
 from pint import Quantity
+
+def _solve_quadratic(
+        a: Quantity, 
+        b: Quantity, 
+        c: Quantity,
+        ) -> Quantity:
+    """Calculate largest root of a quadratic equation
+
+    Calculate the largest root of a quadratic equation in the form:
+    a * x**2 + b * x + c == 0 
+
+    Parameters
+    ----------
+    a : Quantity
+        second-order polynomial coefficient(s)
+    b : Quantity
+        first-order polynomial coefficient(s)
+    c : Quantity
+        zero-order polynomial coefficient(s)
+
+    Returns
+    -------
+    Quantity | np.ndarray | float
+        Largest root of the quadratic equation
+    """
+    discriminant = b**2 - 4.0 * a * c
+    x = (-b + np.sign(a) * np.sqrt(discriminant)) / (2.0 * a)
+    return(x)
+
+def _solve_cubic(
+        a: Quantity, 
+        b: Quantity, 
+        c: Quantity, 
+        d: Quantity
+        ) -> Quantity:
+    """Calculate largest real root of a cubic equation
+
+    Calculate the largest root of a cubic equation in the form:
+    a * x**3 + b * x**2 + c * x + d == 0 
+
+    The function assumes all values of the third-order coefficient <a> are
+    not equal to zero. If so, a quadratic solver is more appropriate.
+
+    The function follows the methodology detailed on Wikipedia
+    (https://en.wikipedia.org/wiki/Cubic_equation):
+  
+    Parameters
+    ----------
+    a : Quantity
+        third-order polynomial coefficient(s). All values must not be equal 
+        to zero for the function to work.
+    b : Quantity
+        second-order polynomial coefficient(s)
+    c : Quantity
+        first-order polynomial coefficient(s)
+    d : Quantity
+        zero-order polynomial coefficient(s)
+
+    Returns
+    -------
+    Quantity
+        Largest real root of the cubic equation
+    """
+    x = np.zeros(a.shape) * d.units / c.units
+    e = b / a
+    f = c / a
+    g = d / a
+    Q = (e**2 - 3.0 * f) / 9.0
+    R = (2.0 * e**3 - 9.0 * e * f + 27.0 * g) / 54.0
+    flag_3roots = (R**2) < (Q**3) # if true, 3 real roots exist, if false, only one real root exists
+    if any(flag_3roots):
+        theta = np.arccos(R[flag_3roots] / np.sqrt(Q[flag_3roots]**3))
+        x[flag_3roots] = (
+            -2.0 
+            * np.sqrt(Q[flag_3roots]) 
+            * np.cos((theta + 2.0 * np.pi) / 3.0) 
+            - e[flag_3roots] 
+            / 3.0
+            )
+    flag_1root = ~flag_3roots
+    if any(flag_1root):
+        A = (
+            -np.sign(R[flag_1root]) 
+            * (
+                np.abs(R[flag_1root]) 
+                + np.sqrt(R[flag_1root]**2 - Q[flag_1root]**3)
+                ) ** (1.0 / 3.0)
+            )
+        B = Q[flag_1root] / A
+        x[flag_1root] = (A + B) - e[flag_1root] / 3.0
+    flag_zero = np.isclose(d.magnitude, 0.0)
+    x[flag_zero] = 0.0 * d.units / c.units
+    return(x)
 
 class AxialPullout():
     """Class for axial pull-out of roots
@@ -110,6 +196,12 @@ class AxialPullout():
         each root (columns, axis 1) at each of the different behaviour types
         (rows, axis 0). Note that for some behaviour types this relationship
         may not be uniquely defined.
+    output : dict
+        Dictionary with all calculation results. By default includes the key
+        `behaviour_types` containing a list with character strings indicating 
+        the different different types of behaviour each root could show
+        depending on the level of displacement (e.g. elastic, plastic, slipping,
+        anchored etc.).
                 
     Methods
     -------
@@ -269,7 +361,7 @@ class AxialPullout():
                      )
                 coefficients[3][2, ...] = roots.length - roots.length_surface
                 # displacement at start of slippage, elastic <limit 1>
-                force_limits[1, :] = solve_quadratic(
+                force_limits[1, :] = _solve_quadratic(
                     1.0 / (2.0 * roots.elastic_modulus * roots.xsection * roots.circumference * interface.shear_strength),
                     1.0 / (roots.circumference * interface.shear_strength),
                     roots.length_surface - roots.length
@@ -332,7 +424,7 @@ class AxialPullout():
                     )
                 if slipping is True:
                     # force and displacement at start of slipping, plastic <limit 4>
-                    force_limits[4, :] = solve_quadratic(
+                    force_limits[4, :] = _solve_quadratic(
                         1.0 / (2.0 * roots.plastic_modulus * roots.xsection 
                             * roots.circumference * interface.shear_strength),
                         (1.0 
@@ -489,14 +581,30 @@ class AxialPullout():
         self.displacement_limits = displacement_limits
         self.force_limits = force_limits
 
+        self.output = {'behaviour_types': behaviour_types}
 
     def calc_force(
             self,
-            displacement: Quantity,
-            jacobian: bool = False
-            ) -> dict:
+            displacement: Quantity | Parameter,
+            jacobian: bool = False,
+            results: str = "attribute"
+            ):
         """Calculate force in each root, as function of given displacement
 
+        Function creates a dictionary with the keys:
+
+            * `displacement`: array or scalar with requested displacements
+            * `force_per_root`: array with forces in each root
+            * `behaviour_index`: array with the index of the behaviour type
+              of each roots. see class attribute 'behaviour_type' for a full
+              list of behaviour type names
+            * `survival_fraction`: array with survival fraction for each root
+            * `dforce_per_root_ddisplacement`: derivative of pullout forces in 
+              each root with respect to displacement. Only returned when 
+              `jacobian = True`.
+        
+        How this dictionary returned depends on the value of the `results` argument.
+        
         Parameters
         ----------
         displacement : Quantity | Parameter(value: int | float | np.ndarray, unit: str)
@@ -507,18 +615,13 @@ class AxialPullout():
         jacobian : bool
             If True, also calculate and return the derivative of pull-out force(s) with
             respect to the applied pull-out displacement. By default False.
-
-        Returns
-        -------
-        dict
-            results dictionary with fields:
-            - 'force': array with forces in each root
-            - 'behaviour_index': array with the index of the behaviour type
-              of each roots. see class attribute 'behaviour_type' for a full
-              list of behaviour type names
-            - 'survival_fraction': array with survival fraction for each root
-            - 'dforce_ddisplacement': derivative of pullout forces with respect 
-              to displacement. Only returned when 'jacobian = True'. 
+        results : int | str
+            Controls how results are returned, by default "attribute":
+            * `results = "attribute" or `results = 0` adds calculated results to 
+            the `output` dictionary attribute of the model instance.
+            * `results = "return"` or `results = 1` returns the dictionary 
+            instead. 
+            * `results = "both"` or `results = 2` does both at the same time.
         """
         displacement = create_quantity(displacement, check_unit = 'mm')
         nroots = self.roots.xsection.shape
@@ -534,7 +637,7 @@ class AxialPullout():
         if self.surface is True:
             mask_el_anch = (behaviour_index == 1)
             if any(mask_el_anch):
-                force_unbroken[mask_el_anch] = solve_cubic(
+                force_unbroken[mask_el_anch] = _solve_cubic(
                     self.coefficients[0][1, mask_el_anch],
                     self.coefficients[1][1, mask_el_anch],
                     self.coefficients[2][1, mask_el_anch],
@@ -549,7 +652,7 @@ class AxialPullout():
             if self.slipping is True:
                 mask_el_slip = (behaviour_index == 2)
                 if any(mask_el_slip):
-                    force_unbroken[mask_el_slip] = solve_quadratic(
+                    force_unbroken[mask_el_slip] = _solve_quadratic(
                         self.coefficients[1][2, mask_el_slip],
                         self.coefficients[2][2, mask_el_slip],
                         (self.coefficients[3][2, ...] - displacement)[mask_el_slip]
@@ -562,7 +665,7 @@ class AxialPullout():
             if self.elastoplastic is True:
                 mask_pl_anch = (behaviour_index == 4)
                 if any(mask_pl_anch):
-                    force_unbroken[mask_pl_anch] = solve_cubic(
+                    force_unbroken[mask_pl_anch] = _solve_cubic(
                         self.coefficients[0][4, mask_pl_anch],
                         self.coefficients[1][4, mask_pl_anch],
                         self.coefficients[2][4, mask_pl_anch],
@@ -577,7 +680,7 @@ class AxialPullout():
                 if self.slipping is True:
                     mask_pl_slip_aboveyield = (behaviour_index == 5)
                     if any(mask_pl_slip_aboveyield):
-                        force_unbroken[mask_pl_slip_aboveyield] = solve_quadratic(
+                        force_unbroken[mask_pl_slip_aboveyield] = _solve_quadratic(
                             self.coefficients[1][5, mask_pl_slip_aboveyield],
                             self.coefficients[2][5, mask_pl_slip_aboveyield],
                             (self.coefficients[3][5, ...] - displacement)[mask_pl_slip_aboveyield]
@@ -589,7 +692,7 @@ class AxialPullout():
                             ))
                     mask_pl_slip_belowyield = (behaviour_index == 6)
                     if any(mask_pl_slip_belowyield):
-                        force_unbroken[mask_pl_slip_belowyield] = solve_quadratic(
+                        force_unbroken[mask_pl_slip_belowyield] = _solve_quadratic(
                             self.coefficients[1][6, mask_pl_slip_belowyield],
                             self.coefficients[2][6, mask_pl_slip_belowyield],
                             (self.coefficients[3][6, ...] - displacement)[mask_pl_slip_belowyield]
@@ -629,7 +732,7 @@ class AxialPullout():
             if self.elastoplastic is True:
                 mask_pl_anch = (behaviour_index == 4)
                 if any(mask_pl_anch):
-                    force_unbroken[mask_pl_anch] = solve_quadratic(
+                    force_unbroken[mask_pl_anch] = _solve_quadratic(
                         self.coefficients[1][4, mask_pl_anch],
                         self.coefficients[2][4, mask_pl_anch],
                         (self.coefficients[3][4, ...] - displacement)[mask_pl_anch]
@@ -669,18 +772,24 @@ class AxialPullout():
             if jacobian is True:
                 dsurvival_ddisplacement = np.zeros(*nroots) * units('1/mm')         
 
-        dict_return = {
-            'force': force_unbroken * survival,
+        output = {
+            'force_per_root': force_unbroken * survival,
             'behaviour_index': behaviour_index,
             'survival_fraction': survival
-        }
+            }
         if jacobian is True:
-            dict_return['dforce_ddisplacement'] = (
+            output['dforce_per_root_ddisplacement'] = (
                 dforceunbroken_ddisplacement * survival
                 + force_unbroken * dsurvival_ddisplacement
-            )
-        return(dict_return)
-    
+                )
+        match Results(results).how:
+            case ResultsType.ATTRIBUTE:
+                self.output.update(output)
+            case ResultsType.RETURN:
+                return output
+            case ResultsType.BOTH:
+                self.output.update(output)
+                return output
 
     def calc_displacement_to_peak(self) -> Quantity:
         """Calculate the displacement to peak, for in each root
