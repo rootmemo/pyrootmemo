@@ -3,7 +3,6 @@ from pyrootmemo.geometry import FailureSurface
 from pyrootmemo.materials import MultipleRoots
 from pyrootmemo.helpers import Results, ResultsType
 
-
 class Wwm():
     """
     This class implements the Wu/Waldron model for root reinforcement.
@@ -57,7 +56,7 @@ class Wwm():
 
     def calc_peak_force(
             self,
-            results: str = "attribute"
+            results: int | str = "attribute"
             ):
         """
         Calculates WWM peak force.
@@ -70,13 +69,13 @@ class Wwm():
 
         Parameters
         ----------
-        results : str
-            Controls how results are returned, by default "attribute"
-            `results = "attribute" adds calculated results to the `output` 
-            dictionary attribute of the model instance.
-            `results = "return"` returns the dictionary instead. 
-            `results = "both"` does both at the same time.
-        
+        results : int | str
+            Controls how results are returned, by default "attribute":
+            * `results = "attribute" or `results = 0` adds calculated results to 
+            the `output` dictionary attribute of the model instance.
+            * `results = "return"` or `results = 1` returns the dictionary 
+            instead. 
+            * `results = "both"` or `results = 2` does both at the same time.
         """
         peak_force = np.sum(self.roots.xsection * self.roots.tensile_strength)
         output = {'peak_force': peak_force}
@@ -87,7 +86,7 @@ class Wwm():
                 return output
             case ResultsType.BOTH:
                 self.output.update(output)
-                return self.output
+                return output
 
 
     def calc_peak_reinforcement(
@@ -111,13 +110,13 @@ class Wwm():
             of the failure surface
         k : float, optional
             Wu/Waldron reinforcement orientation factor. The default is 1.2.
-        results : str
-            Controls how results are returned, by default "attribute"
-            `results = "attribute" adds calculated results to the `output` 
-            dictionary attribute of the model instance.
-            `results = "return"` returns the dictionary instead. 
-            `results = "both"` does both at the same time.
-
+        results : int | str
+            Controls how results are returned, by default "attribute":
+            * `results = "attribute" or `results = 0` adds calculated results to 
+            the `output` dictionary attribute of the model instance.
+            * `results = "return"` or `results = 1` returns the dictionary 
+            instead. 
+            * `results = "both"` or `results = 2` does both at the same time.
         """        
         if not isinstance(failure_surface, FailureSurface):
             raise TypeError('failure_surface must be intance of FailureSurface class')
@@ -138,4 +137,4 @@ class Wwm():
                 return output
             case ResultsType.BOTH:
                 self.output.update(output)
-                return self.output
+                return output

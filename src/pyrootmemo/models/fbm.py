@@ -3,14 +3,11 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.axes import Axes
 from pyrootmemo import Parameter
-from pyrootmemo.helpers import create_quantity
+from pyrootmemo.helpers import create_quantity, Results, ResultsType
 from pyrootmemo.geometry import FailureSurface
 from pyrootmemo.materials import MultipleRoots
 from pyrootmemo.tools.utils_plot import round_range
 from pint import Quantity
-from pyrootmemo.helpers import Results, ResultsType
-
-
 
 class Fbm():
     """
@@ -149,12 +146,13 @@ class Fbm():
 
         Parameters
         ----------
-        results : str
-            Controls how results are returned, by default "attribute"
-            `results = "attribute" adds calculated results to the `output` 
-            dictionary attribute of the model instance.
-            `results = "return"` returns the dictionary instead. 
-            `results = "both"` does both at the same time.
+        results : int | str
+            Controls how results are returned, by default "attribute":
+            * `results = "attribute" or `results = 0` adds calculated results to 
+            the `output` dictionary attribute of the model instance.
+            * `results = "return"` or `results = 1` returns the dictionary 
+            instead. 
+            * `results = "both"` or `results = 2` does both at the same time.
         """
         peak_force = np.max(np.sum(self.matrix, axis = 0))
         output = {'peak_force': peak_force}
@@ -165,8 +163,7 @@ class Fbm():
                 return output
             case ResultsType.BOTH:
                 self.output.update(output)
-                return self.output
-            
+                return output
 
     def calc_peak_reinforcement(
             self, 
@@ -190,12 +187,13 @@ class Fbm():
             failure surface
         k : float | int, optional
             Wu/Waldron reinforcement orientation factor. The default is 1.0.
-        results : str
-            Controls how results are returned, by default "attribute"
-            `results = "attribute" adds calculated results to the `output` 
-            dictionary attribute of the model instance.
-            `results = "return"` returns the dictionary instead. 
-            `results = "both"` does both at the same time.
+        results : int | str
+            Controls how results are returned, by default "attribute":
+            * `results = "attribute" or `results = 0` adds calculated results to 
+            the `output` dictionary attribute of the model instance.
+            * `results = "return"` or `results = 1` returns the dictionary 
+            instead. 
+            * `results = "both"` or `results = 2` does both at the same time.
         """
         if not isinstance(failure_surface, FailureSurface):
             raise TypeError('failure_surface must be intance of FailureSurface class')
@@ -216,7 +214,7 @@ class Fbm():
                 return output
             case ResultsType.BOTH:
                 self.output.update(output)
-                return self.output
+                return output
     
     def calc_reduction_factor(
             self,
@@ -233,12 +231,13 @@ class Fbm():
         
         Parameters
         ----------
-        results : str
-            Controls how results are returned, by default "attribute"
-            `results = "attribute" adds calculated results to the `output` 
-            dictionary attribute of the model instance.
-            `results = "return"` returns the dictionary instead. 
-            `results = "both"` does both at the same time.
+        results : int | str
+            Controls how results are returned, by default "attribute":
+            * `results = "attribute" or `results = 0` adds calculated results to 
+            the `output` dictionary attribute of the model instance.
+            * `results = "return"` or `results = 1` returns the dictionary 
+            instead. 
+            * `results = "both"` or `results = 2` does both at the same time.
         """
         peak_force_output = self.calc_peak_force(results = 'return')
         force_sum = np.sum(self.roots.xsection * self.roots.tensile_strength)
@@ -253,7 +252,7 @@ class Fbm():
                 return output
             case ResultsType.BOTH:
                 self.output.update(output)
-                return self.output
+                return output
     
     def plot(
             self,
@@ -313,8 +312,8 @@ class Fbm():
 
         Returns
         -------
-        tuple
-            Tuple containing the matplotlib figure and axis object
+        matplotlib.axes.Axes
+            Matplotlib axis object
             
         """
         reference_diameter = create_quantity(reference_diameter, 'mm', scalar = True)

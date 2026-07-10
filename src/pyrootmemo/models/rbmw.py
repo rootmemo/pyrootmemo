@@ -1,14 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib as mpl
-from matplotlib.figure import Figure
-from matplotlib.axes import Axes
 from scipy.special import gamma
-from scipy.optimize import minimize, differential_evolution
-from pyrootmemo.helpers import units, Parameter, create_quantity, solve_quadratic, solve_cubic
-from pyrootmemo.geometry import SoilProfile, FailureSurface
-from pyrootmemo.materials import MultipleRoots, Interface
-from pyrootmemo.tools.utils_rotation import axisangle_rotate
+from scipy.optimize import minimize
+from pyrootmemo import Parameter
+from pyrootmemo.helpers import create_quantity, Results, ResultsType
+from pyrootmemo.geometry import FailureSurface
+from pyrootmemo.materials import MultipleRoots
 from pyrootmemo.tools.utils_plot import round_range
 from pint import Quantity
 
@@ -36,6 +33,10 @@ class Rbmw():
         Weibull shape parameter used in survival function
     weibull_scale
         Weibull scale parameter used in survival function
+    output : dict
+        Dictionary with all calculation results. By default, this contains a
+        key `breakage_order` which indicates the order of breakage for all
+        roots.
     
     Methods
     -------
@@ -77,6 +78,8 @@ class Rbmw():
             Default is None, in which case it is calculated from the 
             Weibull shape parameter assuming an average ratio of 1, i.e.
             scale = 1 / gamma(1 + 1 / shape)
+        output : dict
+            Dictionary with all calculation results.
         """
         if weibull_scale is None: 
             self.weibull_scale = 1.0 / gamma(1.0 + 1.0 / weibull_shape)
@@ -106,47 +109,59 @@ class Rbmw():
             raise ValueError('weibull_shape must have a finite value')
         self.weibull_shape = weibull_shape
 
+        self.output = {}
+
     def calc_force(
             self,
             displacement: Quantity | Parameter,
-            total: bool = True,
+            results_per_root: bool = True,
             deriv: int = 0,
-            sign: int | float = 1.0
-            ) -> Quantity:
+            multiplier: int | float = 1.0,
+            results: str = "attribute"
+            ):
         """Calculate RBMw force at given level of displacement
 
+        Function creates a dictionary with the keys `displacement` and `force`. 
+        How this is returned depends on the value of the `results` argument.
+        
+        If `total = False` also the key `force_per_root`, corresponding with
+        a matrix with forces in each root (axis 0) at each displacement level 
+        of displacement (axis 1).
+        
         Parameters
         ----------
         displacement : Quantity | Parameter(int | float | np.ndarray, str)
             Current displacement. Can contain a single as well as multiple
             displacement levels simultanously
-        total : bool, optional
-            If True, return the total force of all roots. Otherwise, return
-            results per root (axis 0, rows) at each displacement step 
-            (axis 1, columns)
+        results_per_root : bool, optional
+            If True, also returns the matrix with the force in each root 
+            (axis 0, rows) at each displacement step (axis 1, columns), by 
+            default False
         deriv : int, optional
             Differentiation order for displacement. If deriv == 1, the first
             derivatives of force with respect to displacement are returned. 
             If deriv == 2, return second-order derivative. Default is 0.
-        sign : int, float, optional
+        multiplier : int, float, optional
             Multiplication factor for all result returned by the function. 
             This is used to be able to use minimisation algorithms in order
             to find the global maximum force, see function self.peak_force(). 
             Default = 1.0
-
-        Returns
-        -------
-        Quantity
-            If 'total' is True, returns the total force in the root bundle at
-            given level(s) of displacement. If False, returns the force in
-            each root (last axis) at each level of displacement (first axis)
-        """
+        results : int | str
+            Controls how results are returned, by default "attribute":
+            * `results = "attribute" or `results = 0` adds calculated results to 
+            the `output` dictionary attribute of the model instance.
+            * `results = "return"` or `results = 1` returns the dictionary 
+            instead. 
+            * `results = "both"` or `results = 2` does both at the same time.
+        """        
         displacement = create_quantity(displacement, 'mm')
+        output = {'displacement': displacement}
         if np.isscalar(displacement.magnitude):
             displacement = np.array([displacement.magnitude]) * displacement.units
             displacement_scalar_input = True
         else:
             displacement_scalar_input = False
+
         # write force mobilisation curve in form: 
         #
         #   y = a*x*exp(-(x/b)^k)
@@ -162,48 +177,47 @@ class Rbmw():
             )[:, np.newaxis]
         x = displacement[np.newaxis, :]
         k = self.weibull_shape
-        if deriv == 0:
-            force = a * x * np.exp(-(x / b) ** k)
-            if total is True:
-                if displacement_scalar_input is True:
-                    return(sign * np.sum(force))
-                else:
-                    return(sign * np.sum(force, axis = 0))
-            else:
-                return(sign * force.squeeze())
-        elif deriv == 1:
-            dforce_dx = (
-                a * (1.0 - k * (x / b) ** k)
-                * np.exp(-(x / b) ** k)
-            )
-            if total is True:
-                if displacement_scalar_input is True:
-                    return(sign * np.sum(dforce_dx))
-                else:
-                    return(sign * np.sum(dforce_dx, axis = 0))
-            else:
-                return(sign * dforce_dx.squeeze())
-        elif deriv == 2:
-            dforce2_dx2 = (
+
+        match deriv:
+            case 0:
+                force_per_root = multiplier * a * x * np.exp(-(x / b) ** k)
+            case 1:
+                force_per_root = multiplier * (
+                    a * (1.0 - k * (x / b) ** k)
+                    * np.exp(-(x / b) ** k)
+                    )
+            case 2:
+                force_per_root = multiplier * (
                 a * k / x
                 * np.exp(-(x / b) ** k)
                 * (x / b) ** k
                 * (k * (x / b) ** k - k - 1.0)
                 )
-            if total is True:
-                if displacement_scalar_input is True:
-                    return(sign * np.sum(dforce2_dx2))
-                else:
-                    return(sign * np.sum(dforce2_dx2, axis = 0))
-            else:
-                return(sign * dforce2_dx2.squeeze())
+            case _:
+                raise ValueError('Only deriv = 0, 1 or 2 are currently available.')
+            
+        if results_per_root is True:
+            output['force_per_root'] = force_per_root.squeeze()
+        if displacement_scalar_input is True:
+            output['force'] = np.sum(force_per_root)
         else:
-            raise ValueError('Only deriv = 0, 1 or 2 are currently available.')
+            output['force'] = np.sum(force_per_root, axis = 0)
+
+        match Results(results).how:
+            case ResultsType.ATTRIBUTE:
+                self.output.update(output)
+            case ResultsType.RETURN:
+                return output
+            case ResultsType.BOTH:
+                self.output.update(output)
+                return output
+
 
     def calc_peak_force(
             self,
-            method: str = 'Newton-CG'
-            ) -> dict:
+            method: str = 'Newton-CG',
+            results: str = 'attribute'
+            ):
         """Calculate RBMw peak force
 
         The RBMw force--displacement trace may have multiple local maxima,
@@ -229,6 +243,10 @@ class Rbmw():
            displacement.
         7. Use the solution that generates the largest total reinforcement.
 
+        Function creates a dictionary with the keys `peak_displacement` and 
+        `peak_force`. How this is returned depends on the value of the 
+        `results` argument.
+        
         Parameters
         ----------
         method : str, optional
@@ -236,13 +254,13 @@ class Rbmw():
             Default is 'Newton-CG'. Analytical jacobian and hessian are 
             analytically known (see function self.calc_force(), which allows 
             for returning derivatives).
-
-        Returns
-        -------
-        dict
-            Dictionary with keys 'displacement' and 'force', 
-            containing the Quantity of the displacement and force at 
-            peak.   
+        results : int | str
+            Controls how results are returned, by default "attribute":
+            * `results = "attribute" or `results = 0` adds calculated results to 
+            the `output` dictionary attribute of the model instance.
+            * `results = "return"` or `results = 1` returns the dictionary 
+            instead. 
+            * `results = "both"` or `results = 2` does both at the same time.
         """
         displacement_peak_all = (
             self.roots.tensile_strength / self.roots.elastic_modulus * self.roots.length
@@ -253,8 +271,8 @@ class Rbmw():
             np.sort(np.unique(displacement_peak_all.magnitude)) 
             * displacement_peak_all.units
             )
-        forces = self.calc_force(displacement_peak_unique, total = True).magnitude
-        gradients = self.calc_force(displacement_peak_unique, total = True, deriv = 1).magnitude
+        forces = self.calc_force(displacement_peak_unique, results = 'return')['force'].magnitude
+        gradients = self.calc_force(displacement_peak_unique, results = 'return', deriv = 1)['force'].magnitude
         displacement_interval = np.diff(displacement_peak_unique.magnitude)
         forces_next_point = np.append(forces[:-1] + displacement_interval * gradients[:-1], 0.0)
         forces_max = np.maximum(forces, forces_next_point)
@@ -263,43 +281,56 @@ class Rbmw():
             minimize(
                 fun = lambda x: self.calc_force(
                     x * displacement_guesses.units, 
-                    total = True, 
                     deriv = 0, 
-                    sign = -1.0
-                    ).magnitude,
+                    results = 'return',
+                    multiplier = -1.0
+                    )['force'].magnitude,
                 x0 = i.magnitude,
                 jac = lambda x: self.calc_force(
                     x * displacement_guesses.units, 
-                    total = True, 
                     deriv = 1, 
-                    sign = -1.0
-                    ).magnitude,
+                    results = 'return',
+                    multiplier = -1.0
+                    )['force'].magnitude,
                 hess = lambda x: self.calc_force(
                     x * displacement_guesses.units, 
-                    total = True, 
                     deriv = 2, 
-                    sign = -1.0
-                    ).magnitude,
+                    results = 'return',
+                    multiplier = -1.0
+                    )['force'].magnitude,
                 method = method
             ).x
             for i in displacement_guesses
         ]) * displacement_guesses.units
-        peak_force_options = self.calc_force(displacement_options, total = True)
-        guess_index = np.argmax(peak_force_options.magnitude)
-        return({
-            'force': peak_force_options[guess_index],
-            'displacement': displacement_options[guess_index] 
-        })
+        peak_force_options = self.calc_force(displacement_options, results = 'return')['force']
+        best_start_index = np.argmax(peak_force_options.magnitude)
+        output = {
+            'peak_force': peak_force_options[best_start_index],
+            'peak_displacement': displacement_options[best_start_index] 
+            }
+        match Results(results).how:
+            case ResultsType.ATTRIBUTE:
+                self.output.update(output)
+            case ResultsType.RETURN:
+                return output
+            case ResultsType.BOTH:
+                self.output.update(output)
+                return output
 
     def calc_peak_reinforcement(
             self, 
             failure_surface: FailureSurface,
-            k: int | float = 1.0
-            ) -> dict:
+            k: int | float = 1.0,
+            results: str = 'attribute'
+            ):
         """
         Calculate peak reinforcement (largest soil reinforcement at any point)
         generated by the fibre bundle
 
+        Function creates a dictionary with the keys `peak_displacement` and 
+        `peak_reinforcement`. How this is returned depends on the value of the 
+        `results` argument.
+        
         Parameters
         ----------
         failure_surface : FailureSurface
@@ -308,13 +339,13 @@ class Rbmw():
             failure surface
         k : int | float, optional
             Wu/Waldron reinforcement orientation factor. The default is 1.0.
-
-        Returns
-        -------
-        dict
-            Dictionary with keys 'displacement' and 'reinforcement', 
-            containing the Quantity of the displacement and reinforcement at 
-            peak.            
+        results : int | str
+            Controls how results are returned, by default "attribute":
+            * `results = "attribute" or `results = 0` adds calculated results to 
+            the `output` dictionary attribute of the model instance.
+            * `results = "return"` or `results = 1` returns the dictionary 
+            instead. 
+            * `results = "both"` or `results = 2` does both at the same time.            
         """
         if not isinstance(failure_surface, FailureSurface):
             raise TypeError('failure_surface must be intance of FailureSurface class')
@@ -322,37 +353,60 @@ class Rbmw():
             raise AttributeError('failure_surface must contain attribute "cross_sectional_area"')
         if not(isinstance(k, int) | isinstance(k, float)):
             raise TypeError('k must be scalar integer or float')
-        peak = self.calc_peak_force()
-        return({
-            'reinforcement': k * peak['force'] / failure_surface.cross_sectional_area,
-            'displacement': peak['displacement']
-        })    
-    
+        output_force_peak = self.calc_peak_force(results = 'return')
+        output = {
+            'peak_displacement': output_force_peak['peak_displacement'],
+            'peak_reinforcement': k * output_force_peak['peak_force'] / failure_surface.cross_sectional_area
+            }
+        match Results(results).how:
+            case ResultsType.ATTRIBUTE:
+                self.output.update(output)
+            case ResultsType.RETURN:
+                return output
+            case ResultsType.BOTH:
+                self.output.update(output)
+                return output
+            
     def calc_reduction_factor(
-            self
-            ) -> float:
+            self,
+            results: str = 'attribute'
+            ):
         """RBMw reduction factor, compared to WWM
         
         Calculate the ratio between bundle peak force and the sum of 
         individual fibre strengths. Function will thus return a value between
         0 and 1. '1' indicates all roots break simultaneously.
 
-        Returns
-        -------
-        float
-            reduction factor.
+        Function creates a dictionary with the keys `reduction_factor. How this 
+        is returned depends on the value of the `results` argument.
+        
+        Parameters
+        ----------
+        results : int | str
+            Controls how results are returned, by default "attribute":
+            * `results = "attribute" or `results = 0` adds calculated results to 
+            the `output` dictionary attribute of the model instance.
+            * `results = "return"` or `results = 1` returns the dictionary 
+            instead. 
+            * `results = "both"` or `results = 2` does both at the same time.            
         """
-        force_rbmw = self.calc_peak_force()['force']
+        force_rbmw = self.calc_peak_force(results = 'return')['peak_force']
         force_root = np.sum(self.roots.xsection * self.roots.tensile_strength)
         ratio = force_rbmw / force_root
         if isinstance(ratio, Quantity):
-            return(ratio.magnitude)
-        else:
-            return(ratio)
+            ratio = ratio.magnitude
+        output = {'reduction_factor': ratio}
+        match Results(results).how:
+            case ResultsType.ATTRIBUTE:
+                self.output.update(output)
+            case ResultsType.RETURN:
+                return output
+            case ResultsType.BOTH:
+                self.output.update(output)
+                return output
     
     def plot(
             self,
-            fig = None,
             ax = None,
             n: int = 251,
             stack: bool = False,
@@ -380,9 +434,6 @@ class Rbmw():
         
         Parameters
         ----------
-        fig : matplotlib.figure.Figure, optional
-            matplotlib figure object. If not defined, a new figure is created. By 
-            default None
         ax : matplotlib.axes.Axes, optional
             matplotlib axis object to plot on. If not defined, a new axis is 
             created. By default None
@@ -417,10 +468,10 @@ class Rbmw():
 
         Returns
         -------
-        tuple
-            tuple containing Matplotlib figure and axis objects
+        matplotlib.axes.Axes
+            Matplotlib axis object
         """
-        peak_results = self.calc_peak_force()
+        output_peak_force = self.calc_peak_force(results = 'return')
         failure_displacement_per_root = (
             self.roots.tensile_strength 
             / self.roots.elastic_modulus 
@@ -432,31 +483,35 @@ class Rbmw():
             * (-np.log(1.0 - fraction)) ** (1.0 / self.weibull_shape)
             )
         displacement = np.linspace(0, displacement_max, n)
-        force = self.calc_force(displacement, total = True)
+        output_force = self.calc_force(
+            displacement, 
+            results_per_root = stack,
+            results = 'return'
+            )
         
-        if fig is None and ax is None:
-            fig, ax = plt.subplots()
+        if ax is None:
+            ax = plt.gca()
         if stack is True:
             ax.stackplot(
                 displacement.to(xunit).magnitude, 
-                self.calc_force(displacement, total = False).to(yunit).magnitude
+                output_force['force_per_root'].to(yunit).magnitude
                 )
         ax.plot(
             displacement.to(xunit).magnitude, 
-            force.to(yunit).magnitude, 
+            output_force['force'].to(yunit).magnitude, 
             '-', 
             c = 'black'
             )
         if peak is True:
             plt.scatter(
-                peak_results['displacement'].to(xunit).magnitude, 
-                peak_results['force'].to(yunit).magnitude, 
+                output_peak_force['peak_displacement'].to(xunit).magnitude, 
+                output_peak_force['peak_force'].to(yunit).magnitude, 
                 c = 'black'
                 )
         
         nroots = len(self.roots.diameter)
         if labels is True:
-            labels = list(range(1, nroots + 1))
+            labels = list(range(nroots))
             plot_labels = True
         elif isinstance(labels, list):
             if len(labels) == nroots:
@@ -473,9 +528,12 @@ class Rbmw():
                 * self.roots.length
                 )
             labels_x = labels_x_dimensional.to(xunit).magnitude
-            labels_y_dimensional_all = self.calc_force(labels_x_dimensional, total = False)
+            labels_y_dimensional_all = self.calc_force(labels_x_dimensional, results_per_root = True, results = "return")['force_per_root']
             labels_y_all = np.triu(labels_y_dimensional_all.to(yunit).magnitude)
             labels_y = np.sum(labels_y_all, axis = 0) -  0.5 * np.diag(labels_y_all)
+            print(labels_x)
+            print(labels_y_dimensional_all)
+            print(labels_y)
             for xi, yi, li in zip(labels_x, labels_y, labels):
                 ax.annotate(
                     li, xy = (xi, yi), 
@@ -490,10 +548,10 @@ class Rbmw():
             limits = [0, None]
             )['limits'])
         ax.set_ylim(round_range(
-            peak_results['force'].to(yunit).magnitude, 
+            output_peak_force['peak_force'].to(yunit).magnitude, 
             limits = [0., None]
             )['limits'])
         ax.set_xlabel(xlabel + ' [' + xunit + ']')
         ax.set_ylabel(ylabel + ' [' + yunit + ']')
         
-        return(fig, ax)
+        return(ax)
