@@ -1,7 +1,7 @@
 import numpy as np
 from pyrootmemo.geometry import FailureSurface
 from pyrootmemo.materials import MultipleRoots
-from pint import Quantity
+from pyrootmemo.helpers import Results, ResultsType
 
 
 class Wwm():
@@ -55,35 +55,54 @@ class Wwm():
         self.output = {}
 
 
-    def calc_peak_force(self) -> None:
+    def calc_peak_force(
+            self,
+            results: str = "attribute"
+            ):
         """
         Calculates WWM peak force.
 
         This is defined as the sum of the maximum tensile forces that can 
         be mobilised in all roots.
 
-        Attributes Modified
-        -------------------
-        output : dict
-            adds a `peak_force` item to the output dictionary
+        Function creates a dictionary with the key `peak_force`. How this is 
+        returned depends on the value of the `results` argument.
 
-        Returns
-        -------
-        None
+        Parameters
+        ----------
+        results : str
+            Controls how results are returned, by default "attribute"
+            `results = "attribute" adds calculated results to the `output` 
+            dictionary attribute of the model instance.
+            `results = "return"` returns the dictionary instead. 
+            `results = "both"` does both at the same time.
+        
         """
         peak_force = np.sum(self.roots.xsection * self.roots.tensile_strength)
-        self.output['peak_force'] = peak_force
+        output = {'peak_force': peak_force}
+        match Results(results).how:
+            case ResultsType.ATTRIBUTE:
+                self.output.update(output)
+            case ResultsType.RETURN:
+                return output
+            case ResultsType.BOTH:
+                self.output.update(output)
+                return self.output
 
 
     def calc_peak_reinforcement(
             self, 
             failure_surface: FailureSurface,
-            k: int | float = 1.2
-            ) -> None:
+            k: int | float = 1.2,
+            results: str = 'attribute'
+            ):
         """
         Calculate peak reinforcement (largest soil reinforcement at any point)
         according to the WWM model
 
+        Function creates a dictionary with the key `peak_reinforcement`. How 
+        this is returned depends on the value of the `results` argument.
+        
         Parameters
         ----------
         failure_surface : FailureSurface
@@ -92,15 +111,12 @@ class Wwm():
             of the failure surface
         k : float, optional
             Wu/Waldron reinforcement orientation factor. The default is 1.2.
-
-        Attributes Modified
-        -------------------
-        output : dict
-            adds a `peak_reinforcement` item to the output dictionary
-        
-        Returns
-        -------
-        None
+        results : str
+            Controls how results are returned, by default "attribute"
+            `results = "attribute" adds calculated results to the `output` 
+            dictionary attribute of the model instance.
+            `results = "return"` returns the dictionary instead. 
+            `results = "both"` does both at the same time.
 
         """        
         if not isinstance(failure_surface, FailureSurface):
@@ -111,7 +127,15 @@ class Wwm():
             raise TypeError('k must be an scalar integer or float')
         if not 'peak_force' in self.output:
             self.calc_peak_force()
-        self.output['peak_reinforcement'] = (
+        output = {'peak_reinforcement': (
             k *  self.output['peak_force'] 
             / failure_surface.cross_sectional_area
-            )
+            )}
+        match Results(results).how:
+            case ResultsType.ATTRIBUTE:
+                self.output.update(output)
+            case ResultsType.RETURN:
+                return output
+            case ResultsType.BOTH:
+                self.output.update(output)
+                return self.output

@@ -2,6 +2,9 @@ import numpy as np
 from pint import UnitRegistry, Quantity
 from pyrootmemo.tools.checks import is_namedtuple
 from collections import namedtuple
+from enum import StrEnum
+from dataclasses import dataclass
+
 units = UnitRegistry()
 
 def limit_check(value: float | int, key:str, limit_type:str):
@@ -230,3 +233,30 @@ def solve_cubic(
     flag_zero = np.isclose(d.magnitude, 0.0)
     x[flag_zero] = 0.0 * d.units / c.units
     return(x)
+
+
+class ResultsType(StrEnum):
+    """Options for results type."""
+
+    ATTRIBUTE = "attribute"
+    RETURN = "return"
+    BOTH = "both"
+
+@dataclass    
+class Results:
+    how: ResultsType | int = "attribute"
+    
+    def __post_init__(self):
+        if not isinstance(self.how, int | str):
+            raise TypeError("Results type must be int or str.")
+        if isinstance(self.how, str):
+            try:
+                self.how = ResultsType(self.how)
+            except ValueError:
+                raise ValueError(f"Invalid results type: {self.how}. Must be one of {list(ResultsType)}.")
+        elif isinstance(self.how, int):
+            try:
+                self.how = list(ResultsType)[self.how]
+            except IndexError:
+                raise ValueError(f"Invalid results type: {self.how}. Must be one of {list(ResultsType)}.")
+                        
