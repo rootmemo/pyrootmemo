@@ -1,15 +1,9 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-from matplotlib.figure import Figure
-from matplotlib.axes import Axes
-from scipy.special import gamma
-from scipy.optimize import minimize, differential_evolution
-from pyrootmemo.helpers import units, Parameter, create_quantity
+from pyrootmemo import Parameter
+from pyrootmemo.helpers import units
 from pyrootmemo.geometry import SoilProfile, FailureSurface
 from pyrootmemo.materials import MultipleRoots, Interface
 from pyrootmemo.tools.utils_rotation import axisangle_rotate
-from pyrootmemo.tools.utils_plot import round_range
 from pint import Quantity
 
 class _DirectShear():
@@ -42,6 +36,8 @@ class _DirectShear():
     distribution_factor
         Distribution factor for assigning root elongation to pullout 
         displacement
+    output : dict
+        Dictionary with calculation output
 
     Methods
     -------
@@ -100,6 +96,7 @@ class _DirectShear():
         if not(isinstance(distribution_factor, int) | isinstance(distribution_factor, float)):
             raise TypeError('distribution factor must be int or float')
         self.distribution_factor = distribution_factor
+
         self.roots.orientation = self.calc_initial_root_orientations()
         self.failure_surface.tanphi = np.tan(
             soil_profile
@@ -107,6 +104,7 @@ class _DirectShear():
             .friction_angle
             .to('rad')
             )
+        self.output = {}
     
     def calc_initial_root_orientations(
             self
@@ -118,26 +116,27 @@ class _DirectShear():
 
         * local x = direction of shearing
         * local y = perpendicular to x on shear plane
-        * local z = pointing downwards into the soil
+        * local z = pointing towards the sliding block (upwards)
         
         Orientations are defined in terms of 3-dimensional unit vectors.
                 
         The object 'roots' may contain some information about the **global**
         initial orientation of the roots. This is defined in a **global** 
-        right-handed Cartesian coordinate system, with z-axis pointing down 
-        into the ground. Orientations are assumed to be defined in a spherical
-        coordinate system where:
+        right-handed Cartesian coordinate system, with z-axis pointing up, 
+        towards the ground surface. Orientations are assumed to be defined 
+        in a spherical coordinate system where:
         
         * azimuth angle = angle from x-axis to projection of root vector on 
           the x-y plane
         * elevation angle = angle from z-axis to root vector
         
         If the initial root orientations are not defined, it is assume they 
-        are all **perpedicular** to the shear zone.
+        are all purely vertical.
 
-        The direction of failure failure surface (taken from FailureSurface 
-        object) is assumed to be defined as the angle of the surface in x-z 
-        plane, defined (positive) from x to z, i.e. the 'dip angle'.
+        The orientation of the failure surface is calculated using the
+        `calc_orientation_matrix()` method in the FailureSurface class. This 
+        returns a matrix with the local cartesian axes, defined in the global
+        system.
 
         Returns
         -------
@@ -145,63 +144,36 @@ class _DirectShear():
             Numpy array with size (nroots, 3) with the relative 3-D root 
             orientations defined as unit vectors
         """
-        # shape of root vector ('number of roots')
-        roots_shape = self.roots.diameter.magnitude.shape
-        # root orientations not defined - assume all perpendicular to failure surface
-        if (not hasattr(self.roots, 'azimuth_angle')) & (not hasattr(self.roots, 'elevation_angle')):
-            return(np.stack((
-                np.zeros(*roots_shape),
-                np.zeros(*roots_shape),
-                np.ones(*roots_shape)                    
-                ), axis = -1))
-        # (partial) angles provided -> rotate to local coordinate system
-        else:
-            if not hasattr(self.roots, 'azimuth_angle'):
-                self.roots.azimuth_angle = np.zeros(*roots_shape) * units('deg')
-            if not hasattr(self.roots, 'elevation_angle'):
-                self.roots.elevation_angle = np.zeros(*roots_shape) * units('deg')
-            # get global root orientations
-            root_orientation_global = np.stack((
-                np.cos(self.roots.azimuth_angle.magnitude) 
-                * np.sin(self.roots.elevation_angle.magnitude),
-                np.sin(self.roots.azimuth_angle.magnitude) 
-                * np.sin(self.roots.elevation_angle.magnitude),
-                np.cos(self.roots.elevation_angle.magnitude)
-            ), axis = -1)
-            # rotate to local coordinate system and set unit vectors
-            if hasattr(self.failure_surface, 'orientation'):
-                axisangle = np.array([0.0, -self.failure_surface.orientation.to('rad'), 0.0])
-            else:
-                axisangle = np.array([0.0, 0.0, 0.0])
-            # rotate and return
-            return(axisangle_rotate(root_orientation_global, axisangle))
-
+        root_global_orientation = self.roots.calc_initial_orientation_vector()
+        surface_global_orientation = self.failure_surface.calc_orientation_matrix()
+        root_local_orientation = root_global_orientation @ surface_global_orientation
+        return(root_local_orientation)
 
     def calc_pullout_displacement(
             self,
             shear_displacement: Quantity,
             shear_zone_thickness: Quantity,
             distribution_factor: int | float = 0.5,
-            jacobian: bool = False
+            jacobian: bool = False,
             ) -> dict:
         if np.isclose(shear_zone_thickness.magnitude, 0.0):
             ones = np.ones(*self.roots.xsection.shape)
-            dict_out = {'pullout_displacement': distribution_factor * shear_displacement * ones}
+            output = {'pullout_displacement': distribution_factor * shear_displacement * ones}
         else:
             length_initial = shear_zone_thickness / self.roots.orientation[..., 2]
             length_x = shear_zone_thickness * self.roots.orientation[..., 0] / self.roots.orientation[..., 2] + shear_displacement
             length_y = shear_zone_thickness * self.roots.orientation[..., 1] / self.roots.orientation[..., 2]
             length_z = shear_zone_thickness
             length = np.sqrt(length_x**2 + length_y**2 + length_z**2)
-            dict_out = {'pullout_displacement': distribution_factor * (length - length_initial)}
+            output = {'pullout_displacement': distribution_factor * (length - length_initial)}
         if jacobian is True:
             if np.isclose(shear_zone_thickness.magnitude, 0.0):
-                dict_out['dpullout_displacement_dshear_displacement'] = distribution_factor * ones * units('mm/mm')
-                dict_out['dpullout_displacement_dshear_zone_thickness'] = 0.0 * ones * units('mm/mm')
+                output['dpullout_displacement_dshear_displacement'] = distribution_factor * ones * units('mm/mm')
+                output['dpullout_displacement_dshear_zone_thickness'] = 0.0 * ones * units('mm/mm')
             else:
-                dict_out['dpullout_displacement_dshear_displacement'] = distribution_factor * length_x / length
-                dict_out['dpullout_displacement_dshear_zone_thickness'] = distribution_factor * length / shear_zone_thickness
-        return(dict_out)
+                output['dpullout_displacement_dshear_displacement'] = distribution_factor * length_x / length
+                output['dpullout_displacement_dshear_zone_thickness'] = distribution_factor * length / shear_zone_thickness
+        return(output)
 
 
     def calc_orientation_factor(
@@ -212,24 +184,24 @@ class _DirectShear():
             ) -> dict:
         if np.isclose(shear_zone_thickness.magnitude, 0.0):
             ones = np.ones(*self.roots.xsection.shape)
-            dict_out = {'k': ones}
+            output = {'k': ones}
         else:
             length_x = shear_zone_thickness * self.roots.orientation[..., 0] / self.roots.orientation[..., 2] + shear_displacement
             length_y = shear_zone_thickness * self.roots.orientation[..., 1] / self.roots.orientation[..., 2]
             length_z = shear_zone_thickness
             length = np.sqrt(length_x**2 + length_y**2 + length_z**2)
-            dict_out = {'k': (length_x + length_z * self.failure_surface.tanphi) / length}
+            output = {'k': (length_x + length_z * self.failure_surface.tanphi) / length}
         if jacobian is True:
             if np.isclose(shear_zone_thickness.magnitude, 0.0):
-                dict_out['dk_dshear_displacement'] = 0.0 * ones / shear_displacement.units
+                output['dk_dshear_displacement'] = 0.0 * ones / shear_displacement.units
                 if np.isclose(shear_displacement.magnitude, 0.0):
-                    dict_out['dk_dshear_zone_thickness'] = 0.0 * ones / shear_zone_thickness.units
+                    output['dk_dshear_zone_thickness'] = 0.0 * ones / shear_zone_thickness.units
                 else:
-                    dict_out['dk_dshear_zone_thickness'] = -np.inf * ones / shear_zone_thickness.units
+                    output['dk_dshear_zone_thickness'] = -np.inf * ones / shear_zone_thickness.units
             else:
-                dict_out['dk_dshear_displacement'] = 1.0 / length - dict_out['k'] * length_x / length**2
-                dict_out['dk_dshear_zone_thickness'] = -shear_displacement / (shear_zone_thickness * length)
-        return(dict_out)
+                output['dk_dshear_displacement'] = 1.0 / length - output['k'] * length_x / length**2
+                output['dk_dshear_zone_thickness'] = -shear_displacement / (shear_zone_thickness * length)
+        return(output)
 
 
     def calc_shear_from_pullout_displacement(

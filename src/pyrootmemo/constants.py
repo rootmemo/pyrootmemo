@@ -41,7 +41,8 @@ SOIL_PROFILE_PARAMETERS = {
 
 FAILURE_SURFACE_PARAMETERS = {
     "depth": {"type": (float | int), "unit": units("m")},
-    "orientation": {"type": (float | int), "unit": units("deg")},
+    "azimuth_angle": {"type": (float | int), "unit": units("deg")},
+    "elevation_angle": {"type": (float | int), "unit": units("deg")},
     "shear_zone_thickness": {"type": (float | int), "unit": units("m")},
     "cross_sectional_area": {"type": (float | int), "unit": units("m^2")},
 }

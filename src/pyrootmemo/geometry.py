@@ -169,3 +169,49 @@ class FailureSurface:
                     f"Value should be of type {FAILURE_SURFACE_PARAMETERS[k]["type"]} or a list"
                 )
             setattr(self, k, v.value * units(v.unit))
+
+    def calc_orientation_matrix(self) -> np.ndarray:
+        """
+        Calculate the matrix that describes the Cartesian axes of the failure
+        surface, in global coordinates
+
+        Matrix consist of three horizontally concatenated unit column vectors, 
+        describing the x'-axis (direction of shearing), z'-axis (normal to the
+        shear plane, pointing towards the sliding block) and the y'-axis. All 
+        are defined in the global coordinate system.
+
+        These rotations are described by two subsequent rotations, starting off
+        with the global system ([[1,0,0],[0,1,0],[0,0,1]]), where z is poiting
+        upwards, i.e. the global z is analogues with the surface elevation.
+
+        * azimuth: rotation around z-axis, positive from x to y
+        * elevation: rotation around (now rotated) y-axis, positive from z to x
+
+        Returns
+        -------
+        np.ndarray
+            3*3 matrix with unit column vectors of each axes
+        """
+        if hasattr(self, 'azimuth_angle'):
+            sin_azimuth = np.sin(self.azimuth_angle).magnitude
+            cos_azimuth = np.cos(self.azimuth_angle).magnitude
+        else:
+            sin_azimuth = 0.0
+            cos_azimuth = 1.0
+        if hasattr(self, 'elevation_angle'):
+            sin_elevation = np.sin(self.elevation_angle).magnitude
+            cos_elevation = np.cos(self.elevation_angle).magnitude
+        else:
+            sin_elevation = 0.0
+            cos_elevation = 1.0
+        R_azimuth = np.array([
+            [cos_azimuth, -sin_azimuth, 0.0],
+            [sin_azimuth, cos_azimuth, 0.0],
+            [0.0, 0.0, 1.0]
+            ])
+        R_elevation = np.array([
+            [cos_elevation, 0.0, sin_elevation],
+            [0.0, 1.0, 0.0],
+            [-sin_elevation, 0.0, cos_elevation]
+            ])
+        return(R_elevation @ R_azimuth)

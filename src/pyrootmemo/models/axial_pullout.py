@@ -603,7 +603,8 @@ class AxialPullout():
               each root with respect to displacement. Only returned when 
               `jacobian = True`.
         
-        How this dictionary returned depends on the value of the `results` argument.
+        How this dictionary returned depends on the value of the `results` 
+        argument.
         
         Parameters
         ----------
@@ -761,7 +762,10 @@ class AxialPullout():
                 if jacobian is True:
                     dsurvival_ddisplacement = np.zeros(*nroots) * units('1/mm')
             else:
-                y = (gamma(1.0 + 1.0 / self.weibull_shape) * force_unbroken_cummax / force_breakage).magnitude                   
+                y = (gamma(1.0 + 1.0 / self.weibull_shape) 
+                     * force_unbroken_cummax 
+                     / force_breakage
+                     ).magnitude                   
                 survival = np.exp(-(y**self.weibull_shape))
                 if jacobian is True:
                     dy_dforceunbrokencummax = gamma(1.0 + 1.0 / self.weibull_shape) / force_breakage
@@ -791,7 +795,10 @@ class AxialPullout():
                 self.output.update(output)
                 return output
 
-    def calc_displacement_to_peak(self) -> Quantity:
+    def calc_displacement_to_peak(
+            self,
+            results: str = "attribute"
+            ):
         """Calculate the displacement to peak, for in each root
 
         Calculates the displacement required for the each each in the 
@@ -802,10 +809,19 @@ class AxialPullout():
         account, i.e. it looks at the *average* root for each root in the 
         MultipleRoots object. 
 
-        Returns
-        -------
-        Quantity
-            Displacement to peak for each root
+        Function creates a dictionary with the key `peak_displacement_per_root`/
+        How this dictionary is returned depends on the value of the `results` 
+        argument.
+
+        Parameters
+        ----------
+        results : int | str
+            Controls how results are returned, by default "attribute":
+            * `results = "attribute" or `results = 0` adds calculated results to 
+            the `output` dictionary attribute of the model instance.
+            * `results = "return"` or `results = 1` returns the dictionary 
+            instead. 
+            * `results = "both"` or `results = 2` does both at the same time.
         """
         if self.slipping is True:
             if self.elastoplastic is True:
@@ -837,4 +853,13 @@ class AxialPullout():
                 )
         else:
             displacement_breakage = np.full(self.roots.xsection.shape, np.inf) * units('mm')
-        return(np.minimum(displacement_slipping, displacement_breakage))
+        displacement_peak = np.minimum(displacement_slipping, displacement_breakage)
+        output = {'peak_displacement_per_root': displacement_peak}
+        match Results(results).how:
+            case ResultsType.ATTRIBUTE:
+                self.output.update(output)
+            case ResultsType.RETURN:
+                return output
+            case ResultsType.BOTH:
+                self.output.update(output)
+                return output
