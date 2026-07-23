@@ -58,8 +58,9 @@
 <li class="toctree-l3"><a class="reference internal" href="#pyrootmemo.geometry.SoilProfile.calc_vertical_stress"><code class="docutils literal notranslate"><span class="pre">SoilProfile.calc_vertical_stress()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#pyrootmemo.geometry.SoilProfile.calc_pore_pressure"><code class="docutils literal notranslate"><span class="pre">SoilProfile.calc_pore_pressure()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#id0"><code class="docutils literal notranslate"><span class="pre">SoilProfile.get_soil()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id1"><code class="docutils literal notranslate"><span class="pre">SoilProfile.calc_vertical_stress()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id2"><code class="docutils literal notranslate"><span class="pre">SoilProfile.calc_pore_pressure()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#pyrootmemo.geometry.SoilProfile.calc_total_vertical_stress"><code class="docutils literal notranslate"><span class="pre">SoilProfile.calc_total_vertical_stress()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id1"><code class="docutils literal notranslate"><span class="pre">SoilProfile.calc_pore_pressure()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#pyrootmemo.geometry.SoilProfile.calc_shear_strength"><code class="docutils literal notranslate"><span class="pre">SoilProfile.calc_shear_strength()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -141,7 +142,7 @@ This class represents a profile of soils, allowing for the calculation of vertic
 
 <dl class="py method">
 <dt class="sig sig-object py" id="pyrootmemo.geometry.SoilProfile.calc_vertical_stress">
-<span class="sig-name descname"><span class="pre">calc_vertical_stress</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/geometry.html#SoilProfile.calc_vertical_stress"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyrootmemo.geometry.SoilProfile.calc_vertical_stress" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">calc_vertical_stress</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#pyrootmemo.geometry.SoilProfile.calc_vertical_stress" title="Link to this definition"></a></dt>
 <dd><p>Calculates the vertical stress at a specific depth in the soil profile.</p>
 </dd></dl>
 
@@ -169,26 +170,70 @@ This class represents a profile of soils, allowing for the calculation of vertic
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="id1">
-<span class="sig-name descname"><span class="pre">calc_vertical_stress</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">depth</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/geometry.html#SoilProfile.calc_vertical_stress"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id1" title="Link to this definition"></a></dt>
-<dd><p>Calculate the vertical stress at a specific depth in the soil profile.</p>
+<dt class="sig sig-object py" id="pyrootmemo.geometry.SoilProfile.calc_total_vertical_stress">
+<span class="sig-name descname"><span class="pre">calc_total_vertical_stress</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">depth</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Quantity</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Quantity</span></span></span><a class="reference internal" href="../_modules/pyrootmemo/geometry.html#SoilProfile.calc_total_vertical_stress"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyrootmemo.geometry.SoilProfile.calc_total_vertical_stress" title="Link to this definition"></a></dt>
+<dd><p>Calculate the vertical total stress at a specific depth in the soil
+profile.</p>
+<p>Uses <cite>unit_weight_dry</cite> as unit weight in soils above the water table,
+but if not defined, uses <cite>unit_weight_bulk</cite> instead.</p>
+<p>Uses <cite>unit_weight_saturated</cite> as unit weight in soils below the water
+table, but if not defined, uses <cite>unit_weight_bulk</cite> instead.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>depth</strong> (<em>float</em><em> or </em><em>int</em>) – The depth at which to calculate the vertical stress.</p>
+<dd class="field-odd"><p><strong>depth</strong> (<em>Quantity</em>) – The depth at which to calculate the vertical total stress.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>The vertical stress at the specified depth, in kPa.</p>
+<dd class="field-even"><p>The vertical stress at the specified depth</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float</p>
+<dd class="field-odd"><p>Quantity</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="id2">
-<span class="sig-name descname"><span class="pre">calc_pore_pressure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">depth</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;Quantity(0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">'degree')&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/pyrootmemo/geometry.html#SoilProfile.calc_pore_pressure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id2" title="Link to this definition"></a></dt>
-<dd></dd></dl>
+<dt class="sig sig-object py" id="id1">
+<span class="sig-name descname"><span class="pre">calc_pore_pressure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">depth</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Quantity</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orientation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Quantity</span></span></span><a class="reference internal" href="../_modules/pyrootmemo/geometry.html#SoilProfile.calc_pore_pressure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id1" title="Link to this definition"></a></dt>
+<dd><p>Calculate pore pressure at specific depth</p>
+<p>A flow direction can be defined if needed. All flow is assumed to be
+parallel to this direction.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>depth</strong> (<em>Quantity</em>) – depth below the soil surface, measured vertically</p></li>
+<li><p><strong>orientation</strong> (<em>float</em><em> | </em><em>int</em><em>, </em><em>optional</em>) – direction of flow, in radians</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The pore pressure at the specified depth</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Quantity</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyrootmemo.geometry.SoilProfile.calc_shear_strength">
+<span class="sig-name descname"><span class="pre">calc_shear_strength</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">depth</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Quantity</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orientation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Quantity</span></span></span><a class="reference internal" href="../_modules/pyrootmemo/geometry.html#SoilProfile.calc_shear_strength"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#pyrootmemo.geometry.SoilProfile.calc_shear_strength" title="Link to this definition"></a></dt>
+<dd><p>Calculate the shear strength</p>
+<p>Can deal with inclined failure planes, assumed perpendicular to the soil
+surface.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>depth</strong> (<em>Quantity</em>) – Depth to calculate strengt at</p></li>
+<li><p><strong>orientation</strong> (<em>float</em><em> | </em><em>int</em><em>, </em><em>optional</em>) – dip direction of the failure surface, in radians. By default 0.0</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Soil shear strength</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Quantity</p>
+</dd>
+</dl>
+</dd></dl>
 
 </dd></dl>
 
