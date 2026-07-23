@@ -57,7 +57,6 @@ class Waldron(_DirectShear):
         show how reinforcement mobilises with shear displacement
     """
 
-    # initiate model
     def __init__(
             self,
             roots: MultipleRoots,

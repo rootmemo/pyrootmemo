@@ -156,6 +156,38 @@ class _DirectShear():
             distribution_factor: int | float = 0.5,
             jacobian: bool = False,
             ) -> dict:
+        """Calculate pullout displacement from shear displacement
+
+        Calculates how much a root pulls out of the soil on either side of the 
+        shearzone, based on the known shear displacement, shear zone thickness
+        and initial root orientation.
+
+        Parameters
+        ----------
+        shear_displacement : Quantity
+            Shear displacement (scalar or array)
+        shear_zone_thickness : Quantity
+            Shear zone thickness (scalar)
+        distribution_factor : int | float, optional
+            The fraction of the total root length that should be assigned
+            to each side of the shearzone, by default 0.5
+        jacobian : bool, optional
+            if True, also return the derivative of the pullout displacement with
+            respect to the shear displacement and shear zone thickness, by 
+            default False
+
+        Returns
+        -------
+        dict
+            Dictionary with keys:
+            
+            * 'pullout_displacement': root pullout displacement, at one side
+                of the shearzone
+            * 'dpullout_displacement_dshear_displacement': derivative of 
+                pullout displacement with respect to the shear displacement
+            * 'dpullout_displacement_dshear_zone_thickness': derivative of 
+                pullout displacement with respect to the shear zone thickness
+        """
         if np.isclose(shear_zone_thickness.magnitude, 0.0):
             ones = np.ones(*self.roots.xsection.shape)
             output = {'pullout_displacement': distribution_factor * shear_displacement * ones}
@@ -182,6 +214,39 @@ class _DirectShear():
             shear_zone_thickness: Quantity,
             jacobian: bool = False
             ) -> dict:
+        """Calculate root orientation factors k
+
+        Calculates the root orientation factor, based on the known shear 
+        displacement, shear zone thickness, initial root orientation and soil
+        angle of internal friction.
+
+        The orientation factor 'k' describes the relationship between the
+        root tensile force and its reinforcing effect, i.e.:
+
+        k = (reinforcing force) / (tensile force)
+
+        Parameters
+        ----------
+        shear_displacement : Quantity
+            Shear displacement (scalar or array)
+        shear_zone_thickness : Quantity
+            Shear zone thickness (scalar)
+        jacobian : bool, optional
+            if True, also return the derivative of the orientatoin factor with
+            respect to the shear displacement and shear zone thickness, by 
+            default False
+
+        Returns
+        -------
+        dict
+            Dictionary with keys:
+            
+            * 'k': orientation factor
+            * 'dk_dshear_displacement': derivative of orientation factor
+                with respect to the shear displacement
+            * 'dk_dshear_zone_thickness': derivative of orientation factor
+               with respect to the shear zone thickness
+        """
         if np.isclose(shear_zone_thickness.magnitude, 0.0):
             ones = np.ones(*self.roots.xsection.shape)
             output = {'k': ones}
@@ -210,6 +275,29 @@ class _DirectShear():
             shear_zone_thickness: Quantity,
             distribution_factor: int | float = 0.5
             ) -> Quantity:
+        """Calculate shear displacement from root pullout displacement
+
+        Calculates how much the soil should move to make a root pull out by
+        a certain amount from the soil surrounding the shear zone.
+
+        This function is the inverse of the `calc_pullout_displacement()` 
+        method.
+
+        Parameters
+        ----------
+        pullout_displacement : Quantity
+            Root pullout displacement
+        shear_zone_thickness : Quantity
+            Shear zone thickness
+        distribution_factor : int | float, optional
+            The fraction of the total root length that should be assigned
+            to each side of the shearzone, by default 0.5
+
+        Returns
+        -------
+        Quantity
+            Shear displacement
+        """
         elongation = pullout_displacement / distribution_factor
         length_initial = shear_zone_thickness / self.roots.orientation[..., 2]
         length = length_initial + elongation                        
