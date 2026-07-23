@@ -258,6 +258,52 @@
                     <span class="sa">f</span><span class="s2">&quot;Value should be of type </span><span class="si">{</span><span class="n">FAILURE_SURFACE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="si">}</span><span class="s2"> or a list&quot;</span>
                 <span class="p">)</span>
             <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">value</span> <span class="o">*</span> <span class="n">units</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">calc_orientation_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calculate the matrix that describes the Cartesian axes of the failure</span>
+<span class="sd">        surface, in global coordinates</span>
+
+<span class="sd">        Matrix consist of three horizontally concatenated unit column vectors, </span>
+<span class="sd">        describing the x&#39;-axis (direction of shearing), z&#39;-axis (normal to the</span>
+<span class="sd">        shear plane, pointing towards the sliding block) and the y&#39;-axis. All </span>
+<span class="sd">        are defined in the global coordinate system.</span>
+
+<span class="sd">        These rotations are described by two subsequent rotations, starting off</span>
+<span class="sd">        with the global system ([[1,0,0],[0,1,0],[0,0,1]]), where z is poiting</span>
+<span class="sd">        upwards, i.e. the global z is analogues with the surface elevation.</span>
+
+<span class="sd">        * azimuth: rotation around z-axis, positive from x to y</span>
+<span class="sd">        * elevation: rotation around (now rotated) y-axis, positive from z to x</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        np.ndarray</span>
+<span class="sd">            3*3 matrix with unit column vectors of each axes</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;azimuth_angle&#39;</span><span class="p">):</span>
+            <span class="n">sin_azimuth</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">azimuth_angle</span><span class="p">)</span><span class="o">.</span><span class="n">magnitude</span>
+            <span class="n">cos_azimuth</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">azimuth_angle</span><span class="p">)</span><span class="o">.</span><span class="n">magnitude</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">sin_azimuth</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="n">cos_azimuth</span> <span class="o">=</span> <span class="mf">1.0</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;elevation_angle&#39;</span><span class="p">):</span>
+            <span class="n">sin_elevation</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elevation_angle</span><span class="p">)</span><span class="o">.</span><span class="n">magnitude</span>
+            <span class="n">cos_elevation</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elevation_angle</span><span class="p">)</span><span class="o">.</span><span class="n">magnitude</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">sin_elevation</span> <span class="o">=</span> <span class="mf">0.0</span>
+            <span class="n">cos_elevation</span> <span class="o">=</span> <span class="mf">1.0</span>
+        <span class="n">R_azimuth</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+            <span class="p">[</span><span class="n">cos_azimuth</span><span class="p">,</span> <span class="o">-</span><span class="n">sin_azimuth</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span>
+            <span class="p">[</span><span class="n">sin_azimuth</span><span class="p">,</span> <span class="n">cos_azimuth</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span>
+            <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]</span>
+            <span class="p">])</span>
+        <span class="n">R_elevation</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+            <span class="p">[</span><span class="n">cos_elevation</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">sin_elevation</span><span class="p">],</span>
+            <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span>
+            <span class="p">[</span><span class="o">-</span><span class="n">sin_elevation</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">cos_elevation</span><span class="p">]</span>
+            <span class="p">])</span>
+        <span class="k">return</span><span class="p">(</span><span class="n">R_elevation</span> <span class="o">@</span> <span class="n">R_azimuth</span><span class="p">)</span>
 </pre></div>
 
            </div>

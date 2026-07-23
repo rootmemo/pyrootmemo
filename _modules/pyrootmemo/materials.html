@@ -116,18 +116,13 @@
 <span class="sd">        Cross-sectional area of the root (m^2), calculated as π * (diameter / 2)^2.</span>
 <span class="sd">    circumference : Parameter(float | int, str)</span>
 <span class="sd">        Circumference of the root (m), calculated as π * diameter.</span>
-<span class="sd">    initial_orientation_vector : np.ndarray</span>
-<span class="sd">        A 3D vector representing the initial orientation of the root in space, calculated based on the azimuth and elevation angles.</span>
-<span class="sd">    axis_angle : Parameter(float | int, str), optional</span>
-<span class="sd">        Angle in radians to rotate the initial orientation vector around the z-axis, by default None.</span>
-<span class="sd">        If None, the initial orientation vector is returned without rotation.</span>
+
 
 <span class="sd">    Methods</span>
 <span class="sd">    -------</span>
-<span class="sd">    initial_orientation_vector(axis_angle: float | int = None) -&gt; np.ndarray</span>
-<span class="sd">        Returns the initial orientation vector of the root in 3D space.</span>
+<span class="sd">    calc_initial_orientation_vector()</span>
+<span class="sd">        Returns the initial orientation normal vector of the root in 3D space.</span>
 <span class="sd">        The vector is calculated based on the azimuth and elevation angles of the root.</span>
-<span class="sd">        If axis_angle is provided, the vector is rotated around the z-axis by that angle.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 <div class="viewcode-block" id="Roots.__init__">
 <a class="viewcode-back" href="../../materials/roots.html#pyrootmemo.materials.Roots.__init__">[docs]</a>
@@ -230,82 +225,44 @@
             <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s2">&quot;Diameter is needed to calculate cross-sectional area and circumference&quot;</span><span class="p">)</span></div>
 
             
-<div class="viewcode-block" id="Roots.initial_orientation_vector">
-<a class="viewcode-back" href="../../materials/roots.html#pyrootmemo.materials.Roots.initial_orientation_vector">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">initial_orientation_vector</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span>
-            <span class="n">axis_angle</span><span class="p">:</span> <span class="p">(</span><span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">)</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="p">):</span>
+<div class="viewcode-block" id="Roots.calc_initial_orientation_vector">
+<a class="viewcode-back" href="../../materials/roots.html#pyrootmemo.materials.Roots.calc_initial_orientation_vector">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">calc_initial_orientation_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns the initial orientation vector of the root in 3D space.</span>
-<span class="sd">        The vector is calculated based on the azimuth and elevation angles of the root. </span>
+<span class="sd">        The vector is calculated based on the azimuth and elevation angles of </span>
+<span class="sd">        the root. </span>
 
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        axis_angle : float  |  int, optional</span>
-<span class="sd">            Angle in radians to rotate the initial orientation vector around the z-axis, by default None.</span>
-<span class="sd">            If None, the initial orientation vector is returned without rotation.</span>
+<span class="sd">        The default orientation is assumed as a vector aligning with the global</span>
+<span class="sd">        z-axis, i.e. orientation vector = [0, 0, 1]^T. This is then rotated </span>
+<span class="sd">        using the azimuth angle (rotating the vector around the z-axis, </span>
+<span class="sd">        positive from x to y) and the elevation angle (subsequent rotation </span>
+<span class="sd">        around the now-rotated y-axis, positive from z to x.)</span>
+
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        np.ndarray</span>
-<span class="sd">            A 3D vector representing the initial orientation of the root in space.</span>
-<span class="sd">            The vector is of shape (1, 3) and contains the x, y, and z components.</span>
+<span class="sd">            A 3D vector representing the initial orientation of the root in </span>
+<span class="sd">            space. The vector is of shape (1, 3) and contains the x, y, and z </span>
+<span class="sd">            components.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        
-        
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;azimuth_angle&#39;</span><span class="p">):</span>
+            <span class="n">sin_azimuth</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">azimuth_angle</span><span class="p">)</span><span class="o">.</span><span class="n">magnitude</span>
+            <span class="n">cos_azimuth</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">azimuth_angle</span><span class="p">)</span><span class="o">.</span><span class="n">magnitude</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">sin_azimuth</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diameter</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="n">cos_azimuth</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diameter</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;elevation_angle&#39;</span><span class="p">):</span>
-            <span class="n">elevation_angle_rad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elevation_angle</span><span class="o">.</span><span class="n">magnitude</span><span class="p">)</span>
-            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;azimuth_angle&#39;</span><span class="p">):</span>
-                <span class="n">azimuth_angle_rad</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">azimuth_angle</span><span class="o">.</span><span class="n">magnitude</span><span class="p">)</span>
-                <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span>
-                    <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">azimuth_angle_rad</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">elevation_angle_rad</span><span class="p">),</span>
-                    <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">azimuth_angle_rad</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">elevation_angle_rad</span><span class="p">),</span>
-                    <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">elevation_angle_rad</span><span class="p">)</span>
-                <span class="p">],</span> <span class="n">axis</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span>
-                    <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">elevation_angle_rad</span><span class="p">),</span>
-                    <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diameter</span><span class="o">.</span><span class="n">magnitude</span><span class="p">),</span>
-                    <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">elevation_angle_rad</span><span class="p">)</span>
-                <span class="p">],</span> <span class="n">axis</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">sin_elevation</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elevation_angle</span><span class="p">)</span><span class="o">.</span><span class="n">magnitude</span>
+            <span class="n">cos_elevation</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elevation_angle</span><span class="p">)</span><span class="o">.</span><span class="n">magnitude</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span>
-                <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diameter</span><span class="o">.</span><span class="n">magnitude</span><span class="p">),</span>
-                <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diameter</span><span class="o">.</span><span class="n">magnitude</span><span class="p">),</span>
-                <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diameter</span><span class="o">.</span><span class="n">magnitude</span><span class="p">)</span>
-            <span class="p">],</span> <span class="n">axis</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="c1"># rotate using axis-angle vector (Rodriguez equation)</span>
-        <span class="k">if</span> <span class="n">axis_angle</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">v</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">axis_angle</span><span class="p">):</span>
-                <span class="c1"># scalar input --&gt; assume input equals angle between z-axis and rotated x-axis</span>
-                <span class="n">axis_angle</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
-                    <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">axis_angle</span><span class="p">),</span>
-                    <span class="mf">0.0</span><span class="p">,</span>
-                    <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">axis_angle</span><span class="p">)</span>
-                <span class="p">])</span>
-            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">axis_angle</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-                <span class="c1"># 2-D input --&gt; assume rotation vector in x-z space</span>
-                <span class="n">axis_angle</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
-                    <span class="n">axis_angle</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-                    <span class="mf">0.0</span><span class="p">,</span>
-                    <span class="n">axis_angle</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-                <span class="p">])</span>
-            <span class="c1"># magnitude of rotation, in rad</span>
-            <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">axis_angle</span><span class="p">)</span>  
-            <span class="c1"># rotation axis - unit vector</span>
-            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">):</span>
-                <span class="k">return</span> <span class="n">v</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">k</span> <span class="o">=</span> <span class="n">axis_angle</span> <span class="o">/</span> <span class="n">theta</span> 
-                <span class="c1"># apply Rodriguez equation</span>
-                <span class="n">root_vector_rotated</span> <span class="o">=</span> <span class="p">(</span>
-                    <span class="n">v</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
-                    <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">cross</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
-                    <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">k</span><span class="p">),</span> <span class="n">k</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">))</span>
-                <span class="p">)</span>
-                <span class="k">return</span> <span class="n">root_vector_rotated</span></div>
+            <span class="n">sin_elevation</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diameter</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="n">cos_elevation</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">diameter</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+        <span class="k">return</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span>
+            <span class="n">cos_azimuth</span> <span class="o">*</span> <span class="n">sin_elevation</span><span class="p">,</span>
+            <span class="n">sin_azimuth</span> <span class="o">*</span> <span class="n">sin_elevation</span><span class="p">,</span>
+            <span class="n">cos_elevation</span>
+            <span class="p">],</span> <span class="n">axis</span> <span class="o">=</span> <span class="mi">1</span><span class="p">))</span></div>
 </div>
 
 
