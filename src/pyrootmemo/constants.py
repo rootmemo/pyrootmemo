@@ -44,6 +44,7 @@ FAILURE_SURFACE_PARAMETERS = {
     "azimuth_angle": {"type": (float | int), "unit": units("deg")},
     "elevation_angle": {"type": (float | int), "unit": units("deg")},
     "shear_zone_thickness": {"type": (float | int), "unit": units("m")},
+    "max_shear_zone_thickness": {"type": (float | int), "unit": units("m")},
     "cross_sectional_area": {"type": (float | int), "unit": units("m^2")},
 }
 

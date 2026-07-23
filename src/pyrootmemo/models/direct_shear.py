@@ -437,3 +437,75 @@ class _DirectShear():
                 'dk_dus': dk_dus,
                 'dk_dup': dk_dh
                 })
+        
+    def calc_displaced_orientation(
+            self,
+            shear_displacement: Quantity,
+            shear_zone_thickness: Quantity,
+            jacobian: bool = False
+            ) -> dict:
+        """Calculate the orientation vector of each roots, given known shear 
+        displacements and shear zone thicknesses.
+
+        Parameters
+        ----------
+        shear_displacement : Quantity
+            (Current) shear displacement, as a scalar Quantity
+        shear_zone_thickness : Quantity
+            (Current) shear zone thickness, as a scalar Quantity
+        jacobian : bool, optional
+            If True, function also returns the partial derivatives of the 
+            calculated fractionswith respect to both the shear zone displacement
+            and the shear zone thickness. By default False
+
+        Returns
+        -------
+        dict
+            Results dictionary, with keys:
+            * orientation: Quantity
+              Array (size nroot * 3) with force decomposition fractions for
+              every root
+            * dorientation_dshear_displacement: Quantity
+              Array (size nroot * 3). Only returned if jacobian = True
+            * dorientation_dshear_zone_thickness: Quantity
+              Array (size nroot * 3). Only returned if jacobian = True
+        """
+        ones = np.ones_like(self.roots.diameter)
+        zeros = np.zeros_like(self.roots.diameter)
+        if np.isclose(shear_zone_thickness.magnitude, 0.0):
+            output = {'orientation': np.stack((ones, zeros, zeros), axis = -1)}
+        else:
+            length_x = shear_zone_thickness * self.roots.orientation[..., 0] / self.roots.orientation[..., 2] + shear_displacement
+            length_y = shear_zone_thickness * self.roots.orientation[..., 1] / self.roots.orientation[..., 2]
+            length_z = shear_zone_thickness
+            length = np.sqrt(length_x ** 2 + length_y ** 2 + length_z ** 2)
+            output = {'orientation': np.stack((
+                            length_x / length, 
+                            length_y / length, 
+                            length_z / length
+                            ), axis = -1)}
+        if jacobian is True:
+            if np.isclose(shear_zone_thickness.magnitude, 0.0):
+                output['dorientation_dshear_zone_thickness'] = np.stack((
+                    zeros / shear_zone_thickness.units,
+                    zeros / shear_zone_thickness.units,
+                    zeros / shear_zone_thickness.units
+                    ), axis = -1)
+                output['dorientation_dshear_displacement'] = np.stack((
+                    ones / shear_displacement.units,
+                    zeros / shear_displacement.units,
+                    zeros / shear_displacement.units
+                    ), axis = -1)
+            else:
+                tmp1 = length_x * shear_displacement / (length**3 * shear_zone_thickness)
+                output['dorientation_dshear_zone_thickness'] = np.stack((
+                    tmp1 * length_x - shear_displacement / (length * shear_zone_thickness),
+                    tmp1 * length_y,
+                    tmp1 * length_z
+                    ), axis = -1)
+                output['dorientation_dshear_displacement'] = np.stack((
+                    1.0 / length * (1.0 - length_x**2 / length**2),
+                    -length_y * length_x / length**3,
+                    -length_z * length_x / length**3
+                    ), axis = -1)
+        return(output)

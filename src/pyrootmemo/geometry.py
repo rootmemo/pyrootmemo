@@ -2,7 +2,7 @@ import numpy as np
 from pyrootmemo.tools.checks import is_namedtuple
 from pyrootmemo.materials import Soil
 from pyrootmemo.helpers import units
-from pint import DimensionalityError
+from pint import Quantity, DimensionalityError
 from pyrootmemo.constants import SOIL_PROFILE_PARAMETERS, FAILURE_SURFACE_PARAMETERS, UNIT_WEIGHT_WATER
 
 
@@ -98,55 +98,110 @@ class SoilProfile:
         soils_deeper = [s for s, d in zip(self.soils, self.depth) if d >= depth]
         return(soils_deeper[0])
     
-    def calc_vertical_stress(
+    def calc_total_vertical_stress(
             self,
-            depth
-            ):
+            depth: Quantity
+            ) -> Quantity:
         """
-        Calculate the vertical stress at a specific depth in the soil profile.
+        Calculate the vertical total stress at a specific depth in the soil
+        profile.
+
+        Uses `unit_weight_dry` as unit weight in soils above the water table, 
+        but if not defined, uses `unit_weight_bulk` instead.
+
+        Uses `unit_weight_saturated` as unit weight in soils below the water 
+        table, but if not defined, uses `unit_weight_bulk` instead.
 
         Parameters
         ----------
-        depth : float or int
-            The depth at which to calculate the vertical stress.
+        depth : Quantity
+            The depth at which to calculate the vertical total stress.
+
         Returns
         -------
-        float
-            The vertical stress at the specified depth, in kPa.
+        Quantity
+            The vertical stress at the specified depth
         """
         depth_top = np.append(0.0 * units('m'), self.depth[:-1])
-        thickness = (
-            np.minimum(self.depth, depth)
-            - np.minimum(depth_top, depth)
-        )
+        thickness = np.minimum(self.depth, depth) - np.minimum(depth_top, depth)
         if depth > self.groundwater_table:
             tmp_above = np.minimum(depth, self.groundwater_table)
-            thickness_above = (
+            thickness_above_wt = (
                 np.minimum(self.depth, tmp_above)
                 - np.minimum(depth_top, tmp_above)
                 )
-            thickness_below = thickness - thickness_above
+            thickness_below_wt = thickness - thickness_above_wt
         else:
-            thickness_above = thickness
-            thickness_below = 0.0 * thickness
+            thickness_above_wt = thickness
+            thickness_below_wt = 0.0 * thickness
         unit = 'kN/m^3'
-        unit_weight_above = np.array([soil.unit_weight_bulk.to(unit).magnitude for soil in self.soils]) * units(unit)
-        unit_weight_below = np.array([soil.unit_weight_saturated.to(unit).magnitude for soil in self.soils]) * units(unit)
+        unit_weight_above_wt = np.array([
+            s.unit_weight_dry.to(unit).magnitude if hasattr(s, 'unit_weight_dry') else s.unit_weight_bulk.to(unit).magnitude
+            for s in self.soils]) * units(unit)
+        unit_weight_below_wt = np.array([
+            s.unit_weight_saturated.to(unit).magnitude if hasattr(s, 'unit_weight_saturated') else s.unit_weight_bulk.to(unit).magnitude
+            for s in self.soils]) * units(unit)
         return(np.sum(
-            unit_weight_above * thickness_above
-            + unit_weight_below * thickness_below
+            unit_weight_above_wt * thickness_above_wt
+            + unit_weight_below_wt * thickness_below_wt
             ))
     
     def calc_pore_pressure(
             self,
-            depth,
-            direction = 0.0 * units('deg')    # flow direction, relative to the horizontal
-            ):
+            depth: Quantity,
+            orientation: float | int = 0.0  
+            ) -> Quantity:
+        """Calculate pore pressure at specific depth
+
+        A flow direction can be defined if needed. All flow is assumed to be
+        parallel to this direction. 
+
+        Parameters
+        ----------
+        depth : Quantity
+            depth below the soil surface, measured vertically
+        orientation : float | int, optional
+            direction of flow, in radians
+
+        Returns
+        -------
+        Quantity
+            The pore pressure at the specified depth
+        """
         if depth <= self.groundwater_table:
             return(0.0 * units('kPa'))
         else:
             pore_pressure = UNIT_WEIGHT_WATER * (depth - self.groundwater_table)
-            return(pore_pressure * np.cos(direction)**2)
+            return(pore_pressure * np.cos(orientation)**2)
+    
+    def calc_shear_strength(
+            self,
+            depth: Quantity,
+            orientation: float | int = 0.0
+            ) -> Quantity:
+        """Calculate the shear strength
+
+        Can deal with inclined failure planes, assumed perpendicular to the soil
+        surface. 
+
+        Parameters
+        ----------
+        depth : Quantity
+            Depth to calculate strengt at
+        orientation : float | int, optional
+            dip direction of the failure surface, in radians. By default 0.0
+
+        Returns
+        -------
+        Quantity
+            Soil shear strength
+        """
+        total_vertical_stress = self.calc_total_vertical_stress(depth)
+        total_normal_stress = total_vertical_stress * np.cos(orientation)**2
+        pore_pressure = self.calc_pore_pressure(depth, orientation = orientation)
+        effective_normal_stress = total_normal_stress - pore_pressure
+        soil = self.get_soil(depth)
+        return(soil.cohesion + effective_normal_stress * np.tan(soil.friction_angle))
 
         
       
