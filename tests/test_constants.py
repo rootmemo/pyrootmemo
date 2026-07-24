@@ -210,7 +210,7 @@ class TestSoilProfileParameters:
 # FAILURE_SURFACE_PARAMETERS
 # --------------------------------------------------------------------------- #
 
-FAILURE_SURFACE_KEYS = ["depth", "orientation", "shear_zone_thickness", "cross_sectional_area"]
+FAILURE_SURFACE_KEYS = ["depth", "shear_zone_thickness", "cross_sectional_area"]
 
 
 class TestFailureSurfaceParameters:
@@ -232,9 +232,6 @@ class TestFailureSurfaceParameters:
     @pytest.mark.parametrize("key", ["depth", "shear_zone_thickness"])
     def test_length_units(self, key):
         _unit_dimensionality_matches(FAILURE_SURFACE_PARAMETERS, key, "m")
-
-    def test_orientation_units(self):
-        _unit_dimensionality_matches(FAILURE_SURFACE_PARAMETERS, "orientation", "deg")
 
     def test_cross_sectional_area_units(self):
         _unit_dimensionality_matches(FAILURE_SURFACE_PARAMETERS, "cross_sectional_area", "m^2")
