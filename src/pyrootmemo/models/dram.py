@@ -9,6 +9,15 @@ from pyrootmemo.models import AxialPullout
 from pint import Quantity
 from .direct_shear import _DirectShear
 
+# TODO: GJM 24/07/2026
+# * Make AxialPullout calc_force() function vectorised, and so that it 
+#   returns force_per_root as well as force (in entire bundle)
+# * Check if surface pullout function is working correctly (note sure currently
+#   DRAMs output seems odd)
+# * Update DRAM solver, especially finding new shear zone thickness when 
+#   thickness is unstable
+
+
 class Dram(_DirectShear):
     """Dram model class
 
@@ -146,8 +155,6 @@ class Dram(_DirectShear):
             elastoplastic = elastoplastic, 
             weibull_shape = weibull_shape
             )
-        if not hasattr(self.failure_surface, 'max_shear_zone_thickness'):
-            self.failure_surface.max_shear_zone_thickness = np.inf
 
     def calc_single_step(
             self,
@@ -172,27 +179,30 @@ class Dram(_DirectShear):
             jacobian = jacobian,
             results = 'return'
             )
-        root_force_x = dict_pullout_force['force_per_root'] * dict_orientation['orientation'][:, 0] 
-        root_force_z = dict_pullout_force['force_per_root'] * dict_orientation['orientation'][:, 2] * np.tan(soil_friction_angle)
-        output = {'yield_value': np.sum(root_force_x - root_force_z) / self.failure_surface.cross_sectional_area - soil_shear_strength}
-        output['reinforcement_per_root'] = (root_force_x + root_force_z) / self.failure_surface.cross_sectional_area
+        rootforce_x = dict_pullout_force['force_per_root'] * dict_orientation['orientation'][:, 0] 
+        rootforce_z = dict_pullout_force['force_per_root'] * dict_orientation['orientation'][:, 2]
+        output = {'yield_value': (np.sum(rootforce_x) - np.sum(rootforce_z) * np.tan(soil_friction_angle)) / self.failure_surface.cross_sectional_area - soil_shear_strength}
+        output['reinforcement_per_root'] = (rootforce_x + rootforce_z * np.tan(soil_friction_angle)) / self.failure_surface.cross_sectional_area
         output['reinforcement'] = np.sum(output['reinforcement_per_root'])
         if jacobian is True:
-            dload_dshear_zone_thickness = np.sum(
+            drootforce_x_dshear_zone_thickness = (
                 dict_pullout_force['dforce_per_root_ddisplacement'] 
                 * dict_pullout_disp['dpullout_displacement_dshear_zone_thickness']
                 * dict_orientation['orientation'][:, 0]
                 + dict_pullout_force['force_per_root']
                 * dict_orientation['dorientation_dshear_zone_thickness'][:, 0]
-                ) / self.failure_surface.cross_sectional_area
-            dresistance_dshear_zone_thickness = np.sum(
+                )
+            drootforce_z_dshear_zone_thickness = (
                 dict_pullout_force['dforce_per_root_ddisplacement'] 
                 * dict_pullout_disp['dpullout_displacement_dshear_zone_thickness']
                 * dict_orientation['orientation'][:, 2]
                 + dict_pullout_force['force_per_root']
                 * dict_orientation['dorientation_dshear_zone_thickness'][:, 2]
-                ) * np.tan(soil_friction_angle) / self.failure_surface.cross_sectional_area
-            output['dyield_value_dshear_zone_thickness'] = dload_dshear_zone_thickness - dresistance_dshear_zone_thickness
+                )
+            output['dyield_value_dshear_zone_thickness'] = (
+                np.sum(drootforce_x_dshear_zone_thickness)
+                - np.sum(drootforce_z_dshear_zone_thickness) * np.tan(soil_friction_angle)
+                ) / self.failure_surface.cross_sectional_area
         return(output)
 
     def calc_reinforcement(
@@ -301,75 +311,66 @@ class Dram(_DirectShear):
                     )
                 if dict_res['yield_value'].magnitude < 0.0:
                     # stable -> assign output
-                    reinforcement[i, ...] = dict_res['reinforcement']
                     shear_zone_thickness[i] = shear_zone_thickness[i - 1]
+                    reinforcement[i, ...] = dict_res['reinforcement']
                 else:
-                    if np.isclose(shear_zone_thickness[i - 1], self.failure_surface.max_shear_zone_thickness):
-                        # shear zone at max thickness
-                        reinforcement[i, ...] = dict_res['reinforcement']
+                    if hasattr(self.failure_surface, 'max_shear_zone_thickness') and np.isclose(shear_zone_thickness[i - 1], getattr(self.failure_surface, 'max_shear_zone_thickness')):
+                        # shear zone at max thickness --> cannot grow any further
                         shear_zone_thickness[i] = shear_zone_thickness[i - 1]
+                        reinforcement[i, ...] = dict_res['reinforcement']
                     else:
-                        # check if possible to get a stable shear plane at the maximum shear zone thickness
-                        dict_max = self.calc_single_step(
-                            shear_displacement[i],
-                            self.failure_surface.max_shear_zone_thickness,
-                            soil_shear_strength,
-                            soil_friction_angle,
-                            jacobian = False
-                            )
-                        if dict_max['yield_value'].magnitude >= 0.0:
-                            # unstable at max -> set shear zone to shear_zone_max
-                            reinforcement[i, ...] = dict_max['reinforcement']
-                            shear_zone_thickness[i] = self.failure_surface.max_shear_zone_thickness
+                        # find upper bracket for solving shear zone thickness (using bisection)
+                        # bisection is used because numerically more stable (reinforcement may suddenly change because of sudden root breakage)
+                        # but requires an upper bracket (shear zone thicknes) value at which is stable
+                        # find feasible upper bracket by gradually increasing shear zone thickness
+                        guess_multiplier = 2.0
+                        if np.isclose(shear_zone_thickness[i - 1].to('mm').magnitude, 0.0):
+                            shear_zone_thickness_check = 1.0 * units('mm')
+                            if hasattr(self.failure_surface, 'max_shear_zone_thickness'):
+                                shear_zone_thickness_check = min(shear_zone_thickness_check, 0.99 * self.failure_surface.max_shear_zone_thickness)
                         else:
-                            # stable at max - iterate to find new shear zone thickness that makes yield_value zero
-                            if algorithm == 'bracket':
-                                sol = root_scalar(
-                                    lambda x: self.calc_single_step(
-                                        shear_displacement[i],
-                                        x * units('mm'),
-                                        soil_shear_strength,
-                                        soil_friction_angle,
-                                        jacobian = False
-                                        )['yield_value'].magnitude,
-                                    bracket = [
-                                        shear_zone_thickness[i - 1].to('mm').magnitude,
-                                        self.failure_surface.max_shear_zone_thickness.to('mm').magnitude
-                                        ]
-                                    )
-                                shear_zone_thickness[i] = sol.root * units('mm')
-                            elif algorithm == 'gradient':
-                                def root_function(x):
-                                    dict_res = self.calc_single_step(
-                                        shear_displacement[i],
-                                        x * units('mm'),
-                                        soil_shear_strength,
-                                        soil_friction_angle,
-                                        jacobian = True
-                                        )
-                                    return(
-                                        dict_res['yield_value'].magnitude,
-                                        dict_res['dyield_value_dshear_zone_thickness'].magnitude
-                                        )
-                                initial_guess = (
-                                    2.0 * shear_zone_thickness[i - 1].to('mm').magnitude
-                                    - shear_zone_thickness[i - 2].to('mm').magnitude
-                                    )
-                                sol = root_scalar(
-                                    root_function,
-                                    x0 = initial_guess,
-                                    fprime = True                                
-                                    )
-                                shear_zone_thickness[i] = sol.root * units('mm')
-                            dict_solved = self.calc_single_step(
+                            shear_zone_thickness_check = shear_zone_thickness[i - 1]
+                        if hasattr(self.failure_surface, 'max_shear_zone_thickness'):
+                            max_thickness_check = self.failure_surface.max_shear_zone_thickness
+                        else:
+                            max_thickness_check = np.inf * units('mm')
+                        yield_value_check = 100.0
+                        while (yield_value_check > 0.0) and (shear_zone_thickness_check < max_thickness_check):
+                            shear_zone_thickness_check = min(guess_multiplier * shear_zone_thickness_check, max_thickness_check)
+                            yield_value_check = self.calc_single_step(
                                 shear_displacement[i],
-                                shear_zone_thickness[i],
+                                shear_zone_thickness_check,
                                 soil_shear_strength,
                                 soil_friction_angle,
                                 jacobian = False
+                                )['yield_value']
+                        if np.isclose(shear_zone_thickness_check, max_thickness_check) and (yield_value_check > 0.0):
+                            # not stable at max shear displacement -> stick with max shear zone thickness value
+                            shear_zone_thickness[i] = max_thickness_check
+                        else:
+                            # solve using bisection
+                            sol = root_scalar(
+                                lambda x: self.calc_single_step(
+                                    shear_displacement[i],
+                                    x * units('mm'),
+                                    soil_shear_strength,
+                                    soil_friction_angle,
+                                    jacobian = False,
+                                    )['yield_value'].magnitude,
+                                bracket = [
+                                    shear_zone_thickness[i - 1].to('mm').magnitude,
+                                    shear_zone_thickness_check.to('mm').magnitude
+                                    ]
                                 )
-                            reinforcement[i, ...] = dict_solved
-        
+                            shear_zone_thickness[i] = sol.root * units('mm')
+                        reinforcement[i, ...] = self.calc_single_step(
+                            shear_displacement[i],
+                            shear_zone_thickness[i],
+                            soil_shear_strength,
+                            soil_friction_angle,
+                            jacobian = False
+                            )['reinforcement']
+       
         output = {
             'displacement': shear_displacement,
             'reinforcement': reinforcement,
@@ -390,10 +391,13 @@ class Dram(_DirectShear):
             passes: int = 3,
             results: str = "attribute"
             ):
-        if np.isfinite(self.failure_surface.max_shear_zone_thickness):
-            shear_displacement_max = max(self.calc_displacement_to_rootpeak(self.failure_surface.max_shear_zone_thickness))
-        else:
-            shear_displacement_max = 1.5 * max(self.calc_displacement_to_rootpeak(self.failure_surface.shear_zone_thickness))
+        shear_displacement_max = 2.0 * max(self.calc_displacement_to_rootpeak(self.failure_surface.shear_zone_thickness))
+        if hasattr(self.failure_surface, 'max_shear_zone_thickness'):
+            if not np.isinf(self.failure_surface.max_shear_zone_thickness):
+                shear_displacement_max = max(
+                    shear_displacement_max,
+                    max(self.calc_displacement_to_rootpeak(self.failure_surface.max_shear_zone_thickness))
+                    )
         shear_displacement_min = 0.0 * shear_displacement_max.units
         shear_zone_thickness = self.failure_surface.shear_zone_thickness
         for i in np.arange(passes):
@@ -401,7 +405,8 @@ class Dram(_DirectShear):
                 shear_displacement_max, 
                 n = n,
                 initial_shear_displacement = shear_displacement_min,
-                initial_shear_zone_thickness = shear_zone_thickness
+                initial_shear_zone_thickness = shear_zone_thickness,
+                results = 'return'
                 )
             index_peak = np.argmax(dict_res['reinforcement'])
             if index_peak == 0:
@@ -417,8 +422,8 @@ class Dram(_DirectShear):
             shear_displacement_max = dict_res['displacement'][index_next]
             shear_zone_thickness = dict_res['shear_zone_thickness'][index_previous]
         output = {
-            'displacement': dict_res['displacement'][index_peak],
-            'reinforcement': dict_res['reinforcement'][index_peak]
+            'peak_displacement': dict_res['displacement'][index_peak],
+            'peak_reinforcement': dict_res['reinforcement'][index_peak]
             }
         match Results(results).how:
             case ResultsType.ATTRIBUTE:

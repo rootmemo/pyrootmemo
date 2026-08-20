@@ -164,4 +164,3 @@ class Results:
                 self.how = list(ResultsType)[self.how]
             except IndexError:
                 raise ValueError(f"Invalid results type: {self.how}. Must be one of {list(ResultsType)}.")
-                        

@@ -73,32 +73,53 @@ def _solve_cubic(
     g = d / a
     Q = (e**2 - 3.0 * f) / 9.0
     R = (2.0 * e**3 - 9.0 * e * f + 27.0 * g) / 54.0
-    flag_3roots = (R**2) < (Q**3) # if true, 3 real roots exist, if false, only one real root exists
-    if any(flag_3roots):
-        theta = np.arccos(R[flag_3roots] / np.sqrt(Q[flag_3roots]**3))
-        x[flag_3roots] = (
+    mask_3realroots = (R**2) < (Q**3) # if true, 3 real roots exist, if false, only one real root exists
+    if any(mask_3realroots):
+        theta = np.arccos(R[mask_3realroots] / np.sqrt(Q[mask_3realroots]**3))
+        x[mask_3realroots] = (
             -2.0 
-            * np.sqrt(Q[flag_3roots]) 
+            * np.sqrt(Q[mask_3realroots]) 
             * np.cos((theta + 2.0 * np.pi) / 3.0) 
-            - e[flag_3roots] 
+            - e[mask_3realroots] 
             / 3.0
             )
-    flag_1root = ~flag_3roots
-    if any(flag_1root):
+    mask_1real1root = ~mask_3realroots
+    if any(mask_1real1root):
         A = (
-            -np.sign(R[flag_1root]) 
+            -np.sign(R[mask_1real1root]) 
             * (
-                np.abs(R[flag_1root]) 
-                + np.sqrt(R[flag_1root]**2 - Q[flag_1root]**3)
+                np.abs(R[mask_1real1root]) 
+                + np.sqrt(R[mask_1real1root]**2 - Q[mask_1real1root]**3)
                 ) ** (1.0 / 3.0)
             )
-        B = Q[flag_1root] / A
-        x[flag_1root] = (A + B) - e[flag_1root] / 3.0
-    flag_zero = np.isclose(d.magnitude, 0.0)
-    x[flag_zero] = 0.0 * d.units / c.units
+        B = Q[mask_1real1root] / A
+        x[mask_1real1root] = (A + B) - e[mask_1real1root] / 3.0
+    mask_zerodiscriminant = np.isclose(d.magnitude, 0.0)
+    x[mask_zerodiscriminant] = 0.0 * d.units / c.units
     return(x)
 
-class AxialPullout():
+def _solve_cubic_polynomial(
+        a: Quantity, 
+        b: Quantity, 
+        c: Quantity, 
+        d: Quantity
+        ) -> Quantity:
+    is_zero_a = np.isclose(a.magnitude, 0.0)
+    is_zero_b = np.isclose(b.magnitude, 0.0)
+    is_zero_c = np.isclose(c.magnitude, 0.0)
+    is_cubic = ~is_zero_a
+    is_quadratic = np.bitwise_and(~is_cubic, ~is_zero_b)
+    is_linear = np.bitwise_and(~is_quadratic, ~is_zero_c)
+    root = np.zeros_like(a) * d.units / c.units
+    if np.any(is_linear):
+        root[is_linear] = -d[is_linear] / c[is_linear]
+    if np.any(is_quadratic):
+        root[is_quadratic] = _solve_quadratic(b[is_quadratic], c[is_quadratic], d[is_quadratic])
+    if np.any(is_cubic):
+        root[is_cubic] = _solve_cubic(a[is_cubic], b[is_cubic], c[is_cubic], d[is_cubic])
+    return(root)
+
+class AxialPulloutNew():
     """Class for axial pull-out of roots
 
     Predict pull-out forces for bundles of roots. This class follows models
@@ -322,11 +343,11 @@ class AxialPullout():
             'Not in tension',
             'Anchored, elastic',
             'Slipping, elastic',
-            'Full pullout',      # (when behaviour is elastic)
+            'Full pullout, elastic',      # (when behaviour is elastic)
             'Anchored, plastic',   
-            'Slipping, plastic', # (stress above yield stress)
-            'Slipping, plastic', # (stress below yield stress)
-            'Full pullout'       # (when behaviour is plastic)
+            'Slipping, plastic',          # (stress above yield stress)
+            'Slipping, plastic',          # (stress below yield stress)
+            'Full pullout, plastic'       # (when behaviour is plastic)
         ])
         coefficients = [
             np.zeros((len(behaviour_types), *nroots)) * units('mm/N^3'),
@@ -593,26 +614,33 @@ class AxialPullout():
 
         Function creates a dictionary with the keys:
 
-            * `displacement`: array or scalar with requested displacements
+            * `displacement_per_root`: array or scalar with specified pullout 
+              displacements.
             * `force_per_root`: array with forces in each root
             * `behaviour_index`: array with the index of the behaviour type
               of each roots. see class attribute 'behaviour_type' for a full
               list of behaviour type names
             * `survival_fraction`: array with survival fraction for each root
-            * `dforce_per_root_ddisplacement`: derivative of pullout forces in 
-              each root with respect to displacement. Only returned when 
-              `jacobian = True`.
-        
+            * `dforce_per_root_ddisplacement_per_root`: derivative of pullout 
+              forces in each root with respect to displacement in each root. 
+              Only returned when `jacobian = True`.
+
+        All returned fields are two-dimensional arrays, with the specified 
+        'time' steps on the first axis (rows) and the result per individual
+        root on the second axis (columns).
+                      
         How this dictionary returned depends on the value of the `results` 
         argument.
         
         Parameters
         ----------
         displacement : Quantity | Parameter(value: int | float | np.ndarray, unit: str)
-            Displacement level. Must be a scalar, in which case the this
-            is the applied displacement to each root. If inputted as an 
-            array, this is the array of displacements applied to individual
-            roots (must have same length as number of roots).
+            Displacement level. If a scalar, this displacement is applied to 
+            each root. If a one-dimensional array, each value is applied to 
+            all roots consecutively. If a two-dimensional array, the first axis
+            signifies 'time' and the second axis is the displacement applied to 
+            each individual root at that time. In this case, the length of the
+            second axis must match the number of roots.
         jacobian : bool
             If True, also calculate and return the derivative of pull-out force(s) with
             respect to the applied pull-out displacement. By default False.
@@ -624,168 +652,102 @@ class AxialPullout():
             instead. 
             * `results = "both"` or `results = 2` does both at the same time.
         """
+        nroots = len(self.roots.xsection)
         displacement = create_quantity(displacement, check_unit = 'mm')
-        nroots = self.roots.xsection.shape
-        if not np.isscalar(displacement.magnitude):
-            if not displacement.shape == nroots:
-                raise ValueError('displacement must be a scalar or an array with seperate displacements for each individual root')
-        behaviour_index = np.sum(displacement > self.displacement_limits, axis = 0).astype(int)
-       
-        force_unbroken = np.zeros(*nroots) * units('N')
-        if jacobian is True:
-            dforceunbroken_ddisplacement = np.zeros(*nroots) * units('N/mm')
-
-        if self.surface is True:
-            mask_el_anch = (behaviour_index == 1)
-            if any(mask_el_anch):
-                force_unbroken[mask_el_anch] = _solve_cubic(
-                    self.coefficients[0][1, mask_el_anch],
-                    self.coefficients[1][1, mask_el_anch],
-                    self.coefficients[2][1, mask_el_anch],
-                    (self.coefficients[3][1, ...] - displacement)[mask_el_anch]
-                    )
-                if jacobian is True:
-                    dforceunbroken_ddisplacement[mask_el_anch] = (1.0 / (
-                        3.0 * self.coefficients[0][1, mask_el_anch] * force_unbroken[mask_el_anch]**2
-                        + 2.0 * self.coefficients[1][1, mask_el_anch] * force_unbroken[mask_el_anch]
-                        + self.coefficients[2][1, mask_el_anch]
-                    ))
-            if self.slipping is True:
-                mask_el_slip = (behaviour_index == 2)
-                if any(mask_el_slip):
-                    force_unbroken[mask_el_slip] = _solve_quadratic(
-                        self.coefficients[1][2, mask_el_slip],
-                        self.coefficients[2][2, mask_el_slip],
-                        (self.coefficients[3][2, ...] - displacement)[mask_el_slip]
-                    )
-                    if jacobian is True:
-                        dforceunbroken_ddisplacement[mask_el_slip] = (1.0 / (
-                            2.0 * self.coefficients[1][2, mask_el_slip] * force_unbroken[mask_el_slip]
-                            + self.coefficients[2][2, mask_el_slip]
-                        ))
-            if self.elastoplastic is True:
-                mask_pl_anch = (behaviour_index == 4)
-                if any(mask_pl_anch):
-                    force_unbroken[mask_pl_anch] = _solve_cubic(
-                        self.coefficients[0][4, mask_pl_anch],
-                        self.coefficients[1][4, mask_pl_anch],
-                        self.coefficients[2][4, mask_pl_anch],
-                        (self.coefficients[3][4, ...] - displacement)[mask_pl_anch]
-                        )
-                    if jacobian is True:
-                        dforceunbroken_ddisplacement[mask_pl_anch] = (1.0 / (
-                            3.0 * self.coefficients[0][4, mask_pl_anch] * force_unbroken[mask_pl_anch]**2
-                            + 2.0 * self.coefficients[1][4, mask_pl_anch] * force_unbroken[mask_pl_anch]
-                            + self.coefficients[2][4, mask_pl_anch]
-                        ))
-                if self.slipping is True:
-                    mask_pl_slip_aboveyield = (behaviour_index == 5)
-                    if any(mask_pl_slip_aboveyield):
-                        force_unbroken[mask_pl_slip_aboveyield] = _solve_quadratic(
-                            self.coefficients[1][5, mask_pl_slip_aboveyield],
-                            self.coefficients[2][5, mask_pl_slip_aboveyield],
-                            (self.coefficients[3][5, ...] - displacement)[mask_pl_slip_aboveyield]
-                            )
-                        if jacobian is True:
-                            dforceunbroken_ddisplacement[mask_pl_slip_aboveyield] = (1.0 / (
-                                2.0 * self.coefficients[1][5, mask_pl_slip_aboveyield] * force_unbroken[mask_pl_slip_aboveyield]
-                                + self.coefficients[2][5, mask_pl_slip_aboveyield]
-                            ))
-                    mask_pl_slip_belowyield = (behaviour_index == 6)
-                    if any(mask_pl_slip_belowyield):
-                        force_unbroken[mask_pl_slip_belowyield] = _solve_quadratic(
-                            self.coefficients[1][6, mask_pl_slip_belowyield],
-                            self.coefficients[2][6, mask_pl_slip_belowyield],
-                            (self.coefficients[3][6, ...] - displacement)[mask_pl_slip_belowyield]
-                            )
-                        if jacobian is True:
-                            dforceunbroken_ddisplacement[mask_pl_slip_belowyield] = (1.0 / (
-                                2.0 * self.coefficients[1][6, mask_pl_slip_belowyield] * force_unbroken[mask_pl_slip_belowyield]
-                                + self.coefficients[2][6, mask_pl_slip_belowyield]
-                            ))
-            force_unbroken_cummax = force_unbroken.copy()
-            mask_el_reducing = np.isin(behaviour_index, [2, 3])
-            force_unbroken_cummax[mask_el_reducing] = self.force_limits[1, mask_el_reducing]
-            mask_pl_reducing = np.isin(behaviour_index, [5, 6, 7])
-            force_unbroken_cummax[mask_pl_reducing] = self.force_limits[4, mask_pl_reducing]
-            if jacobian is True:
-                dforceunbrokencummax_ddisplacement = dforceunbroken_ddisplacement.copy()
-                dforceunbrokencummax_ddisplacement[mask_el_reducing] = 0.0 * units('N/mm')
-                dforceunbrokencummax_ddisplacement[mask_pl_reducing] = 0.0 * units('N/mm')
+        if np.isscalar(displacement.magnitude):
+            is_scalar_displacement = True
+            ndisplacements = 1
+            displacement_per_root = np.ones((ndisplacements, nroots)) * displacement
         else:
-            mask_el_anch = (behaviour_index == 1)
-            if any(mask_el_anch):
-                force_unbroken[mask_el_anch] = np.sqrt(
-                    (displacement / self.coefficients[1][1, ...])[mask_el_anch]
-                    )
-                if jacobian is True:
-                    dforceunbroken_ddisplacement[mask_el_anch] = (1.0 / (
-                        2.0 * self.coefficients[1][1, mask_el_anch] * force_unbroken[mask_el_anch]
-                        ))
-            if self.slipping is True:
-                mask_el_slip = (behaviour_index == 2)
-                if any(mask_el_slip):
-                    force_unbroken[mask_el_slip] = (
-                        self.roots.length[mask_el_slip]
-                        * self.roots.circumference[mask_el_slip]
-                        * self.interface.shear_strength
-                        )
-            if self.elastoplastic is True:
-                mask_pl_anch = (behaviour_index == 4)
-                if any(mask_pl_anch):
-                    force_unbroken[mask_pl_anch] = _solve_quadratic(
-                        self.coefficients[1][4, mask_pl_anch],
-                        self.coefficients[2][4, mask_pl_anch],
-                        (self.coefficients[3][4, ...] - displacement)[mask_pl_anch]
-                        )
-                    if jacobian is True:
-                        dforceunbroken_ddisplacement[mask_pl_anch] = (1.0 / (
-                            2.0 * self.coefficients[1][4, mask_pl_anch] * force_unbroken[mask_pl_anch]
-                            + self.coefficients[2][4, mask_pl_anch]
-                            ))
-                if self.slipping is True:
-                    mask_pl_slip = (behaviour_index == 5)
-                    if any(mask_pl_slip):
-                        force_unbroken[mask_pl_slip] = (
-                            self.roots.length[mask_pl_slip]
-                            * self.roots.circumference[mask_pl_slip]
-                            * self.interface.shear_strength
-                            )
-            force_unbroken_cummax = force_unbroken.copy()
-            if jacobian is True:
-                dforceunbrokencummax_ddisplacement = dforceunbroken_ddisplacement.copy()
+            is_scalar_displacement = False
+            if np.ndim(displacement) == 1:
+                ndisplacements = len(displacement)
+                displacement_per_root = np.broadcast_to(displacement[:, np.newaxis], (ndisplacements, nroots))
+            elif np.ndim(displacement) == 2:
+                if not displacement.shape[1] == nroots:
+                    raise ValueError('displacement must be a scalar or an array with seperate displacements for each individual root')
+                ndisplacements = displacement.shape[0]
+                displacement_per_root = displacement
+            else:
+                raise ValueError('displacement must be a scalar, 1-D array or 2-D array with 2nd axis matching the number of roots')
+
+        behaviour_mask = displacement_per_root[:, np.newaxis, :] > self.displacement_limits[np.newaxis, :, :]
+        behaviour_index = np.sum(behaviour_mask, axis = 1, dtype = int)
+        coefficients_all = [
+            np.sum(np.array([(behaviour_index == i) * c.magnitude[np.newaxis, i, :] for i in np.unique(behaviour_index)]), axis = 0) * c.units
+            for c in self.coefficients
+            ]
+        coefficients_all[3] = coefficients_all[3] - displacement_per_root
+
+        force_unbroken = _solve_cubic_polynomial(*coefficients_all)
+        if self.surface is False:
+            mask_el_slip = (behaviour_index == 2)
+            if np.any(mask_el_slip):
+                _, root_index = np.where(mask_el_slip)
+                force_unbroken[mask_el_slip] = self.force_limits[1, root_index]
+            mask_pl_slip = (behaviour_index == 5)
+            if np.any(mask_pl_slip):
+                _, root_index = np.where(mask_pl_slip)
+                force_unbroken[mask_pl_slip] = self.force_limits[4, root_index]
+        if jacobian is True:
+            dforceunbroken_ddisplacement = np.zeros((ndisplacements, nroots)) * units('N/mm')
+            if self.surface is True:
+                mask = (behaviour_index >= 0)
+            else:
+                mask = ~np.isin(behaviour_index, [0, 2, 5])
+            dforceunbroken_ddisplacement[mask] = 1.0 / (
+                3.0 * coefficients_all[0][mask] * force_unbroken[mask]**2
+                + 2.0 * coefficients_all[1][mask] * force_unbroken[mask]
+                + coefficients_all[2][mask]
+                )
 
         if self.breakage is True:
+            force_unbroken_cummax = force_unbroken.copy()
+            if self.surface is True:
+                mask_el_reducing = np.isin(behaviour_index, [2, 3])
+                _, root_index = np.where(mask_el_reducing)
+                force_unbroken_cummax[mask_el_reducing] = self.force_limits[1, root_index]
+                mask_pl_reducing = np.isin(behaviour_index, [5, 6, 7])
+                _, root_index = np.where(mask_pl_reducing)
+                force_unbroken_cummax[mask_pl_reducing] = self.force_limits[4, root_index]
             force_breakage = self.roots.xsection * self.roots.tensile_strength
             if self.weibull_shape is None:
                 survival = (force_unbroken_cummax <= force_breakage).astype(float)
-                if jacobian is True:
-                    dsurvival_ddisplacement = np.zeros(*nroots) * units('1/mm')
             else:
                 y = (gamma(1.0 + 1.0 / self.weibull_shape) 
                      * force_unbroken_cummax 
                      / force_breakage
                      ).magnitude                   
                 survival = np.exp(-(y**self.weibull_shape))
-                if jacobian is True:
+            if jacobian is True:
+                dforceunbrokencummax_ddisplacement = dforceunbroken_ddisplacement.copy()
+                if self.surface is True:
+                    dforceunbrokencummax_ddisplacement[mask_el_reducing] = 0.0 * units('N/mm')
+                    dforceunbrokencummax_ddisplacement[mask_pl_reducing] = 0.0 * units('N/mm')
+                if self.weibull_shape is None:
+                    dsurvival_ddisplacement = np.zeros((ndisplacements, nroots)) * units('1/mm')
+                else:
                     dy_dforceunbrokencummax = gamma(1.0 + 1.0 / self.weibull_shape) / force_breakage
                     dsurvival_dy = -self.weibull_shape * y**(self.weibull_shape - 1.0) * survival
                     dsurvival_ddisplacement = dsurvival_dy * dy_dforceunbrokencummax * dforceunbrokencummax_ddisplacement
         else:
-            survival = np.ones(*nroots).astype(float)
+            survival = np.zeros_like(displacement_per_root, dtype = float)
             if jacobian is True:
-                dsurvival_ddisplacement = np.zeros(*nroots) * units('1/mm')         
+                dsurvival_ddisplacement = np.zeros((ndisplacements, nroots)) * units('1/mm')
 
         output = {
+            'displacement_per_root': displacement_per_root,
             'force_per_root': force_unbroken * survival,
             'behaviour_index': behaviour_index,
             'survival_fraction': survival
             }
         if jacobian is True:
-            output['dforce_per_root_ddisplacement'] = (
+            output['dforce_per_root_ddisplacement_per_root'] = (
                 dforceunbroken_ddisplacement * survival
                 + force_unbroken * dsurvival_ddisplacement
                 )
+        if is_scalar_displacement is True:
+            output = {k: v[0, ...] for k, v in output.items()}
         match Results(results).how:
             case ResultsType.ATTRIBUTE:
                 self.output.update(output)

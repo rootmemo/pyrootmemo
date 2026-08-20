@@ -228,7 +228,7 @@ class FailureSurface:
     def calc_orientation_matrix(self) -> np.ndarray:
         """
         Calculate the matrix that describes the Cartesian axes of the failure
-        surface, in global coordinates
+        surface, in global coordinates.
 
         Matrix consist of three horizontally concatenated unit column vectors, 
         describing the x'-axis (direction of shearing), z'-axis (normal to the
@@ -251,6 +251,7 @@ class FailureSurface:
             sin_azimuth = np.sin(self.azimuth_angle).magnitude
             cos_azimuth = np.cos(self.azimuth_angle).magnitude
         else:
+            ## GJM: raise a warning - assumed x
             sin_azimuth = 0.0
             cos_azimuth = 1.0
         if hasattr(self, 'elevation_angle'):

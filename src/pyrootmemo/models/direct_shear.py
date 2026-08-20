@@ -509,3 +509,37 @@ class _DirectShear():
                     -length_z * length_x / length**3
                     ), axis = -1)
         return(output)
+
+    def calc_displacement_to_rootpeak(
+            self,
+            shear_zone_thickness: Quantity
+            ) -> Quantity:
+        """Calculate shear displacement at peak reinforcements of individual roots
+
+        Calculate the shear displacement associated with each root reaching its
+        maximum tensile force, i.e. at the point of breakage or at the onset
+        of slippage. The associated pull-out displacement is calculated, and 
+        this is then converted back to shear displacements and returned.
+    
+        Parameters
+        ----------
+        shear_zone_thickness : Quantity
+            Shear zone thickness
+
+        Returns
+        -------
+        Quantity
+            Array with shear displacements
+        """
+        pullout_displacement = self.pullout.calc_displacement_to_peak(results = 'return')
+        elongation = pullout_displacement['peak_displacement_per_root'] / self.distribution_factor
+        if (shear_zone_thickness.magnitude <= 0.0):
+            return(elongation)
+        else:
+            length_initial =  shear_zone_thickness / self.roots.orientation[..., 2]
+            length_x0 = shear_zone_thickness * self.roots.orientation[..., 0] / self.roots.orientation[..., 2]
+            length_y0 = shear_zone_thickness * self.roots.orientation[..., 1] / self.roots.orientation[..., 2]
+            length_z0 = shear_zone_thickness
+            length = length_initial + elongation
+            length_x = np.sqrt(length**2 - length_y0**2 - length_z0**2)
+            return(length_x - length_x0)

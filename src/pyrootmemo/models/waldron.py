@@ -292,35 +292,6 @@ class Waldron(_DirectShear):
                 self.output.update(output)
                 return output   
 
-    def calc_displacement_to_rootpeak(
-            self,
-            ) -> Quantity:
-        """Calculate shear displacement at peak reinforcements of individual roots
-
-        Calculate the shear displacement associated with each root reaching its
-        maximum tensile force, i.e. at the point of breakage or at the onset
-        of slippage. The associated pull-out displacement is calculated, and 
-        this is then converted back to shear displacements and returned.
-
-        Returns
-        -------
-        Quantity
-            Array with shear displacements
-        """
-        shear_zone_thickness = self.failure_surface.shear_zone_thickness
-        pullout_displacement = self.pullout.calc_displacement_to_peak(results = 'return')
-        elongation = pullout_displacement['peak_displacement_per_root'] / self.distribution_factor
-        if (shear_zone_thickness.magnitude <= 0.0):
-            return(elongation)
-        else:
-            length_initial =  shear_zone_thickness / self.roots.orientation[..., 2]
-            length_x0 = shear_zone_thickness * self.roots.orientation[..., 0] / self.roots.orientation[..., 2]
-            length_y0 = shear_zone_thickness * self.roots.orientation[..., 1] / self.roots.orientation[..., 2]
-            length_z0 = shear_zone_thickness
-            length = length_initial + elongation
-            length_x = np.sqrt(length**2 - length_y0**2 - length_z0**2)
-            return(length_x - length_x0)
-
     def calc_peak_reinforcement(
             self, 
             extend_multiplier: int | float = 1.15,
@@ -335,7 +306,7 @@ class Waldron(_DirectShear):
         pull-out displacements at which each root reaches its maximum force,
         either at the point of breakage or at the onset of root slippage. These
         are then transformed to shear displacements using the function
-        'calc_displacement_to_rootpeak'. 
+        'calc_displacement_to_rootpeak()'. 
 
         The maximum reinforcement is found by using scipy's evolutionary
         optimiser (scipy.optimise.differential_evolution) on the domain from
@@ -380,7 +351,7 @@ class Waldron(_DirectShear):
                 'peak_reinforcement': np.inf * units('kPa')
                 }
         else:
-            max_displacement_per_root = self.calc_displacement_to_rootpeak()
+            max_displacement_per_root = self.calc_displacement_to_rootpeak(self.failure_surface.shear_zone_thickness)
             shear_displacement_max = extend_multiplier * np.max(max_displacement_per_root)
             shear_displacement_units = shear_displacement_max.units
             def fun_to_optimize(x):
@@ -474,7 +445,7 @@ class Waldron(_DirectShear):
         if (self.breakage is False) and (self.slipping is False):
             shear_displacement_max = 100.0 * units('mm')
         else:
-            shear_displacement_rootpeak = self.calc_displacement_to_rootpeak()
+            shear_displacement_rootpeak = self.calc_displacement_to_rootpeak(self.failure_surface.shear_zone_thickness)
             shear_displacement_max = np.max(shear_displacement_rootpeak)
         shear_displacement = np.linspace(0.0 * shear_displacement_max, shear_displacement_max * (1.0 + margin_axis), n)
         dict_results = self.calc_reinforcement(shear_displacement, jacobian = False, results = 'return')
