@@ -86,7 +86,7 @@
 <div class="viewcode-block" id="SoilProfile">
 <a class="viewcode-back" href="../../geometry/index.html#pyrootmemo.geometry.SoilProfile">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">SoilProfile</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">       Initialize a SoilProfile object with a list of Soil objects and optional parameters.</span>
 <span class="sd">       This class represents a profile of soils, allowing for the calculation of vertical stress</span>
 
@@ -107,54 +107,54 @@
 <span class="sd">           Calculates the vertical stress at a specific depth in the soil profile.</span>
 <span class="sd">       calc_pore_pressure</span>
 <span class="sd">           Calculates the pore pressure at a specific depth in the soil profile.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">soils</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">soils</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Soils should be a list of Soil objects&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"Soils should be a list of Soil objects"</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">([</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">Soil</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">soils</span><span class="p">]):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Soils should be a list of Soil objects&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"Soils should be a list of Soil objects"</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">soils</span> <span class="o">=</span> <span class="n">soils</span>
             
         <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">SOIL_PROFILE_PARAMETERS</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Undefined parameter. Choose one of the following: </span><span class="si">{</span><span class="n">SOIL_PROFILE_PARAMETERS</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">"Undefined parameter. Choose one of the following: </span><span class="si">{</span><span class="n">SOIL_PROFILE_PARAMETERS</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span>
                 <span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">is_namedtuple</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Parameter should be of type Parameter(value, unit)&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="n">SOIL_PROFILE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"Parameter should be of type Parameter(value, unit)"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="n">SOIL_PROFILE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">)):</span>
                 <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Value should be of type </span><span class="si">{</span><span class="n">SOIL_PROFILE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="si">}</span><span class="s2"> or a list&quot;</span>
+                    <span class="sa">f</span><span class="s2">"Value should be of type </span><span class="si">{</span><span class="n">SOIL_PROFILE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">"type"</span><span class="p">]</span><span class="si">}</span><span class="s2"> or a list"</span>
                 <span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Unit should be entered as a string&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">units</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">SOIL_PROFILE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dimensionality</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"Unit should be entered as a string"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">units</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">SOIL_PROFILE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">"unit"</span><span class="p">]</span><span class="o">.</span><span class="n">dimensionality</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="n">DimensionalityError</span><span class="p">(</span>
-                    <span class="n">units1</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">units2</span><span class="o">=</span><span class="n">SOIL_PROFILE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span>
+                    <span class="n">units1</span><span class="o">=</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">units2</span><span class="o">=</span><span class="n">SOIL_PROFILE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">"unit"</span><span class="p">]</span>
                 <span class="p">)</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span>
-                    <span class="p">[</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">SOIL_PROFILE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">])</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">]</span>
+                    <span class="p">[</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">SOIL_PROFILE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">"type"</span><span class="p">])</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">]</span>
                 <span class="p">):</span>
                     <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> should only be of type </span><span class="si">{</span><span class="n">SOIL_PROFILE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="si">}</span><span class="s2"> in a list&quot;</span>
+                        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> should only be of type </span><span class="si">{</span><span class="n">SOIL_PROFILE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">"type"</span><span class="p">]</span><span class="si">}</span><span class="s2"> in a list"</span>
                     <span class="p">)</span>
-            <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">&quot;depth&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">"depth"</span><span class="p">:</span>
                 <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">soils</span><span class="p">):</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;Length of depth (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2">) should be equal to the number of soils (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">soils</span><span class="p">)</span><span class="si">}</span><span class="s2">)&quot;</span>
+                        <span class="sa">f</span><span class="s2">"Length of depth (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2">) should be equal to the number of soils (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">soils</span><span class="p">)</span><span class="si">}</span><span class="s2">)"</span>
                     <span class="p">)</span>
                 <span class="k">if</span> <span class="nb">any</span><span class="p">([</span><span class="n">entry</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">]):</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Depth should be positive&quot;</span><span class="p">)</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Depth should be positive"</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Depth should start with a positive value&quot;</span><span class="p">)</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Depth should start with a positive value"</span><span class="p">)</span>
                 <span class="k">if</span> <span class="nb">any</span><span class="p">([</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">))]):</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Depth should be monotonically increasing&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">&quot;groundwater_table&quot;</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Depth should be monotonically increasing"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">"groundwater_table"</span><span class="p">:</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">)):</span>
-                    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Groundwater table should be a single value&quot;</span><span class="p">)</span>
+                    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"Groundwater table should be a single value"</span><span class="p">)</span>
                 <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">value</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Groundwater table cannot be negative&quot;</span><span class="p">)</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Groundwater table cannot be negative"</span><span class="p">)</span>
 
             <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">value</span> <span class="o">*</span> <span class="n">units</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">))</span>
 
@@ -164,7 +164,7 @@
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">depth</span>            
             <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Get the soil object at a specified depth.</span>
 
 <span class="sd">        Parameters</span>
@@ -175,7 +175,7 @@
 <span class="sd">        ------- </span>
 <span class="sd">        soils_deeper : pyrootmemo.materials.Soil</span>
 <span class="sd">            Returns the Soil object at the specified depth.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">soils_deeper</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">soils</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">depth</span><span class="p">)</span> <span class="k">if</span> <span class="n">d</span> <span class="o">&gt;=</span> <span class="n">depth</span><span class="p">]</span>
         <span class="k">return</span><span class="p">(</span><span class="n">soils_deeper</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span></div>
 
@@ -186,7 +186,7 @@
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">depth</span><span class="p">:</span> <span class="n">Quantity</span>
             <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Quantity</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Calculate the vertical total stress at a specific depth in the soil</span>
 <span class="sd">        profile.</span>
 
@@ -205,8 +205,8 @@
 <span class="sd">        -------</span>
 <span class="sd">        Quantity</span>
 <span class="sd">            The vertical stress at the specified depth</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">depth_top</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mf">0.0</span> <span class="o">*</span> <span class="n">units</span><span class="p">(</span><span class="s1">&#39;m&#39;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">depth</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+<span class="sd">        """</span>
+        <span class="n">depth_top</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mf">0.0</span> <span class="o">*</span> <span class="n">units</span><span class="p">(</span><span class="s1">'m'</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">depth</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
         <span class="n">thickness</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">depth</span><span class="p">,</span> <span class="n">depth</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">depth_top</span><span class="p">,</span> <span class="n">depth</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">depth</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">groundwater_table</span><span class="p">:</span>
             <span class="n">tmp_above</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">depth</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">groundwater_table</span><span class="p">)</span>
@@ -218,12 +218,12 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">thickness_above_wt</span> <span class="o">=</span> <span class="n">thickness</span>
             <span class="n">thickness_below_wt</span> <span class="o">=</span> <span class="mf">0.0</span> <span class="o">*</span> <span class="n">thickness</span>
-        <span class="n">unit</span> <span class="o">=</span> <span class="s1">&#39;kN/m^3&#39;</span>
+        <span class="n">unit</span> <span class="o">=</span> <span class="s1">'kN/m^3'</span>
         <span class="n">unit_weight_above_wt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
-            <span class="n">s</span><span class="o">.</span><span class="n">unit_weight_dry</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">magnitude</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="s1">&#39;unit_weight_dry&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="n">s</span><span class="o">.</span><span class="n">unit_weight_bulk</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">magnitude</span>
+            <span class="n">s</span><span class="o">.</span><span class="n">unit_weight_dry</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">magnitude</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="s1">'unit_weight_dry'</span><span class="p">)</span> <span class="k">else</span> <span class="n">s</span><span class="o">.</span><span class="n">unit_weight_bulk</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">magnitude</span>
             <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">soils</span><span class="p">])</span> <span class="o">*</span> <span class="n">units</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span>
         <span class="n">unit_weight_below_wt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
-            <span class="n">s</span><span class="o">.</span><span class="n">unit_weight_saturated</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">magnitude</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="s1">&#39;unit_weight_saturated&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="n">s</span><span class="o">.</span><span class="n">unit_weight_bulk</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">magnitude</span>
+            <span class="n">s</span><span class="o">.</span><span class="n">unit_weight_saturated</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">magnitude</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="s1">'unit_weight_saturated'</span><span class="p">)</span> <span class="k">else</span> <span class="n">s</span><span class="o">.</span><span class="n">unit_weight_bulk</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span><span class="o">.</span><span class="n">magnitude</span>
             <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">soils</span><span class="p">])</span> <span class="o">*</span> <span class="n">units</span><span class="p">(</span><span class="n">unit</span><span class="p">)</span>
         <span class="k">return</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span>
             <span class="n">unit_weight_above_wt</span> <span class="o">*</span> <span class="n">thickness_above_wt</span>
@@ -238,7 +238,7 @@
             <span class="n">depth</span><span class="p">:</span> <span class="n">Quantity</span><span class="p">,</span>
             <span class="n">orientation</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">=</span> <span class="mf">0.0</span>  
             <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Quantity</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate pore pressure at specific depth</span>
+<span class="w">        </span><span class="sd">"""Calculate pore pressure at specific depth</span>
 
 <span class="sd">        A flow direction can be defined if needed. All flow is assumed to be</span>
 <span class="sd">        parallel to this direction. </span>
@@ -254,9 +254,9 @@
 <span class="sd">        -------</span>
 <span class="sd">        Quantity</span>
 <span class="sd">            The pore pressure at the specified depth</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">depth</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">groundwater_table</span><span class="p">:</span>
-            <span class="k">return</span><span class="p">(</span><span class="mf">0.0</span> <span class="o">*</span> <span class="n">units</span><span class="p">(</span><span class="s1">&#39;kPa&#39;</span><span class="p">))</span>
+            <span class="k">return</span><span class="p">(</span><span class="mf">0.0</span> <span class="o">*</span> <span class="n">units</span><span class="p">(</span><span class="s1">'kPa'</span><span class="p">))</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">pore_pressure</span> <span class="o">=</span> <span class="n">UNIT_WEIGHT_WATER</span> <span class="o">*</span> <span class="p">(</span><span class="n">depth</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">groundwater_table</span><span class="p">)</span>
             <span class="k">return</span><span class="p">(</span><span class="n">pore_pressure</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">orientation</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span></div>
@@ -269,7 +269,7 @@
             <span class="n">depth</span><span class="p">:</span> <span class="n">Quantity</span><span class="p">,</span>
             <span class="n">orientation</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span> <span class="o">=</span> <span class="mf">0.0</span>
             <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Quantity</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate the shear strength</span>
+<span class="w">        </span><span class="sd">"""Calculate the shear strength</span>
 
 <span class="sd">        Can deal with inclined failure planes, assumed perpendicular to the soil</span>
 <span class="sd">        surface. </span>
@@ -285,7 +285,7 @@
 <span class="sd">        -------</span>
 <span class="sd">        Quantity</span>
 <span class="sd">            Soil shear strength</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">total_vertical_stress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calc_total_vertical_stress</span><span class="p">(</span><span class="n">depth</span><span class="p">)</span>
         <span class="n">total_normal_stress</span> <span class="o">=</span> <span class="n">total_vertical_stress</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">orientation</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
         <span class="n">pore_pressure</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calc_pore_pressure</span><span class="p">(</span><span class="n">depth</span><span class="p">,</span> <span class="n">orientation</span> <span class="o">=</span> <span class="n">orientation</span><span class="p">)</span>
@@ -307,24 +307,24 @@
         <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">FAILURE_SURFACE_PARAMETERS</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Undefined parameter. Choose one of the following: </span><span class="si">{</span><span class="n">FAILURE_SURFACE_PARAMETERS</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">"Undefined parameter. Choose one of the following: </span><span class="si">{</span><span class="n">FAILURE_SURFACE_PARAMETERS</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span>
                 <span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">is_namedtuple</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Parameter should be of type Parameter(value, unit)&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="n">FAILURE_SURFACE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">)):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"Parameter should be of type Parameter(value, unit)"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="n">FAILURE_SURFACE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">)):</span>
                 <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Value should be of type </span><span class="si">{</span><span class="n">FAILURE_SURFACE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="si">}</span><span class="s2"> or a list&quot;</span>
+                    <span class="sa">f</span><span class="s2">"Value should be of type </span><span class="si">{</span><span class="n">FAILURE_SURFACE_PARAMETERS</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="s2">"type"</span><span class="p">]</span><span class="si">}</span><span class="s2"> or a list"</span>
                 <span class="p">)</span>
             <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">value</span> <span class="o">*</span> <span class="n">units</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">unit</span><span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">calc_orientation_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Calculate the matrix that describes the Cartesian axes of the failure</span>
-<span class="sd">        surface, in global coordinates</span>
+<span class="sd">        surface, in global coordinates.</span>
 
 <span class="sd">        Matrix consist of three horizontally concatenated unit column vectors, </span>
-<span class="sd">        describing the x&#39;-axis (direction of shearing), z&#39;-axis (normal to the</span>
-<span class="sd">        shear plane, pointing towards the sliding block) and the y&#39;-axis. All </span>
+<span class="sd">        describing the x'-axis (direction of shearing), z'-axis (normal to the</span>
+<span class="sd">        shear plane, pointing towards the sliding block) and the y'-axis. All </span>
 <span class="sd">        are defined in the global coordinate system.</span>
 
 <span class="sd">        These rotations are described by two subsequent rotations, starting off</span>
@@ -338,14 +338,15 @@
 <span class="sd">        -------</span>
 <span class="sd">        np.ndarray</span>
 <span class="sd">            3*3 matrix with unit column vectors of each axes</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;azimuth_angle&#39;</span><span class="p">):</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'azimuth_angle'</span><span class="p">):</span>
             <span class="n">sin_azimuth</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">azimuth_angle</span><span class="p">)</span><span class="o">.</span><span class="n">magnitude</span>
             <span class="n">cos_azimuth</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">azimuth_angle</span><span class="p">)</span><span class="o">.</span><span class="n">magnitude</span>
         <span class="k">else</span><span class="p">:</span>
+            <span class="c1">## GJM: raise a warning - assumed x</span>
             <span class="n">sin_azimuth</span> <span class="o">=</span> <span class="mf">0.0</span>
             <span class="n">cos_azimuth</span> <span class="o">=</span> <span class="mf">1.0</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;elevation_angle&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">'elevation_angle'</span><span class="p">):</span>
             <span class="n">sin_elevation</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elevation_angle</span><span class="p">)</span><span class="o">.</span><span class="n">magnitude</span>
             <span class="n">cos_elevation</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">elevation_angle</span><span class="p">)</span><span class="o">.</span><span class="n">magnitude</span>
         <span class="k">else</span><span class="p">:</span>
