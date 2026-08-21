@@ -164,3 +164,60 @@ class Results:
                 self.how = list(ResultsType)[self.how]
             except IndexError:
                 raise ValueError(f"Invalid results type: {self.how}. Must be one of {list(ResultsType)}.")
+
+def outer_ufunc(
+            a: Quantity | np.ndarray, 
+            b: Quantity | np.ndarray,
+            ufunc: str = 'multiply'
+        ) -> Quantity | np.ndarray:
+    """Outer operator of two vectors that preserves dimensionality of Quantities
+
+    Calculates C_ij = a_i <ufunc> b_j
+
+    Outer operators are not (currently) supported by the pint package, therefore
+    this function is needed
+
+    Parameters
+    ----------
+    a : Quantity | np.ndarray | float | int
+        first array
+    b : Quantity | np.ndarray | float | int
+        second array
+    ufunc : str
+        Numpy ufunc name. By default 'multiply'. Currently supported are
+        'multiply', 'divide', 'add' and 'subtract'
+
+    Returns
+    -------
+    Quantity | np.ndarray
+        outer product of a and b, i.e. matrix M_ij = a_i b_j
+    """
+    match ufunc:
+        case 'multiply' | 'divide':
+            if ufunc == 'divide':
+                b = 1.0 / b
+            if isinstance(a, Quantity):
+                a_magnitude = a.magnitude
+                a_units = a.units
+            else:
+                a_magnitude = a
+                a_units = 1.0
+            if isinstance(b, Quantity):
+                b_magnitude = b.magnitude
+                b_units = b.units
+            else:
+                b_magnitude = b
+                b_units = 1.0
+            return(np.multiply.outer(a_magnitude, b_magnitude) * a_units * b_units)
+        case 'add' | 'subtract':
+            if ufunc == 'subtract':
+                b = -b
+            if isinstance(a, Quantity):
+                a_magnitude = a.magnitude
+                a_units = a.units
+                b_magnitude = b.to(a_units).magnitude
+                return(np.add.outer(a_magnitude, b_magnitude) * a_units)
+            else:
+                return(np.add.outer(a, b))
+        case _:
+            raise ValueError("ufunc must be one of ['multiply', 'divide', 'add', 'subtract']")

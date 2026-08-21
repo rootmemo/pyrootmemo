@@ -153,7 +153,6 @@ class Waldron(_DirectShear):
             self,
             displacement: Quantity | Parameter,
             jacobian: bool = False,
-            squeeze: bool = True,
             multiplier: int | float = 1.0,
             results: str = "attribute"
             ):
@@ -166,9 +165,6 @@ class Waldron(_DirectShear):
         jacobian : bool, optional
             additionally return the derivative of reinforcement with respect 
             to shear displacement. By default False
-        squeeze : bool, optional
-            If True, strip all dimensions with length '1' out of the various
-            results arrays. By default True
         multiplier : int, float, optional
             Multiplication factor for all result returned by the function. 
             This is used to be able to use minimisation algorithms in order
@@ -191,6 +187,9 @@ class Waldron(_DirectShear):
             * 'reinforcement_per_root' : Quantity
                 shear reinforcements. Has shape (n*m) where n is the number of displacement steps
                 and m the number of roots.
+            * 'force_per_root' : Quantity
+                tensile force in each root. Has shape (n*m) where n is the number of displacement steps
+                and m the number of roots.
             * 'behaviour_types' : np.ndarray
                 list of root behaviour type names. 
             * 'behaviour_fraction' : np.ndarray
@@ -207,81 +206,71 @@ class Waldron(_DirectShear):
                 
         """
         displacement = create_quantity(displacement, check_unit = 'mm')
+        output = {'displacement': displacement}
         if np.isscalar(displacement.magnitude):
             displacement = np.array([displacement.magnitude]) * displacement.units
-        ndisplacement = len(displacement)
-        nbehaviour = len(self.pullout.behaviour_types)
+            is_scalar_displacement = True
+        else:
+            is_scalar_displacement = False
         nroots = len(self.roots.xsection)
-        reinforcement_per_root = np.zeros((ndisplacement, nroots)) * units('kPa')
-        xsection_fractions_per_root = np.zeros((ndisplacement, nbehaviour, nroots))
-        if jacobian is True:
-            dreinforcement_per_root_dshear_displacement = np.zeros((ndisplacement, nroots)) * units('kPa/mm')
-    
-        for us, i in zip(displacement, np.arange(ndisplacement)):
-            dict_pullout_disp = self.calc_pullout_displacement(
-                us,
-                self.failure_surface.shear_zone_thickness,
-                jacobian = jacobian,
-            )
-            dict_pullout_force = self.pullout.calc_force(
-                dict_pullout_disp['pullout_displacement'], 
-                jacobian = jacobian,
-                results = 'return'
-                )
-            dict_k = self.calc_orientation_factor(
-                us,
-                self.failure_surface.shear_zone_thickness,
-                jacobian = jacobian
-                )
-            reinforcement_per_root[i, ...] = (
-                multiplier 
-                * dict_k['k'] 
-                * dict_pullout_force['force_per_root'] 
-                / self.failure_surface.cross_sectional_area
-                )
-            xsection_fractions_per_root[i, dict_pullout_force['behaviour_index'], np.arange(nroots)] = (
-                dict_pullout_force['survival_fraction'] 
-                * self.roots.xsection.magnitude 
-                / np.sum(self.roots.xsection.magnitude)
-                )
-            if jacobian is True:
-                dreinforcement_per_root_dshear_displacement[i, ...] = (
-                    multiplier 
-                    / self.failure_surface.cross_sectional_area * (
-                        dict_k['dk_dshear_displacement'] * dict_pullout_force['force_per_root']
-                        + dict_k['k'] * dict_pullout_force['dforce_per_root_ddisplacement'] 
-                        * dict_pullout_disp['dpullout_displacement_dshear_displacement']
-                    )
-                )
         
+        dict_pullout_disp = self.calc_pullout_displacement(
+            displacement,
+            self.failure_surface.shear_zone_thickness,
+            jacobian = jacobian,
+            )
+        dict_k = self.calc_orientation_factor(
+            displacement,
+            self.failure_surface.shear_zone_thickness,
+            jacobian = jacobian
+            )
+        dict_pullout_force = self.pullout.calc_force(
+            dict_pullout_disp['pullout_displacement'], 
+            jacobian = jacobian,
+            results = 'return'
+            )
+        reinforcement_per_root = multiplier * (
+            dict_k['k'] 
+            * dict_pullout_force['force_per_root'] 
+            / self.failure_surface.cross_sectional_area
+            )
+        xsection_fractions_per_root = np.zeros((*np.shape(displacement), len(self.pullout.behaviour_types), nroots))
+        xsection_fractions_per_root[..., dict_pullout_force['behaviour_index'], np.arange(nroots)] = (
+            dict_pullout_force['survival_fraction'] 
+            * self.roots.xsection.magnitude 
+            / np.sum(self.roots.xsection.magnitude)
+            )
+        if jacobian is True:
+            dreinforcement_per_root_dshear_displacement = (
+                multiplier / self.failure_surface.cross_sectional_area * (
+                    dict_k['dk_dshear_displacement'] * dict_pullout_force['force_per_root']
+                    + dict_k['k'] * dict_pullout_force['dforce_per_root_ddisplacement'] 
+                    * dict_pullout_disp['dpullout_displacement_dshear_displacement']
+                )
+            )
+        if is_scalar_displacement is True:
+            force_per_root = dict_pullout_force['force_per_root'][0, ...]
+            reinforcement_per_root = reinforcement_per_root[0, ...]
+            xsection_fractions_per_root = xsection_fractions_per_root[0, ...]
+            if jacobian is True:
+                dreinforcement_per_root_dshear_displacement = dreinforcement_per_root_dshear_displacement[0, ...]
+        else:
+            force_per_root = dict_pullout_force['force_per_root'] 
+
         xsection_fractions = xsection_fractions_per_root.sum(axis = -1)
         behaviour_types_unique = np.unique(self.pullout.behaviour_types)
         behaviour_fraction_unique = np.stack(
-            [np.sum(xsection_fractions[:, self.pullout.behaviour_types == b], axis = 1) 
+            [np.sum(xsection_fractions[..., self.pullout.behaviour_types == b], axis = -1) 
              for b in behaviour_types_unique],
-             axis = 1)
-        behaviour_types_unique = np.append(behaviour_types_unique, 'Broken')
-        behaviour_fraction_unique = np.concatenate(
-            (behaviour_fraction_unique, 1.0 - np.sum(behaviour_fraction_unique, axis = 1)[:, np.newaxis]),
-            axis = 1
-            )
+             axis = -1)
 
-        output = {
-            'displacement': displacement,
-            'reinforcement_per_root': reinforcement_per_root,
-            'reinforcement': reinforcement_per_root.sum(axis = -1),
-            'behaviour_types': behaviour_types_unique,
-            'behaviour_fraction': behaviour_fraction_unique
-            }
+        output['force_per_root'] = force_per_root
+        output['reinforcement_per_root'] = reinforcement_per_root
+        output['reinforcement'] = reinforcement_per_root.sum(axis = -1)
+        output['behaviour_types'] = behaviour_types_unique
+        output['behaviour_fraction'] = behaviour_fraction_unique
         if jacobian is True:
             output['dreinforcement_ddisplacement'] = dreinforcement_per_root_dshear_displacement.sum(axis = -1)
-        if squeeze is True:
-            output['displacement'] = output['displacement'].squeeze()
-            output['reinforcement'] = output['reinforcement'].squeeze()
-            output['reinforcement_per_root'] = output['reinforcement_per_root'].squeeze()
-            output['behaviour_fraction'] = output['behaviour_fraction'].squeeze()
-            if jacobian is True:
-                output['dreinforcement_ddisplacement'] = output['dreinforcement_ddisplacement'].squeeze()
         
         match Results(results).how:
             case ResultsType.ATTRIBUTE:

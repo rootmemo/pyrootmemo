@@ -119,7 +119,7 @@ def _solve_cubic_polynomial(
         root[is_cubic] = _solve_cubic(a[is_cubic], b[is_cubic], c[is_cubic], d[is_cubic])
     return(root)
 
-class AxialPulloutNew():
+class AxialPullout():
     """Class for axial pull-out of roots
 
     Predict pull-out forces for bundles of roots. This class follows models

@@ -1,9 +1,8 @@
 import numpy as np
 from pyrootmemo import Parameter
-from pyrootmemo.helpers import units
+from pyrootmemo.helpers import units, outer_ufunc
 from pyrootmemo.geometry import SoilProfile, FailureSurface
 from pyrootmemo.materials import MultipleRoots, Interface
-from pyrootmemo.tools.utils_rotation import axisangle_rotate
 from pint import Quantity
 
 class _DirectShear():
@@ -189,19 +188,26 @@ class _DirectShear():
                 pullout displacement with respect to the shear zone thickness
         """
         if np.isclose(shear_zone_thickness.magnitude, 0.0):
-            ones = np.ones(*self.roots.xsection.shape)
-            output = {'pullout_displacement': distribution_factor * shear_displacement * ones}
+            output = {'pullout_displacement': distribution_factor * outer_ufunc(
+                shear_displacement, 
+                np.ones_like(self.roots.xsection),
+                'multiply'
+                )}
         else:
             length_initial = shear_zone_thickness / self.roots.orientation[..., 2]
-            length_x = shear_zone_thickness * self.roots.orientation[..., 0] / self.roots.orientation[..., 2] + shear_displacement
+            length_x = outer_ufunc(
+                shear_displacement,
+                shear_zone_thickness * self.roots.orientation[..., 0] / self.roots.orientation[..., 2],
+                'add'
+                )                
             length_y = shear_zone_thickness * self.roots.orientation[..., 1] / self.roots.orientation[..., 2]
             length_z = shear_zone_thickness
             length = np.sqrt(length_x**2 + length_y**2 + length_z**2)
             output = {'pullout_displacement': distribution_factor * (length - length_initial)}
         if jacobian is True:
             if np.isclose(shear_zone_thickness.magnitude, 0.0):
-                output['dpullout_displacement_dshear_displacement'] = distribution_factor * ones * units('mm/mm')
-                output['dpullout_displacement_dshear_zone_thickness'] = 0.0 * ones * units('mm/mm')
+                output['dpullout_displacement_dshear_displacement'] = distribution_factor * np.ones((*np.shape(shear_displacement), *self.roots.xsection.shape)) * units('mm/mm')
+                output['dpullout_displacement_dshear_zone_thickness'] = np.zeros((*np.shape(shear_displacement), *self.roots.xsection.shape)) * units('mm/mm')
             else:
                 output['dpullout_displacement_dshear_displacement'] = distribution_factor * length_x / length
                 output['dpullout_displacement_dshear_zone_thickness'] = distribution_factor * length / shear_zone_thickness
@@ -248,10 +254,14 @@ class _DirectShear():
                with respect to the shear zone thickness
         """
         if np.isclose(shear_zone_thickness.magnitude, 0.0):
-            ones = np.ones(*self.roots.xsection.shape)
+            ones = np.ones((*np.shape(shear_displacement), *self.roots.xsection.shape))
             output = {'k': ones}
         else:
-            length_x = shear_zone_thickness * self.roots.orientation[..., 0] / self.roots.orientation[..., 2] + shear_displacement
+            length_x = outer_ufunc(
+                shear_displacement,
+                shear_zone_thickness * self.roots.orientation[..., 0] / self.roots.orientation[..., 2],
+                'add'
+                )    
             length_y = shear_zone_thickness * self.roots.orientation[..., 1] / self.roots.orientation[..., 2]
             length_z = shear_zone_thickness
             length = np.sqrt(length_x**2 + length_y**2 + length_z**2)
@@ -265,7 +275,10 @@ class _DirectShear():
                     output['dk_dshear_zone_thickness'] = -np.inf * ones / shear_zone_thickness.units
             else:
                 output['dk_dshear_displacement'] = 1.0 / length - output['k'] * length_x / length**2
-                output['dk_dshear_zone_thickness'] = -shear_displacement / (shear_zone_thickness * length)
+                if np.isscalar(shear_displacement.magnitude):
+                    output['dk_dshear_zone_thickness'] = -shear_displacement / (shear_zone_thickness * length)
+                else:
+                    output['dk_dshear_zone_thickness'] = -shear_displacement[:, np.newaxis] / (shear_zone_thickness * length)
         return(output)
 
 
