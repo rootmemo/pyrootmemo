@@ -786,7 +786,6 @@ psutil = {version = ">=7", markers = "sys_platform != \"emscripten\""}
 pygments = ">=2.14.0"
 stack_data = ">=0.6.0"
 traitlets = ">=5.13.0"
-typing_extensions = {version = ">=4.6", markers = "python_version < \"3.12\""}
 
 [package.extras]
 all = ["argcomplete (>=3.0)", "ipython[doc,matplotlib,terminal,test,test-extra]", "types-decorator"]
@@ -2308,7 +2307,7 @@ files = [
     {file = "typing_extensions-4.15.0-py3-none-any.whl", hash = "sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548"},
     {file = "typing_extensions-4.15.0.tar.gz", hash = "sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466"},
 ]
-markers = {docs = "python_version < \"3.13\""}
+markers = {docs = "python_version == \"3.12\""}
 
 [[package]]
 name = "tzdata"
@@ -2565,5 +2564,5 @@ files = [
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">3.11"
-content-hash = "47a49337ac2b4c001c0628b1870d669e15a1c0d72ab4ebe36f229fc7500b7ed5"
+python-versions = ">=3.12"
+content-hash = "52743f934aa99dfbcbd9dcf73ffc65b9a5cced3d573237622bd5ee0bfdb2a7da"
