@@ -210,7 +210,14 @@ class TestSoilProfileParameters:
 # FAILURE_SURFACE_PARAMETERS
 # --------------------------------------------------------------------------- #
 
-FAILURE_SURFACE_KEYS = ["depth", "shear_zone_thickness", "cross_sectional_area"]
+FAILURE_SURFACE_KEYS = [
+    "depth",
+    "azimuth_angle",
+    "elevation_angle",
+    "shear_zone_thickness",
+    "max_shear_zone_thickness",
+    "cross_sectional_area",
+]
 
 
 class TestFailureSurfaceParameters:

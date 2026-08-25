@@ -39,7 +39,7 @@ poetry install
 
 ## Usage
 
-Jupyter Notebooks in `tests/*.ipynb` provide comprehensive tutorials covering each model.
+Jupyter Notebooks in `tutorials/*.ipynb` provide comprehensive tutorials covering each model.
 
 ## Documentation
 

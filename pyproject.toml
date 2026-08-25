@@ -1,12 +1,35 @@
 [tool.poetry]
 name = "pyrootmemo"
 version = "0.1.0"
-description = ""
-authors = ["anilyildiz <yildiz@mbd.rwth-aachen.de>"]
+description = "A Python package for modelling the contribution of root systems to the shear strength of soil."
+authors = [
+    "Anil Yildiz <yildiz@mbd.rwth-aachen.de>",
+    "Gerrit J. Meijer <gjm36@bath.ac.uk>",
+]
+license = "MIT"
 readme = "README.md"
+homepage = "https://github.com/rootmemo/pyrootmemo"
+repository = "https://github.com/rootmemo/pyrootmemo"
+documentation = "https://pyrootmemo.readthedocs.io"
+keywords = [
+    "root reinforcement",
+    "slope stability",
+    "soil mechanics",
+    "geotechnical engineering",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+]
 
 [tool.poetry.dependencies]
-python = ">3.11"
+python = ">=3.12"
 numpy = ">2.1"
 Pint = "^0.24.4"
 matplotlib = ">3.9"
